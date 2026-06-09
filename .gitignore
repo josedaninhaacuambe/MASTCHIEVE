@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+.next/
+out/
+build/
+
+# Environment (nunca commitar .env com credenciais)
+.env
+.env.local
+.env.production
+!.env.example
+apps/api/.env
+apps/web/.env.local
+
+# Prisma
+apps/api/prisma/migrations/
+apps/api/prisma/dev.db
+apps/api/prisma/dev.db-journal
+*.db
+*.db-journal
+
+# Flutter
+apps/mobile/.dart_tool/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/build/
+apps/mobile/.packages
+apps/mobile/pubspec.lock
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Cache
+.eslintcache
+.turbo
+
+# Docker data
+postgres_data/
+redis_data/
+
+# Uploads
+apps/api/uploads/
+
+# Coverage
+coverage/
