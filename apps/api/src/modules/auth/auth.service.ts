@@ -67,10 +67,11 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (!user || !user.isActive) throw new UnauthorizedException('Credenciais inválidas');
+    if (!user) throw new UnauthorizedException('Email não encontrado. Verifica o endereço introduzido.');
+    if (!user.isActive) throw new UnauthorizedException('Conta desactivada. Contacta o administrador.');
 
     const valid = await bcrypt.compare(dto.password, user.password);
-    if (!valid) throw new UnauthorizedException('Credenciais inválidas');
+    if (!valid) throw new UnauthorizedException('Palavra-passe incorreta. Tenta novamente.');
 
     await this.prisma.user.update({
       where: { id: user.id },

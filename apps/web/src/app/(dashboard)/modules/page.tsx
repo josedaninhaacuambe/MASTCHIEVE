@@ -11,6 +11,116 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
 
+// ─── Ocean Wave Loader ────────────────────────────────────────────────────────
+
+const BAR_DELAYS = [0, 0.14, 0.28, 0.42, 0.56, 0.70, 0.84, 0.70, 0.56, 0.42, 0.28, 0.14];
+const BAR_COLORS = [
+  'from-blue-300 to-blue-500',
+  'from-blue-400 to-indigo-500',
+  'from-indigo-400 to-blue-600',
+  'from-blue-500 to-indigo-600',
+  'from-indigo-500 to-blue-700',
+  'from-blue-600 to-indigo-700',
+  'from-indigo-600 to-blue-700',
+  'from-blue-500 to-indigo-600',
+  'from-indigo-400 to-blue-600',
+  'from-blue-400 to-indigo-500',
+  'from-blue-300 to-blue-500',
+  'from-indigo-300 to-blue-400',
+];
+
+function WaveLoader() {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 select-none">
+      {/* Glow rings */}
+      <div className="relative mb-8">
+        <div
+          className="absolute inset-0 rounded-full bg-blue-400/20"
+          style={{ animation: 'wave-ripple 2.4s ease-in-out infinite', transform: 'scale(1.5)' }}
+        />
+        <div
+          className="absolute inset-0 rounded-full bg-blue-500/15"
+          style={{ animation: 'wave-ripple 2.4s ease-in-out infinite 0.8s', transform: 'scale(1.9)' }}
+        />
+
+        {/* Central badge */}
+        <div
+          className="relative w-20 h-20 rounded-full flex items-center justify-center overflow-hidden shadow-2xl shadow-blue-500/40"
+          style={{
+            background: 'linear-gradient(135deg, #1A3A9C 0%, #1A56DB 60%, #3B82F6 100%)',
+            animation: 'wave-float 3s ease-in-out infinite',
+          }}
+        >
+          {/* Animated water fill inside badge */}
+          <div className="absolute bottom-0 left-0 right-0 overflow-hidden" style={{ height: '55%' }}>
+            <svg
+              viewBox="0 0 200 40"
+              className="absolute bottom-0 w-[200%]"
+              style={{ animation: 'wave-svg 2s linear infinite' }}
+              preserveAspectRatio="none"
+            >
+              <path
+                d="M0,20 Q25,5 50,20 T100,20 T150,20 T200,20 V40 H0 Z"
+                fill="rgba(255,255,255,0.25)"
+              />
+              <path
+                d="M0,25 Q25,12 50,25 T100,25 T150,25 T200,25 V40 H0 Z"
+                fill="rgba(255,255,255,0.15)"
+              />
+            </svg>
+          </div>
+          <Waves className="w-8 h-8 text-white relative z-10 drop-shadow" />
+        </div>
+      </div>
+
+      {/* Wave equalizer bars */}
+      <div className="flex items-end gap-1" style={{ height: 48 }}>
+        {BAR_DELAYS.map((delay, i) => (
+          <div
+            key={i}
+            className={`w-2 rounded-full bg-gradient-to-t ${BAR_COLORS[i]}`}
+            style={{
+              height: 44,
+              transformOrigin: 'bottom',
+              animation: `wave-bar 1.3s ease-in-out infinite`,
+              animationDelay: `${delay}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Text */}
+      <div className="mt-7 text-center space-y-1">
+        <p
+          className="text-blue-700 font-semibold text-sm tracking-wide"
+          style={{ animation: 'wave-float 3s ease-in-out infinite 0.5s' }}
+        >
+          A carregar módulos...
+        </p>
+        <p className="text-gray-400 text-xs">Preparando o currículo progressivo de natação</p>
+      </div>
+
+      {/* Floating bubbles */}
+      <div className="relative w-40 h-8 mt-4 overflow-hidden">
+        {[...Array(5)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full bg-blue-400/30 border border-blue-400/20"
+            style={{
+              width: 6 + i * 2,
+              height: 6 + i * 2,
+              left: `${10 + i * 18}%`,
+              bottom: 0,
+              animation: `wave-float ${1.5 + i * 0.4}s ease-in-out infinite`,
+              animationDelay: `${i * 0.25}s`,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const levelOptions = ['BEGINNER', 'ELEMENTARY', 'INTERMEDIATE', 'ADVANCED', 'COMPETITIVE'];
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -715,16 +825,11 @@ export default function ModulesPage() {
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {isLoading
-          ? Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-xl p-5 animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-1/2 mb-3" />
-              <div className="h-3 bg-gray-100 rounded w-full mb-2" />
-              <div className="h-3 bg-gray-100 rounded w-3/4" />
-            </div>
-          ))
-          : (modules ?? []).map((mod: any) => (
+      {isLoading ? (
+        <WaveLoader />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {(modules ?? []).map((mod: any) => (
             <ModuleCard
               key={mod.id}
               module={mod}
@@ -733,7 +838,8 @@ export default function ModulesPage() {
               totalModules={modules?.length ?? 0}
             />
           ))}
-      </div>
+        </div>
+      )}
 
       {!isLoading && (modules ?? []).length === 0 && (
         <div className="text-center py-16 text-gray-400">
