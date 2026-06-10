@@ -38,7 +38,7 @@ export class EmailService {
             <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
               <div style="display: flex; justify-content: space-between;">
                 <span style="color: #6b7280;">Valor:</span>
-                <strong style="color: #111827;">€${amount.toFixed(2)}</strong>
+                <strong style="color: #111827;">MT ${amount.toFixed(2)}</strong>
               </div>
               <div style="display: flex; justify-content: space-between; margin-top: 8px;">
                 <span style="color: #6b7280;">Vencimento:</span>

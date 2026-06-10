@@ -18,11 +18,19 @@ import {
 const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 const PAYMENT_METHODS = [
-  { value: 'CASH', label: 'Numerário' },
-  { value: 'TRANSFER', label: 'Transferência' },
-  { value: 'CARD', label: 'Cartão' },
-  { value: 'MB_WAY', label: 'MB Way' },
+  { value: 'CASH',      label: 'Numerário' },
+  { value: 'VISA_CARD', label: 'Cartão Visa' },
+  { value: 'EMOLA',     label: 'e-Mola' },
+  { value: 'MPESA',     label: 'M-Pesa' },
 ];
+
+const METHOD_LABEL: Record<string, string> = {
+  CASH:      'Numerário',
+  TRANSFER:  'Transferência',
+  VISA_CARD: 'Cartão Visa',
+  EMOLA:     'e-Mola',
+  MPESA:     'M-Pesa',
+};
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
   PAID: { label: 'Pago', color: 'bg-green-100 text-green-700', icon: CheckCircle },
@@ -111,7 +119,7 @@ function GenerateModal({ onClose, onConfirm, isPending }: GenerateModalProps) {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">Valor (€)</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Valor (MT)</label>
             <input
               type="number"
               value={amount}
@@ -364,7 +372,7 @@ export default function FinancialPage() {
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
             <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
             <YAxis
-              tickFormatter={(v) => `${v}€`}
+              tickFormatter={(v) => `MT ${v}`}
               tick={{ fontSize: 11, fill: '#9ca3af' }}
               axisLine={false}
               tickLine={false}
@@ -455,7 +463,9 @@ export default function FinancialPage() {
                       </td>
                       <td className="px-6 py-4 text-xs text-gray-400">{p.receiptNumber || '—'}</td>
                       <td className="px-6 py-4">
-                        {p.status !== 'PAID' && (
+                        {p.status === 'PAID' ? (
+                          <span className="text-xs text-gray-500 font-medium">{METHOD_LABEL[p.method] ?? p.method ?? '—'}</span>
+                        ) : (
                           <div className="flex items-center gap-2">
                             <select
                               value={selectedMethod}

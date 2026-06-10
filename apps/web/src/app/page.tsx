@@ -375,7 +375,7 @@ export default function LandingPage() {
                 <h3 className="font-bold text-gray-900 text-lg mb-1">{name}</h3>
                 <p className="text-gray-400 text-sm mb-4">{desc}</p>
                 <div className="flex items-baseline gap-1 mb-6">
-                  <span className="text-4xl font-black text-gray-900">{price}€</span>
+                  <span className="text-4xl font-black text-gray-900">MT {price}</span>
                   <span className="text-gray-400 text-sm">{period}</span>
                 </div>
                 <ul className="space-y-2.5 mb-6">

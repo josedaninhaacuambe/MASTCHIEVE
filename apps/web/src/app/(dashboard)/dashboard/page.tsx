@@ -794,7 +794,7 @@ function StudentDashboard({ user }: { user: any }) {
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                    <span className="text-sm font-black text-gray-900">€{p.amount}</span>
+                    <span className="text-sm font-black text-gray-900">MT {p.amount}</span>
                     <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full',
                       p.status === 'PAID'    ? 'bg-emerald-100 text-emerald-700' :
                       p.status === 'OVERDUE' ? 'bg-rose-100 text-rose-700' :
@@ -958,7 +958,7 @@ export default function DashboardPage() {
             <KpiCard icon={Activity} label="Assiduidade" rawValue={kpis?.attendanceRate ?? 0}
               suffix="%" sub="últimos 30 dias" color="green" trend={3} />
             <KpiCard icon={TrendingUp} label="Receita Mensal" rawValue={kpis?.monthlyRevenue ?? 0}
-              prefix="€" decimals={0} color="purple" />
+              prefix="MT " decimals={0} color="purple" />
             <KpiCard icon={AlertCircle} label="Em Atraso" rawValue={kpis?.overduePayments ?? 0}
               sub="pagamentos" color="red" urgent={kpis?.overduePayments > 0} />
           </div>

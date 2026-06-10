@@ -246,7 +246,7 @@ export class FinancialService {
       if (y < 60) break;
       const name = `${p.student?.firstName ?? ''} ${p.student?.lastName ?? ''}`.trim();
       page.drawText(name.slice(0, 28), { x: cols[0], y, size: 9, font, color: dark });
-      page.drawText(`€${p.amount.toFixed(2)}`, { x: cols[1], y, size: 9, font, color: dark });
+      page.drawText(`MT ${p.amount.toFixed(2)}`, { x: cols[1], y, size: 9, font, color: dark });
       page.drawText(new Date(p.dueDate).toLocaleDateString('pt-PT'), { x: cols[2], y, size: 9, font, color: dark });
       page.drawText(statusPt[p.status] ?? p.status, {
         x: cols[3], y, size: 9, font: fontBold, color: statusColor[p.status] ?? gray,

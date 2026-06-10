@@ -16,7 +16,7 @@ export function timeAgo(date: Date | string) {
 }
 
 export function formatCurrency(value: number) {
-  return new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(value);
+  return `MT ${new Intl.NumberFormat('pt-MZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)}`;
 }
 
 export function getInitials(firstName: string, lastName: string) {

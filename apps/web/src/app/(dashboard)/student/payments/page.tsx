@@ -15,7 +15,7 @@ import {
 
 const MONTHS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 const MONTHS_FULL = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-const METHOD_LABEL: Record<string, string> = { CASH: 'Dinheiro', TRANSFER: 'Transferência', CARD: 'Cartão', MBWAY: 'MB Way', MB: 'Multibanco' };
+const METHOD_LABEL: Record<string, string> = { CASH: 'Numerário', TRANSFER: 'Transferência', VISA_CARD: 'Cartão Visa', EMOLA: 'e-Mola', MPESA: 'M-Pesa' };
 
 function daysUntil(date: string | Date): number {
   return Math.ceil((new Date(date).getTime() - Date.now()) / 86400000);
@@ -592,7 +592,7 @@ export default function StudentPaymentsPage() {
                 </span>
                 {payment && (
                   <span className="text-[8px] text-gray-500 font-semibold">
-                    {formatCurrency(payment.amount).replace('€', '').trim()}€
+                    {formatCurrency(payment.amount)}
                   </span>
                 )}
               </div>

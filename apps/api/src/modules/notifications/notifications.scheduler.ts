@@ -47,7 +47,7 @@ export class NotificationsScheduler {
         p.student.user.id,
         'PAYMENT_DUE',
         daysLeft === 0 ? '💰 Mensalidade vence hoje!' : `💰 Mensalidade vence em ${daysLeft} dia(s)`,
-        `O valor de €${p.amount} deve ser pago até ${new Date(p.dueDate).toLocaleDateString('pt-PT')}.`,
+        `O valor de MT ${p.amount} deve ser pago até ${new Date(p.dueDate).toLocaleDateString('pt-PT')}.`,
       );
       this.gateway.sendToUser(p.student.user.id, 'notification', notif);
     }
@@ -74,7 +74,7 @@ export class NotificationsScheduler {
         p.student.user.id,
         'PAYMENT_DUE',
         '⚠️ Mensalidade em atraso',
-        `A mensalidade de €${p.amount} está em atraso desde ${new Date(p.dueDate).toLocaleDateString('pt-PT')}. Por favor regulariza a situação.`,
+        `A mensalidade de MT ${p.amount} está em atraso desde ${new Date(p.dueDate).toLocaleDateString('pt-PT')}. Por favor regulariza a situação.`,
       );
       this.gateway.sendToUser(p.student.user.id, 'notification', notif);
     }
