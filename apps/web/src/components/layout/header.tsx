@@ -322,20 +322,32 @@ export function Header() {
   /* WebSocket — real-time notifications */
   useEffect(() => {
     if (!user?.id) return;
+
+    let mounted = true;
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:4301';
 
+    // Use polling first to avoid "WebSocket closed before connection" race condition
+    // during React hot-reload / StrictMode double-invoke.
+    // socket.io upgrades to WebSocket automatically after the first poll succeeds.
     const socket = io(`${wsUrl}/notifications`, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
-      reconnectionDelay: 2000,
-      reconnectionAttempts: 5,
+      reconnectionDelay: 3000,
+      reconnectionAttempts: 10,
+      timeout: 10000,
+      autoConnect: false,
     });
 
     socket.on('connect', () => {
-      socket.emit('join', user.id);
+      if (mounted) socket.emit('join', user.id);
+    });
+
+    socket.on('connect_error', () => {
+      // Silently ignore — API may be starting up; socket.io will retry automatically
     });
 
     socket.on('notification', (data: any) => {
+      if (!mounted) return;
       qc.invalidateQueries({ queryKey: ['notifications'] });
       pushToast({
         id: data.id ?? Math.random().toString(),
@@ -346,7 +358,12 @@ export function Header() {
     });
 
     socketRef.current = socket;
-    return () => { socket.disconnect(); };
+    socket.connect();
+
+    return () => {
+      mounted = false;
+      socket.disconnect();
+    };
   }, [user?.id, qc]);
 
   /* Fetch notifications */

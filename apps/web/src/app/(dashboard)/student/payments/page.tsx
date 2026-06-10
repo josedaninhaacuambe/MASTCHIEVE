@@ -446,7 +446,7 @@ export default function StudentPaymentsPage() {
             <a href="tel:+351000000000" className="flex items-center gap-1.5 text-xs font-semibold text-red-700 bg-red-100 hover:bg-red-200 px-3 py-2 rounded-xl transition">
               <Phone className="w-3.5 h-3.5" /> Ligar ao clube
             </a>
-            <a href="mailto:pagamentos@mastchieve.pt" className="flex items-center gap-1.5 text-xs font-semibold text-red-700 bg-red-100 hover:bg-red-200 px-3 py-2 rounded-xl transition">
+            <a href="mailto:pagamentos@mastchieve.co.mz" className="flex items-center gap-1.5 text-xs font-semibold text-red-700 bg-red-100 hover:bg-red-200 px-3 py-2 rounded-xl transition">
               <Mail className="w-3.5 h-3.5" /> Enviar email
             </a>
           </div>
