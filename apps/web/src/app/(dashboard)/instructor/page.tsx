@@ -145,7 +145,7 @@ export default function InstructorPage() {
   const { user } = useAuthStore();
 
   const firstName = user?.profile?.firstName ?? user?.email?.split('@')[0] ?? 'Instrutor';
-  const instructorId = user?.id;
+  const instructorId = user?.profile?.id;
 
   /* ── Classes today ── */
   const { data: classesResp, isLoading: classesLoading } = useQuery({
