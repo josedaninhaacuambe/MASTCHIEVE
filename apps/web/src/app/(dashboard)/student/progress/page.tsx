@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/auth.store';
 import {
   Waves, Award, TrendingUp, Star, Zap, Target,
   ChevronDown, ChevronUp, Lock, CheckCircle, Clock,
@@ -377,6 +378,7 @@ type Tab = 'overview' | 'modulos' | 'desempenho' | 'conquistas';
 
 export default function StudentProgressPage() {
   const [tab, setTab] = useState<Tab>('overview');
+  const { user } = useAuthStore();
 
   const { data: me, isLoading } = useQuery({
     queryKey: ['student-me'],
@@ -384,6 +386,7 @@ export default function StudentProgressPage() {
       const { data } = await api.get('/students/me');
       return data.data;
     },
+    enabled: user?.role === 'STUDENT',
   });
 
   if (isLoading) {

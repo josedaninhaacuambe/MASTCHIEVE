@@ -258,4 +258,28 @@ export class StudentsService {
 
     return { records, feedbacks, progress, attendance, trainingPlans, attendanceRate, avgScore };
   }
+
+  async createPerformanceRecord(studentId: string, userId: string, dto: any) {
+    await this.findOne(studentId);
+    const instructor = await this.prisma.instructor.findFirst({ where: { userId } });
+    const scores = [dto.technique, dto.stamina, dto.speed, dto.coordination, dto.breathing, dto.turns, dto.startDive]
+      .filter((v) => v != null) as number[];
+    const overallScore = scores.length ? parseFloat((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)) : null;
+    return this.prisma.performanceRecord.create({
+      data: {
+        studentId,
+        instructorId: instructor?.id ?? null,
+        sessionId: dto.sessionId ?? null,
+        technique: dto.technique ?? null,
+        stamina: dto.stamina ?? null,
+        speed: dto.speed ?? null,
+        coordination: dto.coordination ?? null,
+        breathing: dto.breathing ?? null,
+        turns: dto.turns ?? null,
+        startDive: dto.startDive ?? null,
+        instructorNotes: dto.instructorNotes ?? null,
+        overallScore,
+      },
+    });
+  }
 }

@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Users, GraduationCap, BookOpen, AlertCircle,
   TrendingUp, Activity, Brain, Flame, Trophy,
@@ -271,6 +272,7 @@ function StudentDashboard({ user }: { user: any }) {
     queryKey: ['student-me'],
     queryFn: async () => { const { data } = await api.get('/students/me'); return data.data; },
     refetchInterval: 120_000,
+    enabled: user?.role === 'STUDENT',
   });
 
   const now = new Date();
@@ -848,8 +850,16 @@ function StudentDashboard({ user }: { user: any }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const isAdmin = user?.role === 'ADMIN';
+  const isStudent = user?.role === 'STUDENT';
   const [showBulkNotif, setShowBulkNotif] = useState(false);
+
+  useEffect(() => {
+    if (user?.role === 'INSTRUCTOR') router.replace('/instructor');
+    if (user?.role === 'PARENT') router.replace('/parent');
+    if (user?.role === 'VISITOR') router.replace('/visitor');
+  }, [user?.role, router]);
 
   const { data: kpis, isLoading } = useQuery({
     queryKey: ['kpi-dashboard'],
@@ -870,9 +880,11 @@ export default function DashboardPage() {
     enabled: isAdmin,
   });
 
-  if (!isAdmin) {
+  if (isStudent || (!isAdmin && user?.role !== 'INSTRUCTOR')) {
     return <StudentDashboard user={user} />;
   }
+
+  if (!isAdmin) return null;
 
   const historyData = (history ?? []).map((h: any) => ({
     ...h,

@@ -15,7 +15,9 @@ build/
 .env.production
 !.env.example
 apps/api/.env
+apps/api/.env.production
 apps/web/.env.local
+apps/web/.env.production
 
 # Prisma
 apps/api/prisma/migrations/

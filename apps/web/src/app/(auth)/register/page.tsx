@@ -7,7 +7,7 @@ import {
   Waves, Sparkles, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2,
   User, Mail, Lock, Phone, GraduationCap, Dumbbell, Globe, Calendar, Users2,
 } from 'lucide-react';
-import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
+import { GoogleLogin } from '@react-oauth/google';
 import api from '@/lib/api';
 import { useAuthStore } from '@/stores/auth.store';
 
@@ -430,11 +430,10 @@ export default function RegisterPage() {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
 
   return (
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <div
-        className="min-h-screen flex"
-        style={{ background: 'linear-gradient(135deg, #0F1F5C 0%, #1A3A9C 50%, #1A56DB 100%)' }}
-      >
+    <div
+      className="min-h-screen flex"
+      style={{ background: 'linear-gradient(135deg, #0F1F5C 0%, #1A3A9C 50%, #1A56DB 100%)' }}
+    >
         {/* Left decorative panel */}
         <div className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-16 text-white relative overflow-hidden">
           <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-white/5" />
@@ -485,6 +484,5 @@ export default function RegisterPage() {
           </div>
         </div>
       </div>
-    </GoogleOAuthProvider>
   );
 }

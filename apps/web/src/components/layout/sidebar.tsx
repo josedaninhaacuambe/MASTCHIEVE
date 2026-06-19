@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUIStore } from '@/stores/ui.store';
@@ -9,27 +9,34 @@ import {
   LayoutDashboard, Users, GraduationCap, BookOpen,
   ClipboardList, MessageSquare, CreditCard, BarChart3,
   LogOut, Waves, Sparkles, X, Brain, TrendingUp, ShieldCheck,
-  Smartphone, Download, Sun, Moon,
+  Smartphone, Download, Sun, Moon, Dumbbell, Heart, Globe, UserCircle, FileText, ScrollText,
 } from 'lucide-react';
 
 const navItems = [
-  // Admin + Instructor
-  { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard',              roles: ['ADMIN', 'STUDENT', 'FINANCIAL', 'MANAGER'] },
-  { href: '/instructor',   icon: LayoutDashboard, label: 'Dashboard',              roles: ['INSTRUCTOR'] },
-  { href: '/students',     icon: Users,            label: 'Atletas',                roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
-  { href: '/instructors',  icon: GraduationCap,    label: 'Instrutores',            roles: ['ADMIN', 'MANAGER'] },
-  { href: '/classes',      icon: BookOpen,         label: 'Turmas',                 roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
-  { href: '/attendance',   icon: ClipboardList,    label: 'Presenças',              roles: ['ADMIN', 'INSTRUCTOR'], badge: 'Hoje' },
-  { href: '/feedback',     icon: MessageSquare,    label: 'Feedback IA',            roles: ['ADMIN', 'INSTRUCTOR'] },
-  { href: '/financial',    icon: CreditCard,       label: 'Financeiro',             roles: ['ADMIN', 'FINANCIAL'] },
-  { href: '/kpi',          icon: BarChart3,        label: 'KPIs',                   roles: ['ADMIN', 'MANAGER'] },
-  { href: '/modules',      icon: Waves,            label: 'Módulos',                roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
-  { href: '/admin/users',  icon: ShieldCheck,      label: 'Gestão de Utilizadores', roles: ['ADMIN'] },
+  // Admin + Manager
+  { href: '/dashboard',         icon: LayoutDashboard, label: 'Dashboard',              roles: ['ADMIN', 'STUDENT', 'FINANCIAL', 'MANAGER'] },
+  { href: '/instructor',        icon: LayoutDashboard, label: 'Dashboard',              roles: ['INSTRUCTOR'] },
+  { href: '/students',          icon: Users,            label: 'Atletas',                roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
+  { href: '/instructors',       icon: GraduationCap,    label: 'Instrutores',            roles: ['ADMIN', 'MANAGER'] },
+  { href: '/classes',           icon: BookOpen,         label: 'Turmas',                 roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
+  { href: '/attendance',        icon: ClipboardList,    label: 'Presenças',              roles: ['ADMIN', 'INSTRUCTOR'], badge: 'Hoje' },
+  { href: '/feedback',          icon: MessageSquare,    label: 'Feedback IA',            roles: ['ADMIN', 'INSTRUCTOR'] },
+  { href: '/training-plans',    icon: Dumbbell,         label: 'Planos de Treino',       roles: ['ADMIN', 'INSTRUCTOR'] },
+  { href: '/financial',         icon: CreditCard,       label: 'Financeiro',             roles: ['ADMIN', 'FINANCIAL'] },
+  { href: '/kpi',               icon: BarChart3,        label: 'KPIs',                   roles: ['ADMIN', 'MANAGER'] },
+  { href: '/modules',           icon: Waves,            label: 'Módulos',                roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
+  { href: '/documents',         icon: FileText,         label: 'Documentos',             roles: ['ADMIN', 'INSTRUCTOR'] },
+  { href: '/admin/users',       icon: ShieldCheck,      label: 'Gestão de Utilizadores', roles: ['ADMIN'] },
+  { href: '/admin/audit',       icon: ScrollText,       label: 'Audit Log',               roles: ['ADMIN'] },
   // Student only
   { href: '/student/progress',   icon: TrendingUp,    label: 'O Meu Progresso',     roles: ['STUDENT'] },
   { href: '/student/feedback',   icon: Brain,          label: 'Os Meus Feedbacks',   roles: ['STUDENT'] },
   { href: '/student/attendance', icon: ClipboardList,  label: 'As Minhas Presenças', roles: ['STUDENT'] },
   { href: '/student/payments',   icon: CreditCard,     label: 'Os Meus Pagamentos',  roles: ['STUDENT'] },
+  // Parent only
+  { href: '/parent',            icon: Heart,           label: 'Os Meus Filhos',      roles: ['PARENT'] },
+  // Visitor only
+  { href: '/visitor',           icon: Globe,           label: 'Explorar Mastchieve', roles: ['VISITOR'] },
 ];
 
 /* Apple/Google store SVG logos inline para não depender de assets externos */
@@ -106,6 +113,7 @@ function MobileDownloadCard() {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout } = useAuthStore();
   const { sidebarOpen, closeSidebar, darkMode, toggleDarkMode } = useUIStore();
 
@@ -167,6 +175,18 @@ export function Sidebar() {
           <div className="text-white font-semibold text-sm">{firstName}</div>
         </div>
       )}
+      {user?.role === 'PARENT' && (
+        <div className="mx-4 mb-3 bg-white/10 rounded-xl px-3 py-2 text-center">
+          <div className="text-white/60 text-[10px] uppercase tracking-wider mb-0.5">Portal do Encarregado</div>
+          <div className="text-white font-semibold text-sm">{firstName}</div>
+        </div>
+      )}
+      {user?.role === 'VISITOR' && (
+        <div className="mx-4 mb-3 bg-white/10 rounded-xl px-3 py-2 text-center">
+          <div className="text-white/60 text-[10px] uppercase tracking-wider mb-0.5">Modo Visitante</div>
+          <div className="text-white font-semibold text-sm">{firstName}</div>
+        </div>
+      )}
 
       {/* ── NAV ── */}
       <nav className="flex-1 px-3 py-1 overflow-y-auto space-y-0.5">
@@ -220,15 +240,18 @@ export function Sidebar() {
         {!showMobileDownload && (
           <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mb-3" />
         )}
-        <div className="flex items-center gap-3 px-2 mb-2">
+        <button
+          onClick={() => { router.push('/profile'); closeSidebar(); }}
+          className="flex items-center gap-3 px-2 mb-2 w-full rounded-xl hover:bg-white/10 py-1.5 transition group">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-white/30 to-white/10 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ring-2 ring-white/20">
             {initials}
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 text-left">
             <div className="text-white text-xs font-semibold truncate">{user?.email}</div>
             <div className="text-white/40 text-[10px] mt-0.5 uppercase tracking-wide">{user?.role}</div>
           </div>
-        </div>
+          <UserCircle className="w-4 h-4 text-white/30 group-hover:text-white/60 transition flex-shrink-0" />
+        </button>
         <div className="flex items-center gap-2">
           <button
             onClick={toggleDarkMode}

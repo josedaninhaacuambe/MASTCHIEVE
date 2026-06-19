@@ -28,9 +28,9 @@ const withPWA = require('next-pwa')({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  experimental: { serverActions: { allowedOrigins: ['localhost:4300'] } },
+  experimental: { serverActions: { allowedOrigins: ['localhost:4300', 'mastchieve.co.mz'] } },
   images: {
-    domains: ['localhost', 'mastchieve.com'],
+    domains: ['localhost', 'mastchieve.co.mz', 'api.mastchieve.co.mz'],
     formats: ['image/avif', 'image/webp'],
   },
   async headers() {
@@ -41,6 +41,7 @@ const nextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
         ],
       },
     ];

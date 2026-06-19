@@ -150,7 +150,7 @@ export default function StudentDetailPage() {
   const handleGenerateFeedback = async () => {
     setGeneratingFeedback(true);
     try {
-      await api.post(`/feedback/generate/${id}`);
+      await api.post(`/ai/feedback/generate/${id}`);
       toast.success('Feedback IA gerado com sucesso');
       qc.invalidateQueries({ queryKey: ['student-perf', id] });
       setActiveTab('Feedbacks IA');

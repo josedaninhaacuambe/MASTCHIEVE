@@ -5,7 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { levelLabel, getInitials, cn } from '@/lib/utils';
-import { BookOpen, Plus, Users, X, ChevronRight, AlertCircle, RefreshCw } from 'lucide-react';
+import { BookOpen, Plus, Users, X, ChevronRight, AlertCircle, RefreshCw, ExternalLink } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const levelOptions = ['BEGINNER', 'ELEMENTARY', 'INTERMEDIATE', 'ADVANCED', 'COMPETITIVE'];
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -121,6 +122,7 @@ function CreateClassModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 
 export default function ClassesPage() {
   const qc = useQueryClient();
+  const router = useRouter();
   const [levelFilter, setLevelFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
 
@@ -209,20 +211,24 @@ export default function ClassesPage() {
             const statusCfg = statusConfig[statusKey] ?? statusConfig.ACTIVE;
 
             return (
-              <div key={cls.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition group">
+              <div key={cls.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition group cursor-pointer"
+                onClick={() => router.push(`/classes/${cls.id}`)}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <div className="w-9 h-9 bg-mastchieve-100 rounded-lg flex items-center justify-center">
                       <BookOpen className="w-4 h-4 text-mastchieve-600" />
                     </div>
                     <div>
-                      <div className="font-semibold text-gray-900 text-sm leading-tight">{cls.name}</div>
+                      <div className="font-semibold text-gray-900 text-sm leading-tight group-hover:text-blue-600 transition">{cls.name}</div>
                       <div className="text-xs text-gray-400 mt-0.5">{levelLabel(cls.level)}</div>
                     </div>
                   </div>
-                  <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', statusCfg.color)}>
-                    {statusCfg.label}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', statusCfg.color)}>
+                      {statusCfg.label}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-blue-400 transition" />
+                  </div>
                 </div>
 
                 {/* Instructor */}

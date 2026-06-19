@@ -19,6 +19,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { KpiModule } from './modules/kpi/kpi.module';
 import { AiModule } from './modules/ai/ai.module';
 import { EmailModule } from './modules/email/email.module';
+import { ParentsModule } from './modules/parents/parents.module';
+import { TrainingPlansModule } from './modules/training-plans/training-plans.module';
 
 @Module({
   imports: [
@@ -36,14 +38,18 @@ import { EmailModule } from './modules/email/email.module';
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
+        // Suporta URL Upstash (rediss://...) ou Redis local (host/port)
+        const redisUrl = configService.get<string>('REDIS_URL');
         const redisPassword = configService.get<string>('REDIS_PASSWORD');
-        const redisConfig: any = {
-          host: configService.get('REDIS_HOST', 'localhost'),
-          port: configService.get<number>('REDIS_PORT', 6491),
-        };
-        if (redisPassword) redisConfig.password = redisPassword;
+        const redis: any = redisUrl
+          ? redisUrl  // Upstash ou outro Redis cloud via URL
+          : {
+              host: configService.get('REDIS_HOST', 'localhost'),
+              port: configService.get<number>('REDIS_PORT', 6379),
+              ...(redisPassword && { password: redisPassword }),
+            };
         return {
-          redis: redisConfig,
+          redis,
           defaultJobOptions: {
             removeOnComplete: 100,
             removeOnFail: 200,
@@ -72,6 +78,8 @@ import { EmailModule } from './modules/email/email.module';
     SwimmingModulesModule,
     DocumentsModule,
     EmailModule,
+    ParentsModule,
+    TrainingPlansModule,
   ],
 })
 export class AppModule {}

@@ -185,7 +185,7 @@ export default function InstructorPage() {
     queryKey: ['instructor-perf-recent'],
     queryFn: async () => {
       // Pull recent students and derive performance from their records
-      const { data } = await api.get('/students?limit=20&sort=updatedAt');
+      const { data } = await api.get('/students?limit=20');
       return (data.data ?? data ?? []) as any[];
     },
     staleTime: 60_000,

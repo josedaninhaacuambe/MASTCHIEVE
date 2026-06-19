@@ -37,21 +37,23 @@ function Counter({ end, suffix = '', duration = 2000 }: { end: number; suffix?: 
 
 /* ── Floating particles ── */
 function Particles() {
+  const [particles, setParticles] = useState<Array<React.CSSProperties>>([]);
+  useEffect(() => {
+    setParticles(
+      Array.from({ length: 20 }, () => ({
+        width: `${Math.random() * 8 + 4}px`,
+        height: `${Math.random() * 8 + 4}px`,
+        left: `${Math.random() * 100}%`,
+        top: `${Math.random() * 100}%`,
+        animationDelay: `${Math.random() * 6}s`,
+        animationDuration: `${Math.random() * 8 + 6}s`,
+      })),
+    );
+  }, []);
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {Array.from({ length: 20 }).map((_, i) => (
-        <div
-          key={i}
-          className="absolute rounded-full bg-white/10 animate-float-particle"
-          style={{
-            width: `${Math.random() * 8 + 4}px`,
-            height: `${Math.random() * 8 + 4}px`,
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            animationDelay: `${Math.random() * 6}s`,
-            animationDuration: `${Math.random() * 8 + 6}s`,
-          }}
-        />
+      {particles.map((style, i) => (
+        <div key={i} className="absolute rounded-full bg-white/10 animate-float-particle" style={style} />
       ))}
     </div>
   );
