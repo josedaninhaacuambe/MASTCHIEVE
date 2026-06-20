@@ -575,7 +575,7 @@ export default function ClassDetailPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => router.push(`/classes/${classId}/sessions/${sess.id}`)}
+                    onClick={() => router.push(`/classes/${id}/sessions/${sess.id}`)}
                     className="text-xs text-blue-600 hover:underline flex items-center gap-1">
                     <ClipboardList className="w-3.5 h-3.5" /> Presenças
                   </button>
