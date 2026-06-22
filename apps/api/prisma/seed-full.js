@@ -126,26 +126,35 @@ async function main() {
       .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9@.]/g, '');
     const classId = (i >= 5 && i <= 7) ? clsIniciantesB.id : (levelToClass[s.level] || clsIniciantesA.id);
 
-    const studentUser = await prisma.user.create({
-      data: {
-        email, password: await hash('student123'), role: 'STUDENT',
-        student: { create: { firstName: s.firstName, lastName: s.lastName, dateOfBirth: new Date(s.dob), gender: s.gender, phone: s.phone || null, medicalNotes: s.medicalNotes || null, emergencyContact: s.parentName, emergencyPhone: s.parentPhone, enrollmentDate: daysAgo(randomBetween(60, 180)) } },
-      },
-      include: { student: true },
-    });
+    let studentUser = await prisma.user.findUnique({ where: { email }, include: { student: true } });
+    if (!studentUser) {
+      studentUser = await prisma.user.create({
+        data: {
+          email, password: await hash('student123'), role: 'STUDENT',
+          student: { create: { firstName: s.firstName, lastName: s.lastName, dateOfBirth: new Date(s.dob), gender: s.gender, phone: s.phone || null, medicalNotes: s.medicalNotes || null, emergencyContact: s.parentName, emergencyPhone: s.parentPhone, enrollmentDate: daysAgo(randomBetween(60, 180)) } },
+        },
+        include: { student: true },
+      });
+    }
     const studentId = studentUser.student.id;
     studentIds.push(studentId);
 
     const parentEmail = (s.parentName.split(' ')[0].toLowerCase() + '.enc' + i + '@email.com').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9@.]/g, '');
-    const parentUser = await prisma.user.create({
-      data: {
-        email: parentEmail, password: await hash('parent123'), role: 'PARENT',
-        parent: { create: { firstName: s.parentName.split(' ')[0], lastName: s.parentName.split(' ').slice(1).join(' ') || 'Enc', phone: s.parentPhone, relationship: i % 2 === 0 ? 'Pai' : 'Mãe' } },
-      },
-      include: { parent: true },
-    });
-    await prisma.studentParent.create({ data: { studentId, parentId: parentUser.parent.id, isPrimary: true } });
-    await prisma.enrollment.create({ data: { studentId, classId, enrolledAt: daysAgo(randomBetween(30, 150)) } });
+    let parentUser = await prisma.user.findUnique({ where: { email: parentEmail }, include: { parent: true } });
+    if (!parentUser) {
+      parentUser = await prisma.user.create({
+        data: {
+          email: parentEmail, password: await hash('parent123'), role: 'PARENT',
+          parent: { create: { firstName: s.parentName.split(' ')[0], lastName: s.parentName.split(' ').slice(1).join(' ') || 'Enc', phone: s.parentPhone, relationship: i % 2 === 0 ? 'Pai' : 'Mãe' } },
+        },
+        include: { parent: true },
+      });
+      await prisma.studentParent.create({ data: { studentId, parentId: parentUser.parent.id, isPrimary: true } });
+    }
+    const existingEnrollment = await prisma.enrollment.findFirst({ where: { studentId, classId } });
+    if (!existingEnrollment) {
+      await prisma.enrollment.create({ data: { studentId, classId, enrolledAt: daysAgo(randomBetween(30, 150)) } });
+    }
   }
 
   // Sessões (últimas 6 semanas)
