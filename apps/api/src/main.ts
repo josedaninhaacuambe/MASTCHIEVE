@@ -30,9 +30,15 @@ async function bootstrap() {
   app.use(helmet({ crossOriginEmbedderPolicy: false }));
   app.use(compression());
 
-  // CORS
+  // CORS — inclui localhost:3000 para proxy Next.js e variantes de dev
   app.enableCors({
-    origin: [frontendUrl, 'http://localhost:4300', 'http://localhost:4390', 'http://localhost:19006'],
+    origin: [
+      frontendUrl,
+      'http://localhost:3000',
+      'http://localhost:4300',
+      'http://localhost:4390',
+      'http://localhost:19006',
+    ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true,

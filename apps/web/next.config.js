@@ -33,6 +33,18 @@ const nextConfig = {
     domains: ['localhost', 'mastchieve.co.mz', 'api.mastchieve.co.mz'],
     formats: ['image/avif', 'image/webp'],
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: 'http://localhost:4301/api/v1/:path*',
+      },
+      {
+        source: '/uploads/:path*',
+        destination: 'http://localhost:4301/uploads/:path*',
+      },
+    ];
+  },
   async headers() {
     return [
       {
