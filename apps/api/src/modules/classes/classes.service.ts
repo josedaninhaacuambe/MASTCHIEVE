@@ -110,6 +110,15 @@ export class ClassesService {
     });
   }
 
+  async getSessions(classId: string) {
+    const sessions = await this.prisma.classSession.findMany({
+      where: { classId },
+      orderBy: { sessionDate: 'desc' },
+      select: { id: true, sessionDate: true, startTime: true, endTime: true, topic: true, notes: true },
+    });
+    return { data: sessions };
+  }
+
   async createSession(classId: string, dto: any) {
     return this.prisma.classSession.create({ data: { ...dto, classId } });
   }

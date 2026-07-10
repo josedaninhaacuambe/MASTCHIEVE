@@ -35,6 +35,9 @@ export class ClassesController {
     return this.service.unenroll(id, studentId);
   }
 
+  @Get(':id/sessions') @Roles('ADMIN', 'INSTRUCTOR') @ApiOperation({ summary: 'Listar sessões da turma' })
+  getSessions(@Param('id') id: string) { return this.service.getSessions(id); }
+
   @Post(':id/sessions') @Roles('ADMIN', 'INSTRUCTOR') @ApiOperation({ summary: 'Criar sessão de aula' })
   createSession(@Param('id') id: string, @Body() dto: CreateSessionDto) {
     return this.service.createSession(id, dto);

@@ -43,6 +43,14 @@ const nextConfig = {
         source: '/uploads/:path*',
         destination: 'http://localhost:4301/uploads/:path*',
       },
+      {
+        source: '/socket.io',
+        destination: 'http://localhost:4301/socket.io',
+      },
+      {
+        source: '/socket.io/:path*',
+        destination: 'http://localhost:4301/socket.io/:path*',
+      },
     ];
   },
   async headers() {
