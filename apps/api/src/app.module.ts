@@ -1,6 +1,15 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from './common/audit/audit.module';
 import { SwimmingModulesModule } from './modules/swimming-modules/swimming-modules.module';
+import { UnidadesModule } from './modules/unidades/unidades.module';
+import { LeadsModule } from './modules/leads/leads.module';
+import { IncidentesModule } from './modules/incidentes/incidentes.module';
+import { FasesModule } from './modules/fases/fases.module';
+import { CertificadosModule } from './modules/certificados/certificados.module';
+import { AvaliacoesIniciaisModule } from './modules/avaliacoes-iniciais/avaliacoes-iniciais.module';
+import { EventosModule } from './modules/eventos/eventos.module';
+import { CompeticoesModule } from './modules/competicoes/competicoes.module';
+import { ComunicacaoModule } from './modules/comunicacao/comunicacao.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -80,6 +89,15 @@ import { TrainingPlansModule } from './modules/training-plans/training-plans.mod
     EmailModule,
     ParentsModule,
     TrainingPlansModule,
+    UnidadesModule,
+    LeadsModule,
+    IncidentesModule,
+    FasesModule,
+    CertificadosModule,
+    AvaliacoesIniciaisModule,
+    EventosModule,
+    CompeticoesModule,
+    ComunicacaoModule,
   ],
 })
 export class AppModule {}

@@ -13,19 +13,23 @@ model User {
   id            String    @id @default(uuid())
   email         String    @unique
   password      String    @db.VarChar(255)
-  role          String
+  role          String    // ADMIN | SUPERVISOR | INSTRUCTOR | COORDINATOR | STUDENT | PARENT | MARKETING | VISITOR
   isActive      Boolean   @default(true)
   lastLoginAt   DateTime?
   refreshToken  String?   @db.Text
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  admin         Admin?
-  instructor    Instructor?
-  student       Student?
-  parent        Parent?
-  notifications Notification[]
-  auditLogs     AuditLog[]
+  admin              Admin?
+  instructor         Instructor?
+  student            Student?
+  parent             Parent?
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  incidentesReportados Incidente[] @relation("IncidenteReportado")
+  pedidosComunicacao  PedidoComunicacao[] @relation("PedidoSolicitante")
+  pedidosAprovados    PedidoComunicacao[] @relation("PedidoAprovado")
+  certificadosValidados Certificado[]
 
   @@index([email])
   @@index([role])
@@ -70,6 +74,8 @@ model Instructor {
   attendances     Attendance[]
   feedbacks       Feedback[]
   trainingPlans   TrainingPlan[]
+  avaliacoesIniciais AvaliacaoInicial[]
+  unidades        InstructorUnidade[]
 
   @@index([isActive])
   @@map("instructors")
@@ -78,34 +84,46 @@ model Instructor {
 // ─── Student ─────────────────────────────────────────────────────────────────
 
 model Student {
-  id               String    @id @default(uuid())
-  userId           String    @unique
-  firstName        String
-  lastName         String
-  dateOfBirth      DateTime
-  gender           String    @default("OTHER")
-  phone            String?
-  avatarUrl        String?
-  medicalNotes     String?   @db.Text
-  emergencyContact String?
-  emergencyPhone   String?
-  enrollmentDate   DateTime  @default(now())
-  isActive         Boolean   @default(true)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id                   String    @id @default(uuid())
+  userId               String    @unique
+  firstName            String
+  lastName             String
+  dateOfBirth          DateTime
+  gender               String    @default("OTHER")
+  phone                String?
+  avatarUrl            String?
+  medicalNotes         String?   @db.Text
+  emergencyContact     String?
+  emergencyPhone       String?
+  enrollmentDate       DateTime  @default(now())
+  isActive             Boolean   @default(true)
+  unidadeId            String?
+  autorizacaoImagem    Boolean   @default(false)
+  autorizacaoImagemData DateTime?
+  autorizacaoImagemDoc String?
+  leadId               String?   @unique
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unidade          Unidade?  @relation(fields: [unidadeId], references: [id])
+  lead             Lead?     @relation(fields: [leadId], references: [id])
   parents          StudentParent[]
   enrollments      Enrollment[]
   attendances      Attendance[]
   feedbacks        Feedback[]
   progressRecords  Progress[]
+  studentFases     StudentFase[]
+  certificados     Certificado[]
   trainingPlans    TrainingPlan[]
   payments         Payment[]
   monthlyFees      MonthlyFee[]
   documents        Document[]
+  avaliacaoInicial AvaliacaoInicial?
+  competicoes      CompeticaoAtleta[]
 
   @@index([isActive])
+  @@index([unidadeId])
   @@map("students")
 }
 
@@ -140,6 +158,161 @@ model StudentParent {
   @@map("student_parents")
 }
 
+// ─── Unidade (Multi-Unit) ────────────────────────────────────────────────────
+
+model Unidade {
+  id        String   @id @default(uuid())
+  nome      String
+  codigo    String   @unique   // CCBM | OSCARS | POLANA
+  tipo      String   @default("PRINCIPAL") // PRINCIPAL | COMUNITARIO | PREMIUM
+  endereco  String?
+  contacto  String?
+  email     String?
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  turmas       Class[]
+  estudantes   Student[]
+  instrutores  InstructorUnidade[]
+  leads        Lead[]
+  incidentes   Incidente[]
+  eventos      Evento[]
+  competicoes  Competicao[]
+
+  @@map("unidades")
+}
+
+model InstructorUnidade {
+  id          String   @id @default(uuid())
+  instrutorId String
+  unidadeId   String
+  isPrimary   Boolean  @default(false)
+  criadoEm   DateTime @default(now())
+
+  instrutor   Instructor @relation(fields: [instrutorId], references: [id], onDelete: Cascade)
+  unidade     Unidade    @relation(fields: [unidadeId], references: [id], onDelete: Cascade)
+
+  @@unique([instrutorId, unidadeId])
+  @@map("instructor_unidades")
+}
+
+// ─── Lead / CRM ──────────────────────────────────────────────────────────────
+
+model Lead {
+  id               String    @id @default(uuid())
+  nome             String
+  email            String?
+  telefone         String?
+  origem           String    @default("OUTRO") // REFERIDO|REDES_SOCIAIS|OPEN_DAY|WALK_IN|WEBSITE|CAMPANHA|OUTRO
+  campanha         String?
+  estado           String    @default("NOVO") // NOVO|CONTACTADO|AGENDADO|CONVERTIDO|PERDIDO
+  unidadeId        String?
+  eventoId         String?
+  notas            String?   @db.Text
+  dataContacto     DateTime?
+  dataAgendamento  DateTime?
+  dataConversao    DateTime?
+  motivoPerda      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  unidade  Unidade? @relation(fields: [unidadeId], references: [id])
+  evento   Evento?  @relation(fields: [eventoId], references: [id])
+  student  Student?
+
+  @@index([estado])
+  @@index([unidadeId])
+  @@map("leads")
+}
+
+// ─── Avaliação Inicial ────────────────────────────────────────────────────────
+
+model AvaliacaoInicial {
+  id                    String    @id @default(uuid())
+  studentId             String    @unique
+  instrutorId           String
+  data                  DateTime  @default(now())
+  experienciaAquatica   Int       @default(1)  // 1-5
+  segurancaAdaptacao    Int       @default(1)  // 1-5
+  confortoAgua          Int       @default(1)  // 1-5
+  resistenciaBasica     Int       @default(1)  // 1-5
+  necessidadesEspeciais String?   @db.Text
+  observacoes           String?   @db.Text
+  faseRecomendadaId     String?
+  aprovadoPorId         String?
+  aprovadoEm            DateTime?
+  createdAt             DateTime  @default(now())
+
+  student           Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  instrutor         Instructor     @relation(fields: [instrutorId], references: [id])
+  faseRecomendada   FaseProgressao? @relation(fields: [faseRecomendadaId], references: [id])
+
+  @@map("avaliacoes_iniciais")
+}
+
+// ─── Fases de Progressão (9 fases com animais) ───────────────────────────────
+
+model FaseProgressao {
+  id            String   @id @default(uuid())
+  nivel         String   // AMA | INTERMEDIARIO | AVANCADO
+  ordem         Int
+  nome          String   // Estrela-do-Mar, Cavalo-Marinho, etc.
+  animal        String
+  certificacao  String   // BRONZE | PRATA | OURO
+  descricao     String?  @db.Text
+  criterios     String   @default("[]") @db.Text // JSON array of criteria
+  assiduidade   Int      @default(80) // minimum attendance % required
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  studentFases       StudentFase[]
+  certificados       Certificado[]
+  avaliacoesIniciais AvaliacaoInicial[]
+
+  @@unique([nivel, ordem])
+  @@map("fases_progressao")
+}
+
+model StudentFase {
+  id          String    @id @default(uuid())
+  studentId   String
+  faseId      String
+  estado      String    @default("NAO_INICIADO") // NAO_INICIADO|EM_PROGRESSO|CONCLUIDO
+  iniciadoEm  DateTime?
+  concluidoEm DateTime?
+  pontuacao   Float?
+  notas       String?   @db.Text
+  updatedAt   DateTime  @updatedAt
+
+  student Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  fase    FaseProgressao @relation(fields: [faseId], references: [id])
+
+  @@unique([studentId, faseId])
+  @@index([studentId])
+  @@map("student_fases")
+}
+
+model Certificado {
+  id              String   @id @default(uuid())
+  studentId       String
+  faseId          String
+  dataEmissao     DateTime @default(now())
+  validadoPorId   String
+  eventoId        String?
+  numeroSerie     String   @unique
+  observacoes     String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  fase        FaseProgressao @relation(fields: [faseId], references: [id])
+  validadoPor User           @relation(fields: [validadoPorId], references: [id])
+  evento      Evento?        @relation(fields: [eventoId], references: [id])
+
+  @@index([studentId])
+  @@map("certificados")
+}
+
 // ─── Classes ─────────────────────────────────────────────────────────────────
 
 model Class {
@@ -152,15 +325,18 @@ model Class {
   poolLane     String?
   schedules    String   @default("[]") @db.Text
   instructorId String
+  unidadeId    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   instructor   Instructor   @relation(fields: [instructorId], references: [id])
+  unidade      Unidade?     @relation(fields: [unidadeId], references: [id])
   enrollments  Enrollment[]
   sessions     ClassSession[]
 
   @@index([status])
   @@index([instructorId])
+  @@index([unidadeId])
   @@map("classes")
 }
 
@@ -183,14 +359,16 @@ model Enrollment {
 // ─── Class Sessions & Attendance ─────────────────────────────────────────────
 
 model ClassSession {
-  id          String   @id @default(uuid())
-  classId     String
-  sessionDate DateTime
-  startTime   String
-  endTime     String
-  notes       String?  @db.Text
-  topic       String?
-  createdAt   DateTime @default(now())
+  id                    String   @id @default(uuid())
+  classId               String
+  sessionDate           DateTime
+  startTime             String
+  endTime               String
+  notes                 String?  @db.Text
+  topic                 String?
+  checklistEquipamentos Boolean  @default(false)
+  checklistSeguranca    Boolean  @default(false)
+  createdAt             DateTime @default(now())
 
   class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
   attendances Attendance[]
@@ -234,6 +412,7 @@ model PerformanceRecord {
   startDive       Int?
   overallScore    Float?
   instructorNotes String?  @db.Text
+  acaoCorretiva   String?  @db.Text
   rawData         String?  @db.Text
   recordedAt      DateTime @default(now())
   createdAt       DateTime @default(now())
@@ -378,6 +557,118 @@ model Payment {
   @@map("payments")
 }
 
+// ─── Gestão de Incidentes e Segurança (SOP 09) ───────────────────────────────
+
+model Incidente {
+  id               String    @id @default(uuid())
+  unidadeId        String?
+  data             DateTime  @default(now())
+  tipo             String    // ACIDENTE_MENOR|ACIDENTE_GRAVE|NEAR_MISS|COMPORTAMENTO|EQUIPAMENTO|INSTALACOES|OUTRO
+  descricao        String    @db.Text
+  envolvidos       String    @default("[]") @db.Text // JSON
+  acaoImediata     String    @db.Text
+  relatorio        String?   @db.Text
+  acoesPreventivas String?   @db.Text
+  estado           String    @default("REPORTADO") // REPORTADO|EM_INVESTIGACAO|RESOLVIDO|FECHADO
+  reportadoPorId   String
+  resolvidoEm      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  unidade      Unidade?  @relation(fields: [unidadeId], references: [id])
+  reportadoPor User      @relation("IncidenteReportado", fields: [reportadoPorId], references: [id])
+
+  @@index([estado])
+  @@index([unidadeId])
+  @@map("incidentes")
+}
+
+// ─── Eventos / Open Day (SOP 07) ─────────────────────────────────────────────
+
+model Evento {
+  id         String   @id @default(uuid())
+  tipo       String   @default("OPEN_DAY") // OPEN_DAY|COMPETICAO|OUTRO
+  nome       String
+  data       DateTime
+  unidadeId  String?
+  programa   String?  @db.Text
+  capacidade Int?
+  estado     String   @default("PLANEADO") // PLANEADO|REALIZADO|CANCELADO
+  notas      String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  unidade     Unidade?     @relation(fields: [unidadeId], references: [id])
+  certificados Certificado[]
+  leads        Lead[]
+
+  @@index([tipo])
+  @@index([estado])
+  @@map("eventos")
+}
+
+// ─── Competições (SOP 08) ─────────────────────────────────────────────────────
+
+model Competicao {
+  id               String   @id @default(uuid())
+  nome             String
+  data             DateTime
+  local            String
+  unidadeId        String?
+  descricao        String?  @db.Text
+  planoCompetitivo String?  @db.Text
+  estado           String   @default("PLANEADA") // PLANEADA|REALIZADA|CANCELADA
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  unidade  Unidade?          @relation(fields: [unidadeId], references: [id])
+  atletas  CompeticaoAtleta[]
+
+  @@index([estado])
+  @@map("competicoes")
+}
+
+model CompeticaoAtleta {
+  id           String  @id @default(uuid())
+  competicaoId String
+  studentId    String
+  prova        String?
+  resultado    String?
+  posicao      Int?
+  notas        String? @db.Text
+
+  competicao Competicao @relation(fields: [competicaoId], references: [id], onDelete: Cascade)
+  student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([competicaoId, studentId])
+  @@map("competicao_atletas")
+}
+
+// ─── Pedidos de Comunicação / Marketing (SOP 9.3–9.7) ────────────────────────
+
+model PedidoComunicacao {
+  id            String   @id @default(uuid())
+  tipo          String   // POSTER|VIDEO|NEWSLETTER|REDES_SOCIAIS|CATALOGO|OUTRO
+  titulo        String
+  descricao     String   @db.Text
+  unidadeId     String?
+  prazo         DateTime
+  estado        String   @default("RASCUNHO") // RASCUNHO|EM_APROVACAO|APROVADO|PUBLICADO|CANCELADO
+  solicitanteId String
+  aprovadoPorId String?
+  aprovadoEm    DateTime?
+  link          String?
+  observacoes   String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  solicitante User  @relation("PedidoSolicitante", fields: [solicitanteId], references: [id])
+  aprovadoPor User? @relation("PedidoAprovado", fields: [aprovadoPorId], references: [id])
+
+  @@index([estado])
+  @@map("pedidos_comunicacao")
+}
+
 // ─── Notifications ───────────────────────────────────────────────────────────
 
 model Notification {
@@ -437,6 +728,7 @@ model AuditLog {
 
 model KpiSnapshot {
   id                     String   @id @default(uuid())
+  unidadeId              String?
   snapshotDate           DateTime @default(now())
   totalStudents          Int
   activeStudents         Int
@@ -448,7 +740,12 @@ model KpiSnapshot {
   instructorAdoptionRate Float?
   overduePayments        Int
   monthlyRevenue         Float?
+  leadsGerados           Int?
+  conversaoLead          Float?
+  incidentesCount        Int      @default(0)
+  participacaoOpenDay    Float?
   createdAt              DateTime @default(now())
 
+  @@index([unidadeId])
   @@map("kpi_snapshots")
 }

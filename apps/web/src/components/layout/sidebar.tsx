@@ -10,6 +10,7 @@ import {
   ClipboardList, MessageSquare, CreditCard, BarChart3,
   LogOut, Waves, Sparkles, X, Brain, TrendingUp, ShieldCheck,
   Smartphone, Download, Sun, Moon, Dumbbell, Heart, Globe, UserCircle, FileText, ScrollText,
+  AlertTriangle, Fish, Award, Calendar, Trophy, Megaphone, Building2,
 } from 'lucide-react';
 
 const navItems = [
@@ -26,6 +27,15 @@ const navItems = [
   { href: '/kpi',               icon: BarChart3,        label: 'KPIs',                   roles: ['ADMIN', 'MANAGER'] },
   { href: '/modules',           icon: Waves,            label: 'Módulos',                roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
   { href: '/documents',         icon: FileText,         label: 'Documentos',             roles: ['ADMIN', 'INSTRUCTOR'] },
+  { href: '/unidades',           icon: Building2,        label: 'Unidades',               roles: ['ADMIN'] },
+  { href: '/leads',             icon: TrendingUp,       label: 'CRM — Leads',            roles: ['ADMIN', 'MANAGER'] },
+  { href: '/avaliacoes-iniciais', icon: ClipboardList,  label: 'Avaliações Iniciais',    roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
+  { href: '/fases',             icon: Fish,             label: 'Fases Pedagógicas',      roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
+  { href: '/certificados',      icon: Award,            label: 'Certificados',           roles: ['ADMIN', 'MANAGER'] },
+  { href: '/incidentes',        icon: AlertTriangle,    label: 'Incidentes',             roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
+  { href: '/eventos',           icon: Calendar,         label: 'Eventos / Open Days',    roles: ['ADMIN', 'MANAGER'] },
+  { href: '/competicoes',       icon: Trophy,           label: 'Competições',            roles: ['ADMIN', 'MANAGER'] },
+  { href: '/comunicacao',       icon: Megaphone,        label: 'Comunicação',            roles: ['ADMIN', 'MANAGER'] },
   { href: '/admin/users',       icon: ShieldCheck,      label: 'Gestão de Utilizadores', roles: ['ADMIN'] },
   { href: '/admin/audit',       icon: ScrollText,       label: 'Audit Log',               roles: ['ADMIN'] },
   // Student only
