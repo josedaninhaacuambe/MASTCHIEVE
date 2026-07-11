@@ -1,16 +1,31 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Plus, ClipboardList, Star, User, ChevronRight } from 'lucide-react';
+import { Plus, ClipboardList, Star, User } from 'lucide-react';
 
-const NIVEL_RECOMENDADO = ['AMA_1','AMA_2','AMA_3','INTERMEDIARIO_1','INTERMEDIARIO_2','INTERMEDIARIO_3','AVANCADO_1','AVANCADO_2','AVANCADO_3'];
+const CRITERIOS = [
+  { key: 'experienciaAquatica', label: 'Experiência Aquática' },
+  { key: 'segurancaAdaptacao', label: 'Segurança / Adaptação' },
+  { key: 'confortoAgua', label: 'Conforto na Água' },
+  { key: 'resistenciaBasica', label: 'Resistência Básica' },
+];
 
 export default function AvaliacoesIniciaisPage() {
   const [avaliacoes, setAvaliacoes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [students, setStudents] = useState<any[]>([]);
-  const [form, setForm] = useState({ studentId:'', data:'', nivelAtual:'', nivelRecomendado:'AMA_1', observacoes:'', flutuacao:'3', respiracao:'3', propulsao:'3', coordenacao:'3', confianca:'3' });
+  const [fases, setFases] = useState<any[]>([]);
+  const [form, setForm] = useState({
+    studentId: '',
+    data: '',
+    experienciaAquatica: 3,
+    segurancaAdaptacao: 3,
+    confortoAgua: 3,
+    resistenciaBasica: 3,
+    faseRecomendadaId: '',
+    observacoes: '',
+  });
 
   const load = async () => {
     setLoading(true);
@@ -22,21 +37,36 @@ export default function AvaliacoesIniciaisPage() {
   useEffect(() => { load(); }, []);
 
   const openForm = async () => {
-    const r = await api.get('/students');
-    setStudents(r.data.data || r.data);
+    const [s, f] = await Promise.all([api.get('/students'), api.get('/fases')]);
+    setStudents(s.data.data || s.data);
+    setFases(f.data.data || f.data);
     setShowForm(true);
   };
 
   const salvar = async () => {
-    const criterios = JSON.stringify({ flutuacao: Number(form.flutuacao), respiracao: Number(form.respiracao), propulsao: Number(form.propulsao), coordenacao: Number(form.coordenacao), confianca: Number(form.confianca) });
-    await api.post('/avaliacoes-iniciais', { studentId: form.studentId, data: form.data ? new Date(form.data).toISOString() : undefined, nivelAtual: form.nivelAtual, nivelRecomendado: form.nivelRecomendado, observacoes: form.observacoes, criterios });
+    await api.post('/avaliacoes-iniciais', {
+      studentId: form.studentId,
+      data: form.data ? new Date(form.data).toISOString() : undefined,
+      experienciaAquatica: Number(form.experienciaAquatica),
+      segurancaAdaptacao: Number(form.segurancaAdaptacao),
+      confortoAgua: Number(form.confortoAgua),
+      resistenciaBasica: Number(form.resistenciaBasica),
+      faseRecomendadaId: form.faseRecomendadaId || undefined,
+      observacoes: form.observacoes || undefined,
+    });
     setShowForm(false);
+    setForm({ studentId:'', data:'', experienciaAquatica:3, segurancaAdaptacao:3, confortoAgua:3, resistenciaBasica:3, faseRecomendadaId:'', observacoes:'' });
     load();
   };
 
   const renderStars = (val: number) => Array.from({ length: 5 }, (_, i) => (
     <Star key={i} className={`w-3.5 h-3.5 ${i < val ? 'text-amber-400 fill-amber-400' : 'text-gray-200'}`} />
   ));
+
+  const media = (a: any) => {
+    const vals = [a.experienciaAquatica, a.segurancaAdaptacao, a.confortoAgua, a.resistenciaBasica].filter(Boolean);
+    return vals.length ? (vals.reduce((s: number, v: number) => s + v, 0) / vals.length).toFixed(1) : '—';
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -58,46 +88,46 @@ export default function AvaliacoesIniciaisPage() {
               <p className="text-gray-400">Nenhuma avaliação inicial registada</p>
             </div>
           )}
-          {avaliacoes.map((a: any) => {
-            const criterios = (() => { try { return JSON.parse(a.criterios || '{}'); } catch { return {}; } })();
-            const mediaScores = Object.values(criterios).length > 0 ? (Object.values(criterios) as number[]).reduce((s: number, v: number) => s + v, 0) / Object.values(criterios).length : 0;
-            return (
-              <div key={a.id} className="bg-white rounded-xl border border-gray-200 p-5">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <User className="w-5 h-5 text-indigo-600" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2 flex-wrap">
-                      <h3 className="font-semibold text-gray-900">{a.student?.nome}</h3>
-                      <span className="text-xs text-gray-400">{a.data ? new Date(a.data).toLocaleDateString('pt-PT') : '—'}</span>
-                      {a.avaliador && <span className="text-xs text-gray-400">por {a.avaliador.name}</span>}
-                    </div>
-                    <div className="flex items-center gap-3 mb-3">
-                      {a.nivelAtual && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">Nível atual: {a.nivelAtual}</span>}
-                      <ChevronRight className="w-3 h-3 text-gray-400" />
-                      <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-medium">Recomendado: {a.nivelRecomendado?.replace('_', ' Fase ')}</span>
-                    </div>
-                    {Object.keys(criterios).length > 0 && (
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                        {Object.entries(criterios).map(([key, val]) => (
-                          <div key={key} className="text-center">
-                            <div className="text-xs text-gray-500 mb-1 capitalize">{key}</div>
-                            <div className="flex justify-center gap-0.5">{renderStars(val as number)}</div>
-                          </div>
-                        ))}
-                      </div>
+          {avaliacoes.map((a: any) => (
+            <div key={a.id} className="bg-white rounded-xl border border-gray-200 p-5">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <User className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
+                    <h3 className="font-semibold text-gray-900">
+                      {a.student ? `${a.student.firstName} ${a.student.lastName}` : '—'}
+                    </h3>
+                    <span className="text-xs text-gray-400">{a.data ? new Date(a.data).toLocaleDateString('pt-PT') : '—'}</span>
+                    {a.instrutor && (
+                      <span className="text-xs text-gray-400">por {a.instrutor.firstName} {a.instrutor.lastName}</span>
                     )}
-                    {a.observacoes && <p className="text-sm text-gray-500 mt-2">{a.observacoes}</p>}
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-2xl font-bold text-indigo-600">{mediaScores.toFixed(1)}</div>
-                    <div className="text-xs text-gray-400">média</div>
+                  {a.faseRecomendada && (
+                    <div className="mb-3">
+                      <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-medium">
+                        Fase recomendada: {a.faseRecomendada.nome}
+                      </span>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {CRITERIOS.map(({ key, label }) => (
+                      <div key={key} className="text-center">
+                        <div className="text-xs text-gray-500 mb-1">{label}</div>
+                        <div className="flex justify-center gap-0.5">{renderStars(a[key] ?? 0)}</div>
+                      </div>
+                    ))}
                   </div>
+                  {a.observacoes && <p className="text-sm text-gray-500 mt-2">{a.observacoes}</p>}
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-2xl font-bold text-indigo-600">{media(a)}</div>
+                  <div className="text-xs text-gray-400">média</div>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
@@ -109,7 +139,7 @@ export default function AvaliacoesIniciaisPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Aluno*</label>
               <select value={form.studentId} onChange={e => setForm(f => ({ ...f, studentId: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                 <option value="">Selecionar aluno...</option>
-                {students.map((s: any) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                {students.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
               </select>
             </div>
             <div>
@@ -117,22 +147,19 @@ export default function AvaliacoesIniciaisPage() {
               <input type="date" value={form.data} onChange={e => setForm(f => ({ ...f, data: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nível Atual (se aplicável)</label>
-              <input type="text" value={form.nivelAtual} onChange={e => setForm(f => ({ ...f, nivelAtual: e.target.value }))} placeholder="Ex: Iniciante, Fase AMA 1, etc." className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nível Recomendado*</label>
-              <select value={form.nivelRecomendado} onChange={e => setForm(f => ({ ...f, nivelRecomendado: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                {NIVEL_RECOMENDADO.map(n => <option key={n} value={n}>{n.replace('_', ' Fase ')}</option>)}
+              <label className="block text-sm font-medium text-gray-700 mb-1">Fase Recomendada</label>
+              <select value={form.faseRecomendadaId} onChange={e => setForm(f => ({ ...f, faseRecomendadaId: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="">Selecionar fase...</option>
+                {fases.map((f: any) => <option key={f.id} value={f.id}>Fase {f.ordem} — {f.nome} ({f.certificacao})</option>)}
               </select>
             </div>
             <div className="space-y-3">
-              <p className="text-sm font-medium text-gray-700">Pontuação por Critério (1-5)</p>
-              {['flutuacao','respiracao','propulsao','coordenacao','confianca'].map(c => (
-                <div key={c} className="flex items-center gap-3">
-                  <span className="text-sm text-gray-600 w-28 capitalize">{c}</span>
-                  <input type="range" min="1" max="5" value={(form as any)[c]} onChange={e => setForm(f => ({ ...f, [c]: e.target.value }))} className="flex-1" />
-                  <span className="text-sm font-semibold text-indigo-600 w-6 text-center">{(form as any)[c]}</span>
+              <p className="text-sm font-medium text-gray-700">Pontuação por Critério (1–5)</p>
+              {CRITERIOS.map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-3">
+                  <span className="text-sm text-gray-600 w-40">{label}</span>
+                  <input type="range" min="1" max="5" value={(form as any)[key]} onChange={e => setForm(f => ({ ...f, [key]: Number(e.target.value) }))} className="flex-1" />
+                  <span className="text-sm font-semibold text-indigo-600 w-6 text-center">{(form as any)[key]}</span>
                 </div>
               ))}
             </div>

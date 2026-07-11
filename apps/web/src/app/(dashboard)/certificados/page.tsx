@@ -88,7 +88,7 @@ export default function CertificadosPage() {
               {certs.map((c: any) => (
                 <tr key={c.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-mono text-xs text-gray-600">{c.numeroSerie}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{c.student?.nome}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">{c.student ? `${c.student.firstName} ${c.student.lastName}` : '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{c.fase?.nome}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${NIVEL_CORES[c.fase?.certificacao]}`}>{c.fase?.certificacao}</span>
@@ -113,7 +113,7 @@ export default function CertificadosPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Aluno*</label>
               <select value={form.studentId} onChange={e => setForm(f => ({ ...f, studentId: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                 <option value="">Selecionar aluno...</option>
-                {students.map((s: any) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                {students.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
               </select>
             </div>
             <div>

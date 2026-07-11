@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Plus, Trophy, Calendar, MapPin, Medal, Users } from 'lucide-react';
 
-const ESTADOS_CORES: Record<string, string> = { PLANEADO:'bg-blue-100 text-blue-700', REALIZADO:'bg-green-100 text-green-700', CANCELADO:'bg-red-100 text-red-700' };
+const ESTADOS_CORES: Record<string, string> = { PLANEADA:'bg-blue-100 text-blue-700', REALIZADA:'bg-green-100 text-green-700', CANCELADA:'bg-red-100 text-red-700' };
 const MODALIDADES = ['CROL','COSTAS','BRUCOS','MARIPOSA','MEDLEY','REVEZAMENTO'];
 
 export default function CompeticoesPage() {
@@ -33,7 +33,7 @@ export default function CompeticoesPage() {
     load();
   };
 
-  const totais = { total: competicoes.length, realizadas: competicoes.filter(c => c.estado === 'REALIZADO').length, atletas: competicoes.reduce((acc, c) => acc + (c._count?.atletas || 0), 0) };
+  const totais = { total: competicoes.length, realizadas: competicoes.filter(c => c.estado === 'REALIZADA').length, atletas: competicoes.reduce((acc, c) => acc + (c._count?.atletas || 0), 0) };
 
   return (
     <div className="p-6 space-y-6">
@@ -95,8 +95,8 @@ export default function CompeticoesPage() {
                   )}
                 </div>
                 <div className="px-5 pb-4 flex gap-2">
-                  {c.estado === 'PLANEADO' && <button onClick={() => atualizar(c.id, 'REALIZADO')} className="flex-1 text-xs bg-green-100 text-green-700 py-1.5 rounded-lg hover:bg-green-200 font-medium">Marcar Realizada</button>}
-                  {c.estado === 'PLANEADO' && <button onClick={() => atualizar(c.id, 'CANCELADO')} className="text-xs bg-red-100 text-red-600 py-1.5 px-3 rounded-lg hover:bg-red-200">Cancelar</button>}
+                  {c.estado === 'PLANEADA' && <button onClick={() => atualizar(c.id, 'REALIZADA')} className="flex-1 text-xs bg-green-100 text-green-700 py-1.5 rounded-lg hover:bg-green-200 font-medium">Marcar Realizada</button>}
+                  {c.estado === 'PLANEADA' && <button onClick={() => atualizar(c.id, 'CANCELADA')} className="text-xs bg-red-100 text-red-600 py-1.5 px-3 rounded-lg hover:bg-red-200">Cancelar</button>}
                 </div>
               </div>
             );

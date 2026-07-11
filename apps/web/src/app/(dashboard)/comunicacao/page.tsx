@@ -4,7 +4,7 @@ import { api } from '@/lib/api';
 import { Plus, MessageSquare, Clock, CheckCircle, XCircle, Image, Video, FileText, Megaphone } from 'lucide-react';
 
 const TIPOS = ['POST_REDES_SOCIAIS','CAMPANHA_EMAIL','VIDEO','FOTOGRAFIAS','EVENTO_MARKETING','OUTRO'];
-const ESTADOS_CORES: Record<string, string> = { PENDENTE:'bg-yellow-100 text-yellow-700', EM_PRODUCAO:'bg-blue-100 text-blue-700', APROVADO:'bg-green-100 text-green-700', PUBLICADO:'bg-purple-100 text-purple-700', REJEITADO:'bg-red-100 text-red-700' };
+const ESTADOS_CORES: Record<string, string> = { RASCUNHO:'bg-gray-100 text-gray-600', EM_APROVACAO:'bg-yellow-100 text-yellow-700', APROVADO:'bg-green-100 text-green-700', PUBLICADO:'bg-purple-100 text-purple-700', CANCELADO:'bg-red-100 text-red-700' };
 const TIPO_ICONS: Record<string, any> = { POST_REDES_SOCIAIS: Megaphone, CAMPANHA_EMAIL: MessageSquare, VIDEO: Video, FOTOGRAFIAS: Image, EVENTO_MARKETING: MessageSquare, OUTRO: FileText };
 
 export default function ComunicacaoPage() {
@@ -35,8 +35,8 @@ export default function ComunicacaoPage() {
   };
 
   const stats = {
-    pendentes: pedidos.filter(p => p.estado === 'PENDENTE').length,
-    producao: pedidos.filter(p => p.estado === 'EM_PRODUCAO').length,
+    pendentes: pedidos.filter(p => p.estado === 'RASCUNHO' || p.estado === 'EM_APROVACAO').length,
+    aprovados: pedidos.filter(p => p.estado === 'APROVADO').length,
     publicados: pedidos.filter(p => p.estado === 'PUBLICADO').length,
   };
 
@@ -58,9 +58,9 @@ export default function ComunicacaoPage() {
           <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-yellow-600" /><span className="text-sm text-gray-600">Pendentes</span></div>
           <div className="text-3xl font-bold text-yellow-700">{stats.pendentes}</div>
         </div>
-        <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
-          <div className="flex items-center gap-2 mb-1"><MessageSquare className="w-4 h-4 text-blue-600" /><span className="text-sm text-gray-600">Em produção</span></div>
-          <div className="text-3xl font-bold text-blue-700">{stats.producao}</div>
+        <div className="bg-green-50 rounded-xl p-5 border border-green-200">
+          <div className="flex items-center gap-2 mb-1"><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-sm text-gray-600">Aprovados</span></div>
+          <div className="text-3xl font-bold text-green-700">{stats.aprovados}</div>
         </div>
         <div className="bg-purple-50 rounded-xl p-5 border border-purple-200">
           <div className="flex items-center gap-2 mb-1"><CheckCircle className="w-4 h-4 text-purple-600" /><span className="text-sm text-gray-600">Publicados</span></div>
@@ -95,10 +95,10 @@ export default function ComunicacaoPage() {
                     {p.solicitante && <p className="text-xs text-gray-400 mt-1">Solicitado por {p.solicitante.name}</p>}
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
-                    {p.estado === 'PENDENTE' && <button onClick={() => atualizar(p.id, 'EM_PRODUCAO')} className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200">Produzir</button>}
-                    {p.estado === 'EM_PRODUCAO' && <button onClick={() => atualizar(p.id, 'APROVADO')} className="text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200">Aprovar</button>}
+                    {p.estado === 'RASCUNHO' && <button onClick={() => atualizar(p.id, 'EM_APROVACAO')} className="text-xs bg-yellow-100 text-yellow-700 px-3 py-1.5 rounded-lg hover:bg-yellow-200">Submeter</button>}
+                    {p.estado === 'EM_APROVACAO' && <button onClick={() => atualizar(p.id, 'APROVADO')} className="text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200">Aprovar</button>}
                     {p.estado === 'APROVADO' && <button onClick={() => atualizar(p.id, 'PUBLICADO')} className="text-xs bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200">Publicar</button>}
-                    {(p.estado === 'PENDENTE' || p.estado === 'EM_PRODUCAO') && <button onClick={() => atualizar(p.id, 'REJEITADO')} className="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-100">Rejeitar</button>}
+                    {(p.estado === 'RASCUNHO' || p.estado === 'EM_APROVACAO') && <button onClick={() => atualizar(p.id, 'CANCELADO')} className="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-100">Cancelar</button>}
                   </div>
                 </div>
               </div>
@@ -130,8 +130,8 @@ export default function ComunicacaoPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Prazo</label>
-              <input type="date" value={form.prazo} onChange={e => setForm(f => ({ ...f, prazo: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Prazo*</label>
+              <input type="date" value={form.prazo} onChange={e => setForm(f => ({ ...f, prazo: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" required />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Descrição / Briefing</label>
@@ -139,7 +139,7 @@ export default function ComunicacaoPage() {
             </div>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.titulo} className="flex-1 bg-purple-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50">Submeter</button>
+              <button onClick={salvar} disabled={!form.titulo || !form.prazo} className="flex-1 bg-purple-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50">Submeter</button>
             </div>
           </div>
         </div>
