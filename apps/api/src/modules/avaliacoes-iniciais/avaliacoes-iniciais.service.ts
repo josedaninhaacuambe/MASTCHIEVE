@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma/prisma.service';
 
 @Injectable()
@@ -29,8 +29,10 @@ export class AvaliacoesIniciaisService {
     });
   }
 
-  create(data: any, instrutorId: string) {
-    return this.prisma.avaliacaoInicial.create({ data: { ...data, instrutorId } });
+  async create(data: any, userId: string) {
+    const instructor = await this.prisma.instructor.findUnique({ where: { userId } });
+    if (!instructor) throw new BadRequestException('Utilizador não tem perfil de instrutor');
+    return this.prisma.avaliacaoInicial.create({ data: { ...data, instrutorId: instructor.id } });
   }
 
   async update(id: string, data: any) {

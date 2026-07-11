@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma/prisma.service';
 
 const SEED_PROTOCOLOS = [
@@ -305,7 +305,7 @@ export class ProtocolosService {
       _count: { id: true },
       where: { protocoloId: { not: null } },
     });
-    const map = new Map(incidentesPorProtocolo.map((r) => [r.protocoloId, r._count.id]));
+    const map = new Map(incidentesPorProtocolo.map((r) => [r.protocoloId as string, r._count.id]));
     return protocolos.map((p) => ({ ...p, incidentesCount: map.get(p.id) || 0 }));
   }
 
@@ -320,11 +320,13 @@ export class ProtocolosService {
   }
 
   // Checklists
-  async createChecklist(data: any, instrutorId: string) {
+  async createChecklist(data: any, userId: string) {
+    const instructor = await this.prisma.instructor.findUnique({ where: { userId } });
+    if (!instructor) throw new BadRequestException('Utilizador não tem perfil de instrutor');
     const protocolo = await this.findOne(data.protocoloId);
     const items = JSON.parse(protocolo.checklistItems as string).map((texto: string) => ({ texto, checked: false }));
     return this.prisma.checklistProtocolo.create({
-      data: { ...data, instrutorId, items: JSON.stringify(items) },
+      data: { ...data, instrutorId: instructor.id, items: JSON.stringify(items) },
     });
   }
 

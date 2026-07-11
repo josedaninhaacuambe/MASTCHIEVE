@@ -37,11 +37,13 @@ export class IncidentesService {
   }
 
   create(data: any, userId: string) {
+    const { protocoloId, dimensoes, ...rest } = data;
     return this.prisma.incidente.create({
       data: {
-        ...data,
+        ...rest,
         reportadoPorId: userId,
-        dimensoes: data.dimensoes ? JSON.stringify(data.dimensoes) : '[]',
+        dimensoes: Array.isArray(dimensoes) ? JSON.stringify(dimensoes) : (dimensoes || '[]'),
+        ...(protocoloId ? { protocoloId } : {}),
       },
     });
   }

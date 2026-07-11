@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Plus, ClipboardList, Star, User } from 'lucide-react';
+import { Plus, ClipboardList, Star, User, AlertTriangle } from 'lucide-react';
 
 const CRITERIOS = [
   { key: 'experienciaAquatica', label: 'Experiência Aquática' },
@@ -78,6 +78,14 @@ export default function AvaliacoesIniciaisPage() {
         <button onClick={openForm} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
           <Plus className="w-4 h-4" /> Nova Avaliação
         </button>
+      </div>
+
+      {/* Protocolo #4 — aviso obrigatório de avaliação individual */}
+      <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-start gap-3">
+        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-amber-700">
+          <strong>Protocolo #4 — Diagnóstico Individual:</strong> cada avaliação deve ser criada separadamente, atleta a atleta. Classificar vários atletas ao mesmo tempo com a mesma nota é um risco de segurança pedagógica identificado no Documento Consolidado de Protocolos de Segurança (Jun/2026). O sistema exige seleção individual de atleta por registo.
+        </p>
       </div>
 
       {loading ? <div className="text-center py-12 text-gray-400">A carregar...</div> : (
