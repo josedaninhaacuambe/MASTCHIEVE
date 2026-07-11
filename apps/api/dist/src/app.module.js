@@ -19,6 +19,8 @@ const avaliacoes_iniciais_module_1 = require("./modules/avaliacoes-iniciais/aval
 const eventos_module_1 = require("./modules/eventos/eventos.module");
 const competicoes_module_1 = require("./modules/competicoes/competicoes.module");
 const comunicacao_module_1 = require("./modules/comunicacao/comunicacao.module");
+const protocolos_module_1 = require("./modules/protocolos/protocolos.module");
+const seguranca_module_1 = require("./modules/seguranca/seguranca.module");
 const documents_module_1 = require("./modules/documents/documents.module");
 const config_1 = require("@nestjs/config");
 const throttler_1 = require("@nestjs/throttler");
@@ -106,6 +108,8 @@ exports.AppModule = AppModule = __decorate([
             eventos_module_1.EventosModule,
             competicoes_module_1.CompeticoesModule,
             comunicacao_module_1.ComunicacaoModule,
+            protocolos_module_1.ProtocolosModule,
+            seguranca_module_1.SegurancaModule,
         ],
     })
 ], AppModule);

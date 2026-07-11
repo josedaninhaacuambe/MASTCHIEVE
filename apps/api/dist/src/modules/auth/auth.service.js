@@ -92,6 +92,8 @@ let AuthService = class AuthService {
         return tokens;
     }
     async logout(userId) {
+        if (!userId)
+            return;
         await this.prisma.user.update({
             where: { id: userId },
             data: { refreshToken: null },

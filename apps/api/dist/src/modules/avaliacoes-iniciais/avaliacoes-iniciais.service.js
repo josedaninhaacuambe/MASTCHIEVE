@@ -39,8 +39,11 @@ let AvaliacoesIniciaisService = class AvaliacoesIniciaisService {
             include: { faseRecomendada: true, instrutor: { select: { firstName: true, lastName: true } } },
         });
     }
-    create(data, instrutorId) {
-        return this.prisma.avaliacaoInicial.create({ data: { ...data, instrutorId } });
+    async create(data, userId) {
+        const instructor = await this.prisma.instructor.findUnique({ where: { userId } });
+        if (!instructor)
+            throw new common_1.BadRequestException('Utilizador não tem perfil de instrutor');
+        return this.prisma.avaliacaoInicial.create({ data: { ...data, instrutorId: instructor.id } });
     }
     async update(id, data) {
         await this.findOne(id);

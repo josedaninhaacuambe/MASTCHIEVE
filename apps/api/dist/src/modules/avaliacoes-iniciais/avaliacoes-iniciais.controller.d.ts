@@ -140,7 +140,7 @@ export declare class AvaliacoesIniciaisController {
         aprovadoPorId: string | null;
         aprovadoEm: Date | null;
     }>;
-    create(body: any, req: any): import(".prisma/client").Prisma.Prisma__AvaliacaoInicialClient<{
+    create(body: any, req: any): Promise<{
         id: string;
         createdAt: Date;
         data: Date;
@@ -155,7 +155,7 @@ export declare class AvaliacoesIniciaisController {
         faseRecomendadaId: string | null;
         aprovadoPorId: string | null;
         aprovadoEm: Date | null;
-    }, never, import("@prisma/client/runtime/library").DefaultArgs, import(".prisma/client").Prisma.PrismaClientOptions>;
+    }>;
     update(id: string, body: any): Promise<{
         id: string;
         createdAt: Date;

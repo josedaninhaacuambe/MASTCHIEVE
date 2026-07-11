@@ -27,6 +27,9 @@ let IncidentesController = class IncidentesController {
     findOne(id) { return this.svc.findOne(id); }
     create(body, req) { return this.svc.create(body, req.user.userId); }
     update(id, body) { return this.svc.update(id, body); }
+    relampago(req, unidadeId) {
+        return this.svc.createRelampago(req.user.userId, unidadeId);
+    }
 };
 exports.IncidentesController = IncidentesController;
 __decorate([
@@ -70,6 +73,16 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], IncidentesController.prototype, "update", null);
+__decorate([
+    (0, common_1.Post)('relampago'),
+    (0, swagger_1.ApiOperation)({ summary: 'Protocolo Relâmpago Zero — acionamento imediato sem passo de aprovação' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Body)('unidadeId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], IncidentesController.prototype, "relampago", null);
 exports.IncidentesController = IncidentesController = __decorate([
     (0, swagger_1.ApiTags)('incidentes'),
     (0, swagger_1.ApiBearerAuth)(),
