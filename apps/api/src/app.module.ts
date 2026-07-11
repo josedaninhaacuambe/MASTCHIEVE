@@ -10,6 +10,8 @@ import { AvaliacoesIniciaisModule } from './modules/avaliacoes-iniciais/avaliaco
 import { EventosModule } from './modules/eventos/eventos.module';
 import { CompeticoesModule } from './modules/competicoes/competicoes.module';
 import { ComunicacaoModule } from './modules/comunicacao/comunicacao.module';
+import { ProtocolosModule } from './modules/protocolos/protocolos.module';
+import { SegurancaModule } from './modules/seguranca/seguranca.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -98,6 +100,8 @@ import { TrainingPlansModule } from './modules/training-plans/training-plans.mod
     EventosModule,
     CompeticoesModule,
     ComunicacaoModule,
+    ProtocolosModule,
+    SegurancaModule,
   ],
 })
 export class AppModule {}

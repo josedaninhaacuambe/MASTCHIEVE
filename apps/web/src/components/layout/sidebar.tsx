@@ -10,7 +10,7 @@ import {
   ClipboardList, MessageSquare, CreditCard, BarChart3,
   LogOut, Waves, Sparkles, X, Brain, TrendingUp, ShieldCheck,
   Smartphone, Download, Sun, Moon, Dumbbell, Heart, Globe, UserCircle, FileText, ScrollText,
-  AlertTriangle, Fish, Award, Calendar, Trophy, Megaphone, Building2,
+  AlertTriangle, Fish, Award, Calendar, Trophy, Megaphone, Building2, Shield, Zap,
 } from 'lucide-react';
 
 const navItems = [
@@ -32,7 +32,9 @@ const navItems = [
   { href: '/avaliacoes-iniciais', icon: ClipboardList,  label: 'Avaliações Iniciais',    roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
   { href: '/fases',             icon: Fish,             label: 'Fases Pedagógicas',      roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
   { href: '/certificados',      icon: Award,            label: 'Certificados',           roles: ['ADMIN', 'MANAGER'] },
-  { href: '/incidentes',        icon: AlertTriangle,    label: 'Incidentes',             roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
+  { href: '/protocolos',        icon: Shield,           label: 'Protocolos Segurança',   roles: ['ADMIN', 'INSTRUCTOR'] },
+  { href: '/seguranca',         icon: Zap,              label: 'Dashboard Segurança',    roles: ['ADMIN'] },
+  { href: '/incidentes',        icon: AlertTriangle,    label: 'Incidentes',             roles: ['ADMIN', 'INSTRUCTOR'] },
   { href: '/eventos',           icon: Calendar,         label: 'Eventos / Open Days',    roles: ['ADMIN', 'MANAGER'] },
   { href: '/competicoes',       icon: Trophy,           label: 'Competições',            roles: ['ADMIN', 'MANAGER'] },
   { href: '/comunicacao',       icon: Megaphone,        label: 'Comunicação',            roles: ['ADMIN', 'MANAGER'] },

@@ -76,6 +76,7 @@ model Instructor {
   trainingPlans   TrainingPlan[]
   avaliacoesIniciais AvaliacaoInicial[]
   unidades        InstructorUnidade[]
+  checklistsProtocolo ChecklistProtocolo[]
 
   @@index([isActive])
   @@map("instructors")
@@ -373,6 +374,7 @@ model ClassSession {
   class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
   attendances Attendance[]
   feedbacks   Feedback[]
+  checklists  ChecklistProtocolo[]
 
   @@index([classId])
   @@map("class_sessions")
@@ -557,6 +559,55 @@ model Payment {
   @@map("payments")
 }
 
+// ─── Protocolos de Segurança (SOP 09 — Documento Consolidado Jun/2026) ────────
+
+model Protocolo {
+  id               String   @id @default(uuid())
+  ranking          Int      @unique  // 1–10 (prioridade oficial)
+  nome             String
+  dimensao         String   // FISICA|OPERACIONAL|EMOCIONAL|PEDAGOGICA|GESTAO
+  prioridade       String   // CRITICO|MUITO_ALTO|ALTO|ESTRUTURANTE
+  justificacao     String   @db.Text
+  objetivo         String   @db.Text
+  momentoAplicacao String   @db.Text
+  responsavel      String
+  procedimento     String   @db.Text
+  checklistItems   String   @default("[]") @db.Text  // JSON string[]
+  sinaisAlerta     String   @default("[]") @db.Text  // JSON string[]
+  acaoFalha        String   @db.Text
+  isRelampago      Boolean  @default(false)           // true só no Protocolo 1
+  isAtivo          Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  incidentes Incidente[]
+  checklists ChecklistProtocolo[]
+
+  @@index([ranking])
+  @@index([dimensao])
+  @@map("protocolos")
+}
+
+model ChecklistProtocolo {
+  id          String    @id @default(uuid())
+  protocoloId String
+  sessionId   String?
+  instrutorId String
+  items       String    @db.Text  // JSON [{texto, checked}]
+  completado  Boolean   @default(false)
+  data        DateTime  @default(now())
+  observacoes String?   @db.Text
+  createdAt   DateTime  @default(now())
+
+  protocolo Protocolo    @relation(fields: [protocoloId], references: [id])
+  session   ClassSession? @relation(fields: [sessionId], references: [id])
+  instrutor Instructor   @relation(fields: [instrutorId], references: [id])
+
+  @@index([protocoloId])
+  @@index([instrutorId])
+  @@map("checklists_protocolo")
+}
+
 // ─── Gestão de Incidentes e Segurança (SOP 09) ───────────────────────────────
 
 model Incidente {
@@ -564,6 +615,11 @@ model Incidente {
   unidadeId        String?
   data             DateTime  @default(now())
   tipo             String    // ACIDENTE_MENOR|ACIDENTE_GRAVE|NEAR_MISS|COMPORTAMENTO|EQUIPAMENTO|INSTALACOES|OUTRO
+  tipoOcorrencia   String    @default("INCIDENTE_CONFIRMADO") // INCIDENTE_CONFIRMADO|QUASE_INCIDENTE
+  dimensoes        String    @default("[]") @db.Text  // JSON: EMOCIONAL|OPERACIONAL|FISICA|PEDAGOGICA
+  protocoloId      String?
+  isRelampago      Boolean   @default(false)
+  escalado         Boolean   @default(false)
   descricao        String    @db.Text
   envolvidos       String    @default("[]") @db.Text // JSON
   acaoImediata     String    @db.Text
@@ -575,11 +631,14 @@ model Incidente {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  unidade      Unidade?  @relation(fields: [unidadeId], references: [id])
-  reportadoPor User      @relation("IncidenteReportado", fields: [reportadoPorId], references: [id])
+  unidade      Unidade?   @relation(fields: [unidadeId], references: [id])
+  reportadoPor User       @relation("IncidenteReportado", fields: [reportadoPorId], references: [id])
+  protocolo    Protocolo? @relation(fields: [protocoloId], references: [id])
 
   @@index([estado])
   @@index([unidadeId])
+  @@index([tipoOcorrencia])
+  @@index([protocoloId])
   @@map("incidentes")
 }
 
