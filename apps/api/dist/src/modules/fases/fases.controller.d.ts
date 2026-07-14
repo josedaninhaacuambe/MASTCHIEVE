@@ -12,6 +12,8 @@ export declare class FasesController {
         ordem: number;
         animal: string;
         certificacao: string;
+        foco: string | null;
+        escala: string;
         criterios: string;
         assiduidade: number;
     }[]>;
@@ -25,6 +27,8 @@ export declare class FasesController {
         ordem: number;
         animal: string;
         certificacao: string;
+        foco: string | null;
+        escala: string;
         criterios: string;
         assiduidade: number;
     }[]>;
@@ -84,6 +88,8 @@ export declare class FasesController {
         ordem: number;
         animal: string;
         certificacao: string;
+        foco: string | null;
+        escala: string;
         criterios: string;
         assiduidade: number;
     }>;
@@ -99,6 +105,8 @@ export declare class FasesController {
                 ordem: number;
                 animal: string;
                 certificacao: string;
+                foco: string | null;
+                escala: string;
                 criterios: string;
                 assiduidade: number;
             };
@@ -124,6 +132,8 @@ export declare class FasesController {
         ordem: number;
         animal: string;
         certificacao: string;
+        foco: string | null;
+        escala: string;
         criterios: string;
         assiduidade: number;
     }[]>;

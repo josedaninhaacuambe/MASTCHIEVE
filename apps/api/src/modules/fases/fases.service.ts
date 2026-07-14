@@ -2,15 +2,132 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma/prisma.service';
 
 const FASES_DEFAULT = [
-  { nivel: 'AMA', ordem: 1, nome: 'Estrela-do-Mar', animal: 'estrela-do-mar', certificacao: 'BRONZE', descricao: 'Adaptação básica ao meio aquático', criterios: JSON.stringify(['Flutuação independente','Submersão voluntária','Deslocamento básico','Respiração controlada']), assiduidade: 80 },
-  { nivel: 'AMA', ordem: 2, nome: 'Cavalo-Marinho', animal: 'cavalo-marinho', certificacao: 'BRONZE', descricao: 'Confiança e autonomia na água', criterios: JSON.stringify(['Propulsão autónoma','Controlo respiratório','Introdução ao crol','Equilíbrio aquático']), assiduidade: 80 },
-  { nivel: 'AMA', ordem: 3, nome: 'Polvo', animal: 'polvo', certificacao: 'BRONZE', descricao: 'Domínio completo do nível inicial', criterios: JSON.stringify(['Crol 15m','Costas básico','Viragem simples','Saída da piscina autonomamente']), assiduidade: 80 },
-  { nivel: 'INTERMEDIARIO', ordem: 4, nome: 'Tartaruga', animal: 'tartaruga', certificacao: 'PRATA', descricao: 'Desenvolvimento técnico dos estilos', criterios: JSON.stringify(['Crol técnico 25m','Costas coordenado','Introdução ao bruços','Viragem rolamento']), assiduidade: 85 },
-  { nivel: 'INTERMEDIARIO', ordem: 5, nome: 'Dugongo', animal: 'dugongo', certificacao: 'PRATA', descricao: 'Consolidação dos 4 estilos', criterios: JSON.stringify(['4 estilos completos','Resistência 100m','Viragens técnicas','Saída de bloco']), assiduidade: 85 },
-  { nivel: 'INTERMEDIARIO', ordem: 6, nome: 'Crocodilo', animal: 'crocodilo', certificacao: 'PRATA', descricao: 'Eficiência e ritmo', criterios: JSON.stringify(['Pacing consistente','Mariposa básico','Viragem mariposa/bruços','200m contínuos']), assiduidade: 85 },
-  { nivel: 'AVANCADO', ordem: 7, nome: 'Tubarão', animal: 'tubarao', certificacao: 'OURO', descricao: 'Alto desempenho técnico', criterios: JSON.stringify(['Mariposa técnico','Saída competitiva','Viragens sub 1s','400m resistência']), assiduidade: 90 },
-  { nivel: 'AVANCADO', ordem: 8, nome: 'Marlim', animal: 'marlim', certificacao: 'OURO', descricao: 'Preparação competitiva', criterios: JSON.stringify(['Tempos de referência','Estratégia de prova','Treino de força','Análise de vídeo']), assiduidade: 90 },
-  { nivel: 'AVANCADO', ordem: 9, nome: 'Golfinho', animal: 'golfinho', certificacao: 'OURO', descricao: 'Elite — pronto para competição oficial', criterios: JSON.stringify(['Tempos competitivos','Consistência técnica','Preparação mental','Liderança aquática']), assiduidade: 92 },
+  {
+    nivel: 'AMA', ordem: 1, nome: 'Estrela-do-Mar', animal: 'estrela-do-mar', certificacao: 'BRONZE',
+    descricao: 'Conforto no meio aquático, respiração ventral e primeiros alinhamentos',
+    foco: 'Desenvolver conforto no meio aquático, controlar a respiração ventral e realizar primeiros deslizes alinhados com apoio',
+    escala: JSON.stringify(['Não realiza', 'Com apoio', 'Autónomo']),
+    criterios: JSON.stringify([
+      'Demonstra conforto na água',
+      'Respiração ventral (exala dentro de água)',
+      'Flutuação ventral com apoio',
+      'Flutuação dorsal com apoio',
+      'Deslize ventral curto alinhado',
+    ]),
+    assiduidade: 80,
+  },
+  {
+    nivel: 'AMA', ordem: 2, nome: 'Cavalo-Marinho', animal: 'cavalo-marinho', certificacao: 'BRONZE',
+    descricao: 'Flutuação autónoma e alinhamento dorsal/ventral',
+    foco: 'Desenvolver flutuação autónoma nas posições ventral, dorsal e vertical, e realizar transições com apoio reduzido',
+    escala: JSON.stringify(['Não realiza', 'Parcial', 'Autónomo']),
+    criterios: JSON.stringify([
+      'Flutuação ventral autónoma por 10 segundos',
+      'Flutuação dorsal autónoma por 10 segundos',
+      'Flutuação vertical por 30 segundos',
+      'Deslize ventral alinhado',
+      'Deslize dorsal alinhado',
+      'Transição ventral ↔ dorsal',
+    ]),
+    assiduidade: 80,
+  },
+  {
+    nivel: 'AMA', ordem: 3, nome: 'Polvo', animal: 'polvo', certificacao: 'BRONZE',
+    descricao: 'Controlo respiratório, autonomia e transições sem apoio',
+    foco: 'Respiração ventral autónoma, flutuação independente nas 3 posições e transições sem apoio; conhecer regras básicas de segurança',
+    escala: JSON.stringify(['Não realiza', 'Parcial', 'Autónomo']),
+    criterios: JSON.stringify([
+      'Respiração ventral controlada',
+      'Flutuação ventral e dorsal independente (20s cada)',
+      'Flutuação vertical independente (60s)',
+      'Deslize com mudança ventral ↔ dorsal',
+      'Mantém alinhamento corporal básico',
+      'Conhece regras básicas de segurança',
+    ]),
+    assiduidade: 80,
+  },
+  {
+    nivel: 'INTERMEDIARIO', ordem: 4, nome: 'Tartaruga', animal: 'tartaruga', certificacao: 'PRATA',
+    descricao: 'Consciência corporal e deslocamento alinhado',
+    foco: 'Desenvolver consciência espacial, executar deslocamento hidrodinâmico ventral e dorsal, e introduzir respiração lateral',
+    escala: JSON.stringify(['Insuficiente', 'Satisfatório', 'Bom']),
+    criterios: JSON.stringify([
+      'Respiração ventral eficaz',
+      'Introdução à respiração lateral',
+      'Deslocamento ventral alinhado',
+      'Deslocamento dorsal alinhado',
+      'Pernada alternada contínua',
+    ]),
+    assiduidade: 85,
+  },
+  {
+    nivel: 'INTERMEDIARIO', ordem: 5, nome: 'Dugongo', animal: 'dugongo', certificacao: 'PRATA',
+    descricao: 'Sustentação, propulsão e direção com sculling',
+    foco: 'Respiração lateral coordenada, sculling para sustentação e propulsão, deslocamento lateral e introdução às pernadas simétricas',
+    escala: JSON.stringify(['Insuficiente', 'Satisfatório', 'Bom']),
+    criterios: JSON.stringify([
+      'Respiração lateral coordenada',
+      'Sculling – sustentação',
+      'Sculling – propulsão',
+      'Deslocamento lateral',
+      'Pernada simétrica (bruços)',
+      'Introdução à pernada mariposa',
+    ]),
+    assiduidade: 85,
+  },
+  {
+    nivel: 'INTERMEDIARIO', ordem: 6, nome: 'Crocodilo', animal: 'crocodilo', certificacao: 'PRATA',
+    descricao: 'Controlo direcional e eficiência corporal',
+    foco: 'Controlar o eixo corporal, deslocar-se em qualquer posição e direção, e alternar pernadas alternadas e simétricas com resistência crescente',
+    escala: JSON.stringify(['Insuficiente', 'Satisfatório', 'Bom', 'Muito Bom']),
+    criterios: JSON.stringify([
+      'Controla eixo corporal',
+      'Desloca-se em qualquer direção',
+      'Alterna posições com controlo',
+      'Pernada alternada e simétrica eficiente',
+      'Conhece regras de segurança intermédia',
+    ]),
+    assiduidade: 85,
+  },
+  {
+    nivel: 'AVANCADO', ordem: 7, nome: 'Tubarão', animal: 'tubarao', certificacao: 'OURO',
+    descricao: 'Fundamentos técnicos de nado',
+    foco: 'Desenvolver fundamentos das técnicas de nado: posição corporal hidrodinâmica, propulsão eficiente de pernas e introdução à propulsão de braços',
+    escala: JSON.stringify(['Insuficiente', 'Satisfatório', 'Bom']),
+    criterios: JSON.stringify([
+      'Posição corporal hidrodinâmica',
+      'Propulsão de pernas eficiente',
+      'Introdução à propulsão de braços',
+      'Coordenação básica braços/pernas',
+    ]),
+    assiduidade: 90,
+  },
+  {
+    nivel: 'AVANCADO', ordem: 8, nome: 'Marlim', animal: 'marlim', certificacao: 'OURO',
+    descricao: 'Coordenação técnica consolidada',
+    foco: 'Propulsão técnica consolidada, coordenação completa dos estilos e aplicação técnica em séries combinadas com respiração integrada',
+    escala: JSON.stringify(['Insuficiente', 'Satisfatório', 'Bom', 'Excelente']),
+    criterios: JSON.stringify([
+      'Propulsão eficiente braços e pernas',
+      'Coordenação completa dos estilos',
+      'Respiração integrada ao movimento',
+      'Mantém alinhamento sob esforço',
+    ]),
+    assiduidade: 90,
+  },
+  {
+    nivel: 'AVANCADO', ordem: 9, nome: 'Golfinho', animal: 'golfinho', certificacao: 'OURO',
+    descricao: 'Eficiência máxima e resistência',
+    foco: 'Eficiência máxima de propulsão, alinhamento corporal em fadiga e aplicação técnica com resistência prolongada em todos os estilos',
+    escala: JSON.stringify(['Insuficiente', 'Satisfatório', 'Bom', 'Excelente']),
+    criterios: JSON.stringify([
+      'Coordenação avançada',
+      'Eficiência técnica em todos os estilos',
+      'Mantém alinhamento em fadiga',
+      'Resistência e continuidade de nado',
+    ]),
+    assiduidade: 92,
+  },
 ];
 
 @Injectable()
@@ -27,7 +144,15 @@ export class FasesService {
     for (const f of FASES_DEFAULT) {
       await this.prisma.faseProgressao.upsert({
         where: { nivel_ordem: { nivel: f.nivel, ordem: f.ordem } },
-        update: {}, create: f,
+        update: {
+          nome: f.nome,
+          descricao: f.descricao,
+          foco: f.foco,
+          escala: f.escala,
+          criterios: f.criterios,
+          assiduidade: f.assiduidade,
+        },
+        create: f,
       });
     }
     return this.prisma.faseProgressao.findMany({ orderBy: { ordem: 'asc' } });

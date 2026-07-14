@@ -8,8 +8,175 @@ import { getInitials, formatDate, cn } from '@/lib/utils';
 import {
   Dumbbell, Plus, X, Search, Brain, Target, ChevronDown, ChevronUp,
   Calendar, Clock, RefreshCw, CheckCircle, Loader2, Sparkles,
-  Users, BookOpen, Star, Zap,
+  Users, BookOpen, Star, Zap, LayoutGrid, Fish,
 } from 'lucide-react';
+
+// ─── Templates de Plano de Aula (Padrão por Módulo) ─────────────────────────
+
+const PARTES_AULA = ['Aquecimento em Seco', 'Aquecimento H₂O', 'Parte Principal', 'Habilidades / Segurança', 'Relaxamento'];
+
+const TEMPLATES_MODULO = [
+  {
+    nivel: 'AMA',
+    nome: 'AMA — Adaptação ao Meio Aquático',
+    fases: 'Estrela-do-Mar · Cavalo-Marinho · Polvo',
+    objetivo: 'Desenvolver conforto no meio aquático, controlo respiratório, flutuação e primeiros deslizes',
+    competencias: [
+      'Respiração ventral com maior controlo',
+      'Flutuação ventral, dorsal e vertical',
+      'Deslizes em alinhamento ventral e dorsal',
+      'Transição ventral ↔ dorsal',
+      'Flutuação vertical independente',
+    ],
+    cor: 'from-blue-500 to-cyan-500',
+    bg: 'bg-blue-50',
+    border: 'border-blue-200',
+    text: 'text-blue-700',
+  },
+  {
+    nivel: 'INTERMEDIARIO',
+    nome: 'Intermédio — Autonomia Aquática e Eficiência Corporal',
+    fases: 'Tartaruga · Dugongo · Crocodilo',
+    objetivo: 'Desenvolver consciência espacial, deslocamento hidrodinâmico, sculling e pernadas simétricas',
+    competencias: [
+      'Respiração ventral e lateral coordenada',
+      'Sculling – sustentação e propulsão',
+      'Deslocamento ventral, dorsal e lateral em alinhamento',
+      'Pernada contínua alternada',
+      'Introdução às pernadas simétricas (bruços e mariposa)',
+    ],
+    cor: 'from-purple-500 to-violet-500',
+    bg: 'bg-purple-50',
+    border: 'border-purple-200',
+    text: 'text-purple-700',
+  },
+  {
+    nivel: 'AVANCADO',
+    nome: 'Avançado — Eficiência Técnica de Nado',
+    fases: 'Tubarão · Marlim · Golfinho',
+    objetivo: 'Desenvolver fundamentos das técnicas de nado: posição do corpo, respiração, propulsão e coordenação motora',
+    competencias: [
+      'Posição hidrodinâmica aplicada às técnicas de nado',
+      'Técnicas alternadas: origem da pernada & pernada contínua',
+      'Técnicas simultâneas: movimentos simétricos',
+      'Mergulhos e viragens',
+      'Respiração lateral e ventral aplicada ao nado',
+      'Sculling aplicado às braçadas',
+    ],
+    cor: 'from-amber-500 to-orange-500',
+    bg: 'bg-amber-50',
+    border: 'border-amber-200',
+    text: 'text-amber-700',
+  },
+];
+
+const DIAS_SEMANA = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
+
+function TemplatesModulo() {
+  const [openModulo, setOpenModulo] = useState<string | null>('AMA');
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
+        <strong>Plano de Aula Padrão</strong> — modelo base por módulo. O instrutor preenche o "Objetivo da Semana" e adapta
+        os exercícios de cada parte. Atletas com limitações físicas ou necessidades especiais recebem adaptações individuais.
+        A IA distribui o plano conforme o pacote de frequência contratado (2, 3 ou 6 dias/semana).
+      </div>
+
+      {TEMPLATES_MODULO.map(tmpl => (
+        <div key={tmpl.nivel} className={`rounded-2xl border ${tmpl.border} overflow-hidden`}>
+          <button
+            onClick={() => setOpenModulo(openModulo === tmpl.nivel ? null : tmpl.nivel)}
+            className={`w-full flex items-center justify-between p-5 text-left ${tmpl.bg} hover:opacity-90 transition`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${tmpl.cor} flex items-center justify-center flex-shrink-0`}>
+                <Fish className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className={`text-sm font-bold ${tmpl.text}`}>{tmpl.nome}</p>
+                <p className="text-xs text-gray-500 mt-0.5">Fases: {tmpl.fases}</p>
+              </div>
+            </div>
+            {openModulo === tmpl.nivel
+              ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+          </button>
+
+          {openModulo === tmpl.nivel && (
+            <div className="p-5 space-y-5 bg-white">
+              {/* Module info */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Objetivo do Módulo</p>
+                  <p className="text-sm text-gray-700">{tmpl.objetivo}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Competências-chave</p>
+                  <ul className="space-y-1">
+                    {tmpl.competencias.map((c, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-gray-600">
+                        <div className={`w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 bg-gradient-to-br ${tmpl.cor}`} />
+                        {c}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Objetivo da Semana */}
+              <div className={`${tmpl.bg} border ${tmpl.border} rounded-xl p-3`}>
+                <p className={`text-xs font-semibold ${tmpl.text} mb-1`}>Objetivo da Semana (preenchido pelo instrutor)</p>
+                <div className="h-6 border-b border-dashed border-gray-300 w-full" />
+              </div>
+
+              {/* Weekly grid */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Grelha Semanal</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="border border-gray-200 px-3 py-2 text-left font-semibold text-gray-600 w-40">Parte da Aula</th>
+                        {DIAS_SEMANA.map(d => (
+                          <th key={d} className="border border-gray-200 px-3 py-2 text-center font-semibold text-gray-600">{d}</th>
+                        ))}
+                        <th className="border border-gray-200 px-3 py-2 text-center font-semibold text-gray-600 w-16">Tempo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {PARTES_AULA.map((parte, i) => (
+                        <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                          <td className="border border-gray-200 px-3 py-3 font-medium text-gray-700 align-top">{parte}</td>
+                          {DIAS_SEMANA.map(d => (
+                            <td key={d} className="border border-gray-200 px-2 py-3 text-gray-300 text-center align-top">
+                              <span className="text-[10px]">— exercício —</span>
+                            </td>
+                          ))}
+                          <td className="border border-gray-200 px-2 py-3 text-gray-300 text-center">—</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-gray-100 font-semibold">
+                        <td className="border border-gray-200 px-3 py-2 text-gray-700">Total</td>
+                        {DIAS_SEMANA.map(d => (
+                          <td key={d} className="border border-gray-200 px-2 py-2 text-center text-gray-400">—</td>
+                        ))}
+                        <td className="border border-gray-200 px-2 py-2 text-center text-gray-400">50 min</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-400">
+                Rodapé: Mastchieve Serviços, EI · Rua do Capelo, 109, 3º andar · +258 84 1058312 · mastchieve@gmail.com · NUIT: 105522126
+              </p>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Exercise {
@@ -314,6 +481,7 @@ function PlanCard({ plan, onClick }: { plan: TrainingPlan; onClick: () => void }
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TrainingPlansPage() {
   const qc = useQueryClient();
+  const [tab, setTab] = useState<'plans' | 'templates'>('plans');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'ai'>('all');
   const [showGenerate, setShowGenerate] = useState(false);
@@ -350,81 +518,103 @@ export default function TrainingPlansPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Planos de Treino</h1>
-          <p className="text-gray-500 text-sm mt-1">Planos personalizados gerados por IA para cada atleta</p>
+          <p className="text-gray-500 text-sm mt-1">Planos por atleta gerados por IA + templates de plano de aula por módulo</p>
         </div>
-        <button onClick={() => setShowGenerate(true)}
-          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition">
-          <Sparkles className="w-4 h-4" /> Gerar com IA
+        {tab === 'plans' && (
+          <button onClick={() => setShowGenerate(true)}
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition">
+            <Sparkles className="w-4 h-4" /> Gerar com IA
+          </button>
+        )}
+      </div>
+
+      {/* Tab toggle */}
+      <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+        <button onClick={() => setTab('plans')}
+          className={cn('flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition',
+            tab === 'plans' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
+          <Sparkles className="w-4 h-4" /> Planos por Atleta (IA)
+        </button>
+        <button onClick={() => setTab('templates')}
+          className={cn('flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition',
+            tab === 'templates' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
+          <LayoutGrid className="w-4 h-4" /> Templates por Módulo
         </button>
       </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { icon: Dumbbell, label: 'Total de planos', value: total, color: 'blue' },
-          { icon: CheckCircle, label: 'Planos ativos', value: activeCount, color: 'green' },
-          { icon: Sparkles, label: 'Gerados por IA', value: aiCount, color: 'violet' },
-        ].map(({ icon: Icon, label, value, color }) => (
-          <div key={label} className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center gap-3">
-            <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center',
-              color === 'blue' ? 'bg-blue-100' : color === 'green' ? 'bg-green-100' : 'bg-violet-100')}>
-              <Icon className={cn('w-5 h-5',
-                color === 'blue' ? 'text-blue-600' : color === 'green' ? 'text-green-600' : 'text-violet-600')} />
-            </div>
-            <div>
-              <div className="text-xl font-bold text-gray-900">
-                {isLoading ? <span className="inline-block w-6 h-4 bg-gray-200 rounded animate-pulse" /> : value}
+      {tab === 'templates' && <TemplatesModulo />}
+
+      {tab === 'plans' && (
+        <>
+          {/* Summary */}
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { icon: Dumbbell, label: 'Total de planos', value: total, color: 'blue' },
+              { icon: CheckCircle, label: 'Planos ativos', value: activeCount, color: 'green' },
+              { icon: Sparkles, label: 'Gerados por IA', value: aiCount, color: 'violet' },
+            ].map(({ icon: Icon, label, value, color }) => (
+              <div key={label} className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center gap-3">
+                <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center',
+                  color === 'blue' ? 'bg-blue-100' : color === 'green' ? 'bg-green-100' : 'bg-violet-100')}>
+                  <Icon className={cn('w-5 h-5',
+                    color === 'blue' ? 'text-blue-600' : color === 'green' ? 'text-green-600' : 'text-violet-600')} />
+                </div>
+                <div>
+                  <div className="text-xl font-bold text-gray-900">
+                    {isLoading ? <span className="inline-block w-6 h-4 bg-gray-200 rounded animate-pulse" /> : value}
+                  </div>
+                  <div className="text-xs text-gray-500">{label}</div>
+                </div>
               </div>
-              <div className="text-xs text-gray-500">{label}</div>
+            ))}
+          </div>
+
+          {/* Filter toolbar */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+              {([['all', 'Todos'], ['active', 'Ativos'], ['ai', 'Gerados por IA']] as const).map(([val, label]) => (
+                <button key={val} onClick={() => setFilter(val)}
+                  className={cn('px-3 py-1.5 rounded-lg text-sm font-medium transition',
+                    filter === val ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
+              <Search className="w-4 h-4 text-gray-400" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar..."
+                className="text-sm bg-transparent outline-none w-36" />
+              {search && <button onClick={() => setSearch('')} className="text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>}
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* Filter toolbar */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
-          {([['all', 'Todos'], ['active', 'Ativos'], ['ai', 'Gerados por IA']] as const).map(([val, label]) => (
-            <button key={val} onClick={() => setFilter(val)}
-              className={cn('px-3 py-1.5 rounded-lg text-sm font-medium transition',
-                filter === val ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
-          <Search className="w-4 h-4 text-gray-400" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar..."
-            className="text-sm bg-transparent outline-none w-36" />
-          {search && <button onClick={() => setSearch('')} className="text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>}
-        </div>
-      </div>
+          {/* Plans Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {isLoading
+              ? Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5 animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-1/3 mb-3" />
+                  <div className="h-5 bg-gray-200 rounded w-3/4 mb-2" />
+                  <div className="h-3 bg-gray-100 rounded w-full" />
+                </div>
+              ))
+              : plans.map((plan) => (
+                <PlanCard key={plan.id} plan={plan} onClick={() => setSelectedPlan(plan)} />
+              ))}
+          </div>
 
-      {/* Plans Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {isLoading
-          ? Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5 animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-1/3 mb-3" />
-              <div className="h-5 bg-gray-200 rounded w-3/4 mb-2" />
-              <div className="h-3 bg-gray-100 rounded w-full" />
+          {!isLoading && plans.length === 0 && (
+            <div className="text-center py-20 text-gray-400">
+              <Dumbbell className="w-14 h-14 mx-auto mb-4 opacity-20" />
+              <p className="text-sm font-medium">Nenhum plano de treino encontrado</p>
+              <p className="text-xs mt-1 mb-4">Gera o primeiro plano personalizado com IA</p>
+              <button onClick={() => setShowGenerate(true)}
+                className="inline-flex items-center gap-2 bg-violet-600 text-white px-4 py-2 rounded-xl text-sm hover:bg-violet-700 transition">
+                <Sparkles className="w-4 h-4" /> Gerar com IA
+              </button>
             </div>
-          ))
-          : plans.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} onClick={() => setSelectedPlan(plan)} />
-          ))}
-      </div>
-
-      {!isLoading && plans.length === 0 && (
-        <div className="text-center py-20 text-gray-400">
-          <Dumbbell className="w-14 h-14 mx-auto mb-4 opacity-20" />
-          <p className="text-sm font-medium">Nenhum plano de treino encontrado</p>
-          <p className="text-xs mt-1 mb-4">Gera o primeiro plano personalizado com IA</p>
-          <button onClick={() => setShowGenerate(true)}
-            className="inline-flex items-center gap-2 bg-violet-600 text-white px-4 py-2 rounded-xl text-sm hover:bg-violet-700 transition">
-            <Sparkles className="w-4 h-4" /> Gerar com IA
-          </button>
-        </div>
+          )}
+        </>
       )}
     </div>
   );

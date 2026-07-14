@@ -238,6 +238,7 @@ model AvaliacaoInicial {
   segurancaAdaptacao    Int       @default(1)  // 1-5
   confortoAgua          Int       @default(1)  // 1-5
   resistenciaBasica     Int       @default(1)  // 1-5
+  criteriosAvaliados    String    @default("[]") @db.Text  // JSON: [{fase,criterio,valor}]
   necessidadesEspeciais String?   @db.Text
   observacoes           String?   @db.Text
   faseRecomendadaId     String?
@@ -262,6 +263,8 @@ model FaseProgressao {
   animal        String
   certificacao  String   // BRONZE | PRATA | OURO
   descricao     String?  @db.Text
+  foco          String?  @db.Text  // foco pedagógico da fase
+  escala        String   @default("[]") @db.Text  // JSON: scale options ex: ["Não realiza","Com apoio","Autónomo"]
   criterios     String   @default("[]") @db.Text // JSON array of criteria
   assiduidade   Int      @default(80) // minimum attendance % required
   isActive      Boolean  @default(true)

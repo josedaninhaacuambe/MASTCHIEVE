@@ -21,6 +21,8 @@ export declare class AvaliacoesIniciaisService {
             ordem: number;
             animal: string;
             certificacao: string;
+            foco: string | null;
+            escala: string;
             criterios: string;
             assiduidade: number;
         };
@@ -35,6 +37,7 @@ export declare class AvaliacoesIniciaisService {
         segurancaAdaptacao: number;
         confortoAgua: number;
         resistenciaBasica: number;
+        criteriosAvaliados: string;
         necessidadesEspeciais: string | null;
         faseRecomendadaId: string | null;
         aprovadoPorId: string | null;
@@ -87,6 +90,8 @@ export declare class AvaliacoesIniciaisService {
             ordem: number;
             animal: string;
             certificacao: string;
+            foco: string | null;
+            escala: string;
             criterios: string;
             assiduidade: number;
         };
@@ -101,6 +106,7 @@ export declare class AvaliacoesIniciaisService {
         segurancaAdaptacao: number;
         confortoAgua: number;
         resistenciaBasica: number;
+        criteriosAvaliados: string;
         necessidadesEspeciais: string | null;
         faseRecomendadaId: string | null;
         aprovadoPorId: string | null;
@@ -121,6 +127,8 @@ export declare class AvaliacoesIniciaisService {
             ordem: number;
             animal: string;
             certificacao: string;
+            foco: string | null;
+            escala: string;
             criterios: string;
             assiduidade: number;
         };
@@ -135,6 +143,7 @@ export declare class AvaliacoesIniciaisService {
         segurancaAdaptacao: number;
         confortoAgua: number;
         resistenciaBasica: number;
+        criteriosAvaliados: string;
         necessidadesEspeciais: string | null;
         faseRecomendadaId: string | null;
         aprovadoPorId: string | null;
@@ -151,6 +160,7 @@ export declare class AvaliacoesIniciaisService {
         segurancaAdaptacao: number;
         confortoAgua: number;
         resistenciaBasica: number;
+        criteriosAvaliados: string;
         necessidadesEspeciais: string | null;
         faseRecomendadaId: string | null;
         aprovadoPorId: string | null;
@@ -167,6 +177,7 @@ export declare class AvaliacoesIniciaisService {
         segurancaAdaptacao: number;
         confortoAgua: number;
         resistenciaBasica: number;
+        criteriosAvaliados: string;
         necessidadesEspeciais: string | null;
         faseRecomendadaId: string | null;
         aprovadoPorId: string | null;
@@ -183,6 +194,7 @@ export declare class AvaliacoesIniciaisService {
         segurancaAdaptacao: number;
         confortoAgua: number;
         resistenciaBasica: number;
+        criteriosAvaliados: string;
         necessidadesEspeciais: string | null;
         faseRecomendadaId: string | null;
         aprovadoPorId: string | null;
