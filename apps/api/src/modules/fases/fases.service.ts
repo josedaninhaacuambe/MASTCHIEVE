@@ -180,4 +180,22 @@ export class FasesService {
       create: { studentId, faseId, ...data },
     });
   }
+
+  async getAlunosPorNivel(nivel: string) {
+    const fases = await this.prisma.faseProgressao.findMany({
+      where: { nivel, isActive: true },
+      orderBy: { ordem: 'asc' },
+      include: {
+        studentFases: {
+          include: {
+            student: {
+              select: { id: true, name: true, dateOfBirth: true, profilePicture: true },
+            },
+          },
+          orderBy: [{ estado: 'asc' }, { updatedAt: 'desc' }],
+        },
+      },
+    });
+    return fases;
+  }
 }
