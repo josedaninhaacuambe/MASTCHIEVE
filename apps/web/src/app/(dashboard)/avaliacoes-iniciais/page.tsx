@@ -1,7 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import Link from 'next/link';
 import { Plus, ClipboardList, User, AlertTriangle, ChevronDown, ChevronRight, CheckSquare, Square, Award } from 'lucide-react';
+
+const NIVEL_ROUTE: Record<string, string> = {
+  AMA: '/ama', INTERMEDIARIO: '/intermediario', AVANCADO: '/avancado',
+};
 
 // ─── Dados reais da Ficha Diagnóstica Mastchieve ─────────────────────────────
 
@@ -183,6 +188,14 @@ function DiagnosticModal({ students, fases, onClose, onSaved }: {
         observacoes: observacoes || undefined,
         experienciaAquatica: 3, segurancaAdaptacao: 3, confortoAgua: 3, resistenciaBasica: 3,
       });
+      // Auto-assign student to the recommended starting phase
+      if (faseRecomendadaDb?.id) {
+        await api.put(`/fases/estudante/${studentId}/fase/${faseRecomendadaDb.id}`, {
+          estado: 'EM_PROGRESSO',
+          iniciadoEm: new Date().toISOString(),
+          notas: JSON.stringify({ criteriosVerificados: [] }),
+        }).catch(() => {});
+      }
       onSaved();
       onClose();
     } finally {
@@ -357,10 +370,16 @@ function AvaliacaoCard({ a }: { a: any }) {
           </div>
 
           {a.faseRecomendada && (
-            <div className="mb-2">
+            <div className="mb-2 flex items-center gap-2 flex-wrap">
               <span className={`text-xs px-2 py-1 rounded-full font-medium ${nivelCfg ? `${nivelCfg.bg} ${nivelCfg.text}` : 'bg-gray-100 text-gray-600'}`}>
                 Entrada: Fase {a.faseRecomendada.ordem} — {a.faseRecomendada.nome}
               </span>
+              <Link
+                href={NIVEL_ROUTE[a.faseRecomendada.nivel] ?? '/fases'}
+                className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline font-medium"
+              >
+                Ver módulo →
+              </Link>
             </div>
           )}
 

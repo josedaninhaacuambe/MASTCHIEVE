@@ -125,6 +125,24 @@ export default function StudentDetailPage() {
     enabled: activeTab === 'Documentos',
   });
 
+  const { data: fasesProgresso } = useQuery({
+    queryKey: ['student-fases', id],
+    queryFn: async () => { const { data } = await api.get(`/fases/estudante/${id}/progresso`); return (data?.data ?? data ?? []) as any[]; },
+    enabled: activeTab === 'Módulos',
+  });
+
+  const NIVEL_GRAD: Record<string, string> = {
+    AMA: 'from-blue-400 to-cyan-500',
+    INTERMEDIARIO: 'from-purple-400 to-violet-500',
+    AVANCADO: 'from-amber-400 to-orange-500',
+  };
+  const NIVEL_ROUTE: Record<string, string> = {
+    AMA: '/ama', INTERMEDIARIO: '/intermediario', AVANCADO: '/avancado',
+  };
+  const NIVEL_CERT: Record<string, string> = {
+    AMA: 'BRONZE', INTERMEDIARIO: 'PRATA', AVANCADO: 'OURO',
+  };
+
   const deletDocMutation = useMutation({
     mutationFn: (docId: string) => api.delete(`/documents/${docId}`),
     onSuccess: () => { toast.success('Documento removido'); qc.invalidateQueries({ queryKey: ['student-docs', id] }); },
@@ -469,31 +487,113 @@ export default function StudentDetailPage() {
 
         {/* MÓDULOS */}
         {activeTab === 'Módulos' && (
-          <div className="space-y-3">
-            {perf?.progress?.map((p: any) => (
-              <div key={p.id} className="bg-white border border-gray-100 rounded-xl p-4 flex items-center gap-4">
-                <div className={cn('w-3 h-3 rounded-full flex-shrink-0', moduleStatusColor[p.status] ?? 'bg-gray-200')} />
-                <div className="flex-1">
-                  <div className="font-medium text-gray-900 text-sm">{p.module?.name}</div>
-                  {p.module?.description && (
-                    <div className="text-xs text-gray-400 mt-0.5">{p.module.description}</div>
-                  )}
+          <div className="space-y-5">
+            {/* ── Progressão Mastchieve (StudentFase) ── */}
+            {fasesProgresso && fasesProgresso.length > 0 && (
+              <div className="bg-white border border-gray-100 rounded-xl p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                    <Waves className="w-4 h-4 text-blue-500" /> Progressão Pedagógica Mastchieve
+                  </h3>
                 </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  {p.score != null && (
-                    <span className="text-sm font-semibold text-gray-900">{p.score}/10</span>
-                  )}
-                  <span className={cn('text-xs px-2.5 py-0.5 rounded-full font-medium',
-                    p.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                    p.status === 'IN_PROGRESS' ? 'bg-mastchieve-100 text-mastchieve-700' :
-                    p.status === 'NEEDS_REVIEW' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-gray-100 text-gray-500')}>
-                    {moduleStatusLabel[p.status] ?? p.status}
-                  </span>
+                <div className="space-y-4">
+                  {(['AMA', 'INTERMEDIARIO', 'AVANCADO'] as const).map(nivel => {
+                    const nivelFases = fasesProgresso.filter((f: any) => f.nivel === nivel);
+                    const totalFases = nivelFases.length;
+                    const concluidos = nivelFases.filter((f: any) => f.progresso?.estado === 'CONCLUIDO').length;
+                    const certCompleto = concluidos === totalFases && totalFases > 0;
+                    return (
+                      <div key={nivel}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-5 h-5 rounded bg-gradient-to-br ${NIVEL_GRAD[nivel]} flex items-center justify-center`}>
+                              <span className="text-white text-[9px] font-bold">{NIVEL_CERT[nivel][0]}</span>
+                            </div>
+                            <span className="text-xs font-semibold text-gray-700">
+                              {nivel === 'AMA' ? 'AMA — Bronze' : nivel === 'INTERMEDIARIO' ? 'Intermédio — Prata' : 'Avançado — Ouro'}
+                            </span>
+                            {certCompleto && (
+                              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">✓ Pronto para certificação</span>
+                            )}
+                          </div>
+                          <Link href={NIVEL_ROUTE[nivel]} className="text-xs text-blue-600 hover:underline font-medium">
+                            Ver módulo →
+                          </Link>
+                        </div>
+                        <div className="space-y-1.5">
+                          {nivelFases.map((f: any) => {
+                            const estado: string = f.progresso?.estado ?? 'NAO_INICIADO';
+                            const notas = (() => { try { return JSON.parse(f.progresso?.notas || '{}'); } catch { return {}; } })();
+                            const verificados: number[] = notas.criteriosVerificados ?? [];
+                            const criterios: string[] = (() => { try { return JSON.parse(f.criterios || '[]'); } catch { return []; } })();
+                            const pct = criterios.length > 0 ? Math.round((verificados.length / criterios.length) * 100) : 0;
+                            return (
+                              <div key={f.id} className={cn('flex items-center gap-3 px-3 py-2 rounded-lg border text-xs',
+                                estado === 'CONCLUIDO' ? 'bg-green-50 border-green-200'
+                                : estado === 'EM_PROGRESSO' ? 'bg-blue-50 border-blue-200'
+                                : 'bg-gray-50 border-gray-200')}>
+                                <div className={`w-6 h-6 rounded-lg bg-gradient-to-br ${NIVEL_GRAD[nivel]} flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0`}>
+                                  {f.ordem}
+                                </div>
+                                <span className="flex-1 font-medium text-gray-800">{f.nome}</span>
+                                {estado === 'EM_PROGRESSO' && criterios.length > 0 && (
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
+                                    </div>
+                                    <span className="text-gray-400 tabular-nums">{verificados.length}/{criterios.length}</span>
+                                  </div>
+                                )}
+                                <span className={cn('px-2 py-0.5 rounded-full font-semibold flex-shrink-0',
+                                  estado === 'CONCLUIDO' ? 'bg-green-100 text-green-700'
+                                  : estado === 'EM_PROGRESSO' ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-gray-100 text-gray-500')}>
+                                  {estado === 'CONCLUIDO' ? 'Concluído' : estado === 'EM_PROGRESSO' ? 'Em progresso' : 'Não iniciado'}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            ))}
-            {!perf?.progress?.length && (
+            )}
+
+            {/* ── Módulos genéricos (swimming modules) ── */}
+            {perf?.progress?.length > 0 && (
+              <div className="bg-white border border-gray-100 rounded-xl p-5">
+                <h3 className="font-semibold text-gray-900 text-sm mb-3">Módulos de Natação</h3>
+                <div className="space-y-2">
+                  {perf.progress.map((p: any) => (
+                    <div key={p.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className={cn('w-3 h-3 rounded-full flex-shrink-0', moduleStatusColor[p.status] ?? 'bg-gray-200')} />
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 text-sm">{p.module?.name}</div>
+                        {p.module?.description && (
+                          <div className="text-xs text-gray-400 mt-0.5">{p.module.description}</div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        {p.score != null && (
+                          <span className="text-sm font-semibold text-gray-900">{p.score}/10</span>
+                        )}
+                        <span className={cn('text-xs px-2.5 py-0.5 rounded-full font-medium',
+                          p.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                          p.status === 'IN_PROGRESS' ? 'bg-mastchieve-100 text-mastchieve-700' :
+                          p.status === 'NEEDS_REVIEW' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-gray-100 text-gray-500')}>
+                          {moduleStatusLabel[p.status] ?? p.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!fasesProgresso?.length && !perf?.progress?.length && (
               <div className="text-center py-12 text-gray-400">
                 <BookOpen className="w-10 h-10 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Sem módulos atribuídos</p>

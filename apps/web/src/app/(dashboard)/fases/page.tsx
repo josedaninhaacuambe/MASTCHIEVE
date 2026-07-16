@@ -1,7 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import Link from 'next/link';
 import { Award, Fish, ChevronDown, ChevronRight } from 'lucide-react';
+
+const NIVEL_ROUTE: Record<string, string> = {
+  AMA: '/ama', INTERMEDIARIO: '/intermediario', AVANCADO: '/avancado',
+};
 
 const NIVEL_CORES: Record<string, string> = {
   AMA:          'from-blue-400 to-cyan-500',
@@ -55,9 +60,21 @@ export default function FasesPage() {
             const fasesNivel = fases.filter((f: any) => f.nivel === nivel).sort((a: any, b: any) => a.ordem - b.ordem);
             return (
               <div key={nivel}>
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r ${NIVEL_CORES[nivel]} text-white font-semibold text-sm mb-4`}>
-                  <Fish className="w-4 h-4" />
-                  {NIVEL_LABELS[nivel]}
+                <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r ${NIVEL_CORES[nivel]} text-white font-semibold text-sm`}>
+                    <Fish className="w-4 h-4" />
+                    {NIVEL_LABELS[nivel]}
+                  </div>
+                  <Link
+                    href={NIVEL_ROUTE[nivel]}
+                    className={`flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl border-2 transition ${
+                      nivel === 'AMA' ? 'border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100'
+                      : nivel === 'INTERMEDIARIO' ? 'border-purple-300 text-purple-700 bg-purple-50 hover:bg-purple-100'
+                      : 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100'
+                    }`}
+                  >
+                    Gerir Módulo <ChevronRight className="w-4 h-4" />
+                  </Link>
                 </div>
 
                 <div className="space-y-3">

@@ -7,7 +7,7 @@ import Link from 'next/link';
 import {
   BookOpen, Users, MessageSquare, Activity, Brain,
   Clock, ChevronRight, AlertCircle, CheckCircle,
-  TrendingUp, Zap, ClipboardList,
+  TrendingUp, Zap, ClipboardList, Fish, Waves,
 } from 'lucide-react';
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
@@ -570,8 +570,8 @@ export default function InstructorPage() {
       </div>
 
       {/* ── QUICK ACTIONS BAR ───────────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <div className="flex items-center gap-2 mb-4">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
+        <div className="flex items-center gap-2">
           <Zap className="w-4 h-4 text-gray-500" />
           <span className="font-bold text-gray-900 text-sm">Acções Rápidas</span>
         </div>
@@ -596,6 +596,35 @@ export default function InstructorPage() {
               </Link>
             );
           })}
+        </div>
+
+        {/* Módulos pedagógicos */}
+        <div>
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Módulos Pedagógicos</p>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Módulo AMA', sub: 'Bronze · 3 fases', icon: Fish,  href: '/ama',           color: 'from-blue-500 to-cyan-500' },
+              { label: 'Intermédio',  sub: 'Prata · 3 fases',  icon: Waves, href: '/intermediario', color: 'from-purple-500 to-violet-600' },
+              { label: 'Avançado',    sub: 'Ouro · 3 fases',   icon: Zap,   href: '/avancado',      color: 'from-amber-500 to-orange-500' },
+            ].map((action) => {
+              const Icon = action.icon;
+              return (
+                <Link
+                  key={action.href}
+                  href={action.href}
+                  className={`flex items-center gap-3 p-3 rounded-xl bg-gradient-to-br ${action.color} text-white hover:opacity-90 hover:shadow-md transition-all`}
+                >
+                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold leading-tight">{action.label}</div>
+                    <div className="text-[10px] text-white/70 leading-tight">{action.sub}</div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

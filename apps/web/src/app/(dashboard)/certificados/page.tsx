@@ -1,9 +1,14 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Award, Download, Plus, Search } from 'lucide-react';
+import Link from 'next/link';
+import { Award, Plus, Search, ChevronRight, Loader2 } from 'lucide-react';
 
 const NIVEL_CORES: Record<string, string> = { BRONZE:'bg-amber-100 text-amber-700 border-amber-300', PRATA:'bg-gray-100 text-gray-600 border-gray-300', OURO:'bg-yellow-100 text-yellow-700 border-yellow-300' };
+const NIVEL_ROUTE: Record<string, string> = { BRONZE: '/ama', PRATA: '/intermediario', OURO: '/avancado' };
+const NIVEL_LABEL: Record<string, string> = { BRONZE: 'Módulo AMA', PRATA: 'Módulo Intermédio', OURO: 'Módulo Avançado' };
+
+interface ProntoInfo { studentId: string; name: string; nivel: string; }
 
 export default function CertificadosPage() {
   const [certs, setCerts] = useState<any[]>([]);
@@ -13,6 +18,8 @@ export default function CertificadosPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [fases, setFases] = useState<any[]>([]);
   const [form, setForm] = useState({ studentId:'', faseId:'', dataEmissao:'' });
+  const [prontos, setProntos] = useState<ProntoInfo[]>([]);
+  const [loadingProntos, setLoadingProntos] = useState(true);
 
   const load = async () => {
     setLoading(true);
@@ -21,7 +28,41 @@ export default function CertificadosPage() {
     setLoading(false);
   };
 
+  const loadProntos = async () => {
+    setLoadingProntos(true);
+    try {
+      const [rAma, rInt, rAv] = await Promise.all([
+        api.get('/fases/nivel/AMA'),
+        api.get('/fases/nivel/INTERMEDIARIO'),
+        api.get('/fases/nivel/AVANCADO'),
+      ]);
+      const result: ProntoInfo[] = [];
+      const modules: { nivel: string; nivelCert: string; fases: any[] }[] = [
+        { nivel: 'AMA', nivelCert: 'BRONZE', fases: rAma.data?.data ?? rAma.data ?? [] },
+        { nivel: 'INTERMEDIARIO', nivelCert: 'PRATA', fases: rInt.data?.data ?? rInt.data ?? [] },
+        { nivel: 'AVANCADO', nivelCert: 'OURO', fases: rAv.data?.data ?? rAv.data ?? [] },
+      ];
+      for (const mod of modules) {
+        if (mod.fases.length < 3) continue;
+        const allIds = new Set(mod.fases.flatMap((f: any) => f.studentFases?.map((sf: any) => sf.studentId) ?? []));
+        Array.from(allIds).forEach(sid => {
+          const doneInAll = mod.fases.every((f: any) =>
+            f.studentFases?.some((sf: any) => sf.studentId === sid && sf.estado === 'CONCLUIDO')
+          );
+          if (!doneInAll) return;
+          // get student name from any fase
+          const sf = mod.fases[0].studentFases?.find((sf: any) => sf.studentId === sid);
+          const name = sf?.student?.name ?? sid;
+          result.push({ studentId: sid as string, name, nivel: mod.nivelCert });
+        });
+      }
+      setProntos(result);
+    } catch { /* silently ignore */ }
+    finally { setLoadingProntos(false); }
+  };
+
   useEffect(() => { load(); }, [search]);
+  useEffect(() => { loadProntos(); }, []);
 
   const openForm = async () => {
     const [s, f] = await Promise.all([api.get('/students'), api.get('/fases')]);
@@ -51,19 +92,67 @@ export default function CertificadosPage() {
         </button>
       </div>
 
-      {/* Stats por nível */}
+      {/* Stats por nível — cada tile linka ao módulo correspondente */}
       <div className="grid grid-cols-3 gap-4">
         {[['BRONZE','bg-amber-50','text-amber-700'],['PRATA','bg-gray-50','text-gray-600'],['OURO','bg-yellow-50','text-yellow-700']].map(([n,bg,tc]) => (
-          <div key={n} className={`${bg} rounded-2xl p-5 border border-gray-200`}>
-            <div className="flex items-center gap-3 mb-2">
-              <Award className={`w-5 h-5 ${tc}`} />
-              <span className={`font-semibold ${tc}`}>{n}</span>
+          <Link key={n} href={NIVEL_ROUTE[n]} className={`${bg} rounded-2xl p-5 border border-gray-200 hover:shadow-md transition-shadow group`}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <Award className={`w-5 h-5 ${tc}`} />
+                <span className={`font-semibold ${tc}`}>{n}</span>
+              </div>
+              <ChevronRight className={`w-4 h-4 ${tc} opacity-0 group-hover:opacity-100 transition-opacity`} />
             </div>
             <div className="text-3xl font-bold text-gray-800">{totalPorNivel(n)}</div>
             <div className="text-sm text-gray-500 mt-1">certificados emitidos</div>
-          </div>
+            <div className={`text-xs mt-1.5 ${tc} opacity-70`}>{NIVEL_LABEL[n]}</div>
+          </Link>
         ))}
       </div>
+
+      {/* Sugestões — atletas prontos para certificação */}
+      {(loadingProntos || prontos.length > 0) && (
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Award className="w-4 h-4 text-green-600" />
+            <h2 className="text-sm font-bold text-green-800">Prontos para Certificação</h2>
+            <span className="text-xs text-green-500 ml-1">Completaram todas as fases do módulo</span>
+          </div>
+          {loadingProntos ? (
+            <div className="flex items-center gap-2 text-green-600 text-xs"><Loader2 className="w-4 h-4 animate-spin" /> A calcular...</div>
+          ) : (
+            <div className="space-y-2">
+              {prontos.map((p, i) => {
+                // check if they already have a cert for this nivel
+                const jaTem = certs.some(c => c.student && (c.student.id === p.studentId || `${c.student.firstName} ${c.student.lastName}`.trim() === p.name) && c.fase?.certificacao === p.nivel);
+                if (jaTem) return null;
+                return (
+                  <div key={i} className="flex items-center justify-between gap-3 bg-white rounded-xl px-4 py-2.5 border border-green-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        {(p.name[0] ?? '?').toUpperCase()}
+                      </div>
+                      <span className="text-sm font-medium text-gray-900">{p.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${NIVEL_CORES[p.nivel]}`}>{p.nivel}</span>
+                      <button
+                        onClick={() => { openForm(); }}
+                        className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg font-medium transition"
+                      >
+                        Emitir
+                      </button>
+                    </div>
+                  </div>
+                );
+              }).filter(Boolean)}
+              {prontos.filter(p => !certs.some(c => c.student && (c.student.id === p.studentId || `${c.student.firstName} ${c.student.lastName}`.trim() === p.name) && c.fase?.certificacao === p.nivel)).length === 0 && (
+                <p className="text-xs text-green-600">Todos os atletas prontos já receberam os seus certificados.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Busca */}
       <div className="relative">
