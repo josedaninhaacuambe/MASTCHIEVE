@@ -4,6 +4,7 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../../config/prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AiService {
@@ -15,6 +16,7 @@ export class AiService {
     private config: ConfigService,
     private prisma: PrismaService,
     @InjectQueue('feedback') private feedbackQueue: Queue,
+    private email: EmailService,
   ) {
     this.anthropic = new Anthropic({
       apiKey: this.config.get('ANTHROPIC_API_KEY'),
@@ -112,6 +114,15 @@ export class AiService {
       },
     });
 
+    // Send email notification to student
+    const userAccount = await this.prisma.user.findFirst({
+      where: { student: { id: student.id } },
+      select: { email: true },
+    });
+    if (userAccount?.email) {
+      this.email.sendFeedbackReady(userAccount.email, student.firstName, feedbackText).catch(() => {});
+    }
+
     this.logger.log(`Feedback generated for student ${student.id}, tokens: ${tokensUsed}`);
     return feedbackText;
   }
@@ -133,13 +144,30 @@ export class AiService {
 
     const level = student.enrollments[0]?.class?.level || 'BEGINNER';
 
+    // Fetch Mastchieve fase progress for richer context
+    const studentFases = await this.prisma.studentFase.findMany({
+      where: { studentId },
+      include: { fase: { select: { nome: true, nivel: true, ordem: true, criterios: true } } },
+      orderBy: { fase: { ordem: 'asc' } },
+    });
+    const faseAtual = studentFases.find(sf => sf.estado === 'EM_PROGRESSO')
+      ?? studentFases.filter(sf => sf.estado === 'CONCLUIDO').sort((a, b) => (b.fase?.ordem ?? 0) - (a.fase?.ordem ?? 0))[0];
+    const nivelAtual = faseAtual?.fase?.nivel ?? null;
+    const faseNome = faseAtual?.fase?.nome ?? null;
+    const fasesConcluidas = studentFases.filter(sf => sf.estado === 'CONCLUIDO').map(sf => sf.fase?.nome).filter(Boolean);
+    const fasesContext = nivelAtual
+      ? `\n**Módulo Pedagógico Mastchieve:** ${nivelAtual} — fase atual: ${faseNome}${fasesConcluidas.length ? `\n**Fases concluídas:** ${fasesConcluidas.join(', ')}` : ''}`
+      : '';
+
     const prompt = `
 Cria um plano de treino personalizado para:
 
 **Atleta:** ${student.firstName} ${student.lastName}
-**Nível:** ${level}
+**Nível de turma:** ${level}${fasesContext}
 **Notas do Instrutor:** ${instructorNotes || 'Nenhuma'}
 **Módulos em progresso:** ${student.progressRecords.map((p) => `${p.module.name} (${p.status})`).join(', ') || 'N/A'}
+
+O plano deve ser ALINHADO com a fase pedagógica atual do atleta na metodologia Mastchieve.
 
 Responde com um JSON estruturado assim:
 {

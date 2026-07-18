@@ -25,6 +25,7 @@ model User {
   student            Student?
   parent             Parent?
   notifications      Notification[]
+  pushSubscriptions  PushSubscription[]
   auditLogs          AuditLog[]
   incidentesReportados Incidente[] @relation("IncidenteReportado")
   pedidosComunicacao  PedidoComunicacao[] @relation("PedidoSolicitante")
@@ -747,6 +748,22 @@ model Notification {
 
   @@index([userId])
   @@map("notifications")
+}
+
+// ─── Push Subscriptions ──────────────────────────────────────────────────────
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique @db.VarChar(2048)
+  p256dh    String   @db.Text
+  auth      String   @db.Text
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 // ─── Documents ───────────────────────────────────────────────────────────────

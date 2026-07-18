@@ -5,9 +5,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { levelLabel, cn } from '@/lib/utils';
+import Link from 'next/link';
 import {
   Waves, Plus, X, ChevronDown, ChevronUp, Users, CheckCircle, Clock, AlertCircle,
-  ArrowUp, ArrowDown, ChevronRight, Play, Trash2, ExternalLink, Video, Link2,
+  ArrowUp, ArrowDown, ChevronRight, Play, Trash2, ExternalLink, Video, Link2, Fish, Zap, Award,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
 
@@ -780,6 +781,32 @@ export default function ModulesPage() {
             <Plus className="w-4 h-4" /> Novo Módulo
           </button>
         )}
+      </div>
+
+      {/* Pedagogical modules quick-access banner */}
+      <div className="bg-gradient-to-r from-blue-50 via-purple-50 to-amber-50 border border-gray-200 rounded-2xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Award className="w-4 h-4 text-gray-500" />
+          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Módulos Pedagógicos Mastchieve (9 fases)</p>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { href: '/ama',           label: 'Módulo AMA',        sub: 'Estrela-do-Mar · Cavalo-Marinho · Polvo',     grad: 'from-blue-500 to-cyan-500',     icon: Fish  },
+            { href: '/intermediario', label: 'Módulo Intermédio', sub: 'Tartaruga · Dugongo · Crocodilo',             grad: 'from-purple-500 to-violet-500', icon: Waves },
+            { href: '/avancado',      label: 'Módulo Avançado',  sub: 'Tubarão · Marlim · Golfinho',                 grad: 'from-amber-400 to-orange-500',  icon: Zap   },
+          ].map(({ href, label, sub, grad, icon: Icon }) => (
+            <Link key={href} href={href} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-gray-100 hover:shadow-md transition group">
+              <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${grad} flex items-center justify-center flex-shrink-0`}>
+                <Icon className="w-4 h-4 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-gray-800 truncate">{label}</p>
+                <p className="text-[10px] text-gray-400 truncate">{sub}</p>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 flex-shrink-0 ml-auto transition" />
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* Journey panel */}

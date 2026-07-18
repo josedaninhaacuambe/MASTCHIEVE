@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Search, Wifi, WifiOff, X, Menu, CheckCheck, Info, AlertTriangle, CheckCircle, CreditCard, Activity, Brain, Users, BookOpen } from 'lucide-react';
+import { Bell, Search, Wifi, WifiOff, X, Menu, CheckCheck, Info, AlertTriangle, CheckCircle, CreditCard, Activity, Brain, Users, BookOpen, BellRing, BellOff } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth.store';
@@ -277,6 +277,32 @@ export function Header() {
   const panelRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
 
+  // ── Web Push subscription state ──────────────────────────────────────────
+  const [pushStatus, setPushStatus] = useState<'unknown' | 'granted' | 'denied' | 'subscribing'>('unknown');
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    setPushStatus(Notification.permission === 'granted' ? 'granted' : Notification.permission === 'denied' ? 'denied' : 'unknown');
+  }, []);
+
+  const subscribePush = async () => {
+    if (!('serviceWorker' in navigator)) return;
+    setPushStatus('subscribing');
+    try {
+      const { data: vapidData } = await api.get('/notifications/push/vapid-public-key');
+      const pubKey = vapidData?.publicKey;
+      if (!pubKey) { setPushStatus('unknown'); return; }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: pubKey,
+      });
+      const { endpoint, keys } = sub.toJSON() as any;
+      await api.post('/notifications/push/subscribe', { endpoint, p256dh: keys.p256dh, auth: keys.auth });
+      setPushStatus('granted');
+    } catch { setPushStatus('unknown'); }
+  };
+
   /* Online/offline */
   useEffect(() => {
     const update = () => setIsOnline(navigator.onLine);
@@ -516,6 +542,29 @@ export function Header() {
                     )}
                   </div>
                   <div className="flex items-center gap-1">
+                    {/* Push subscribe button */}
+                    {pushStatus !== 'granted' && pushStatus !== 'denied' && (
+                      <button
+                        onClick={subscribePush}
+                        disabled={pushStatus === 'subscribing'}
+                        className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-800 font-semibold px-2 py-1 hover:bg-emerald-50 rounded-lg transition"
+                        title="Ativar notificações push"
+                      >
+                        <BellRing className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">{pushStatus === 'subscribing' ? '...' : 'Ativar push'}</span>
+                      </button>
+                    )}
+                    {pushStatus === 'granted' && (
+                      <span className="flex items-center gap-1 text-xs text-emerald-600 px-2 py-1" title="Push ativas">
+                        <BellRing className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Push ativo</span>
+                      </span>
+                    )}
+                    {pushStatus === 'denied' && (
+                      <span className="flex items-center gap-1 text-xs text-gray-400 px-2 py-1" title="Push bloqueadas pelo browser">
+                        <BellOff className="w-3.5 h-3.5" />
+                      </span>
+                    )}
                     {unreadCount > 0 && (
                       <button
                         onClick={() => markAllReadMutation.mutate()}

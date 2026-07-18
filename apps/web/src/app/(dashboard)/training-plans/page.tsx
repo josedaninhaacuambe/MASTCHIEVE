@@ -8,8 +8,50 @@ import { getInitials, formatDate, cn } from '@/lib/utils';
 import {
   Dumbbell, Plus, X, Search, Brain, Target, ChevronDown, ChevronUp,
   Calendar, Clock, RefreshCw, CheckCircle, Loader2, Sparkles,
-  Users, BookOpen, Star, Zap, LayoutGrid, Fish,
+  Users, BookOpen, Star, Zap, LayoutGrid, Fish, Printer,
 } from 'lucide-react';
+
+function printPlan(plan: any, objectives: any[], exercises: any[]) {
+  const nomeAluno = plan.student ? `${plan.student.firstName} ${plan.student.lastName}` : '—';
+  const exRows = exercises.map((ex: any, i: number) => `
+    <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
+      <td style="padding:8px 12px;font-weight:600">${i+1}. ${ex.name}</td>
+      <td style="padding:8px 12px">${ex.description||''}</td>
+      <td style="padding:8px 12px;text-align:center">${ex.duration||'—'}</td>
+      <td style="padding:8px 12px;text-align:center">${ex.sets||'—'}</td>
+      <td style="padding:8px 12px;text-align:center">${ex.reps||'—'}</td>
+    </tr>`).join('');
+  const w = window.open('', '_blank', 'width=900,height=700');
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Plano — ${plan.title}</title>
+<style>
+  body{margin:0;font-family:Arial,sans-serif;color:#111}
+  .header{background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:32px;color:#fff}
+  .header h1{margin:0 0 4px;font-size:22px}
+  .header p{margin:0;opacity:.8;font-size:13px}
+  .body{padding:32px}
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin:24px 0 8px}
+  ul{margin:0 0 0 20px;padding:0}
+  li{margin:4px 0;font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{background:#f3f4f6;padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#6b7280}
+  .footer{border-top:1px solid #e5e7eb;padding:16px 32px;font-size:11px;color:#9ca3af}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+<div class="header">
+  <h1>${plan.title}</h1>
+  <p>Atleta: ${nomeAluno} · ${plan.aiGenerated?'Gerado por IA':'Manual'}</p>
+</div>
+<div class="body">
+  ${plan.description?`<p style="color:#374151;font-size:14px">${plan.description}</p>`:''}
+  ${objectives.length?`<h2>Objetivos</h2><ul>${objectives.map((o:string)=>`<li>${o}</li>`).join('')}</ul>`:''}
+  ${exercises.length?`<h2>Exercícios</h2><table><thead><tr><th>Exercício</th><th>Descrição</th><th>Duração</th><th>Séries</th><th>Reps</th></tr></thead><tbody>${exRows}</tbody></table>`:''}
+</div>
+<div class="footer">Mastchieve · mastchieve@gmail.com · Gerado em ${new Date().toLocaleDateString('pt-PT')}</div>
+<script>window.onload=()=>window.print()<\/script>
+</body></html>`);
+  w.document.close();
+}
 
 // ─── Templates de Plano de Aula (Padrão por Módulo) ─────────────────────────
 
@@ -303,9 +345,14 @@ function PlanDrawer({ plan, onClose }: { plan: TrainingPlan; onClose: () => void
       <div className="relative w-full max-w-lg bg-white h-full overflow-y-auto shadow-2xl">
         {/* Header */}
         <div className="bg-gradient-to-r from-violet-600 to-purple-700 p-6 text-white">
-          <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-white/20 transition">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="absolute top-4 right-4 flex items-center gap-1">
+            <button onClick={() => printPlan(plan, objectives, exercises)} title="Imprimir plano" className="p-1.5 rounded-lg hover:bg-white/20 transition">
+              <Printer className="w-4 h-4" />
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/20 transition">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
           <div className="flex items-center gap-2 mb-1">
             {plan.aiGenerated && (
               <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full flex items-center gap-1">

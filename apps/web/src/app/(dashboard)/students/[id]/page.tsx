@@ -8,8 +8,43 @@ import { formatDate, formatCurrency, getInitials, levelLabel, cn } from '@/lib/u
 import {
   ArrowLeft, User, Brain, Activity, BookOpen, CreditCard,
   CheckCircle, XCircle, Clock, AlertCircle, Dumbbell, Send, TrendingUp,
-  Upload, FileText, Trash2, Waves, History, FileDown,
+  Upload, FileText, Trash2, Waves, History, FileDown, Printer,
 } from 'lucide-react';
+
+function printProgressReport(student: any, fasesProgresso: any[]) {
+  const nome = student ? `${student.firstName} ${student.lastName}` : '—';
+  const niveis = ['AMA', 'INTERMEDIARIO', 'AVANCADO'];
+  const NIVEL_LABEL: Record<string,string> = { AMA:'Módulo AMA (Bronze)', INTERMEDIARIO:'Módulo Intermédio (Prata)', AVANCADO:'Módulo Avançado (Ouro)' };
+  const ESTADO_LABEL: Record<string,string> = { CONCLUIDO:'Concluído', EM_PROGRESSO:'Em Progresso', NAO_INICIADO:'Não Iniciado' };
+  const sections = niveis.map(nivel => {
+    const fases = fasesProgresso.filter((f: any) => f.nivel === nivel);
+    const rows = fases.map((f: any) => {
+      const est = f.progresso?.estado ?? 'NAO_INICIADO';
+      const icon = est === 'CONCLUIDO' ? '✓' : est === 'EM_PROGRESSO' ? '◐' : '○';
+      const notas: number[] = (() => { try { return JSON.parse(f.progresso?.notas ?? '{}').criteriosVerificados ?? []; } catch { return []; } })();
+      const total = ((): number => { try { return JSON.parse(f.criterios ?? '[]').length; } catch { return 0; } })();
+      return `<tr><td style="padding:6px 12px">${icon} ${f.nome}</td><td style="padding:6px 12px">${ESTADO_LABEL[est]??est}</td><td style="padding:6px 12px;text-align:center">${total?`${notas.length}/${total}`:'—'}</td></tr>`;
+    }).join('');
+    const concluidos = fases.filter((f: any) => f.progresso?.estado === 'CONCLUIDO').length;
+    return `<h2 style="font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin:24px 0 8px">${NIVEL_LABEL[nivel]}</h2>
+<table style="width:100%;border-collapse:collapse;font-size:13px">
+<thead><tr style="background:#f3f4f6"><th style="padding:6px 12px;text-align:left">Fase</th><th style="padding:6px 12px;text-align:left">Estado</th><th style="padding:6px 12px;text-align:center">Critérios</th></tr></thead>
+<tbody>${rows}</tbody>
+<tfoot><tr><td colspan="3" style="padding:6px 12px;font-size:11px;color:#6b7280">${concluidos}/${fases.length} fases concluídas${concluidos===fases.length&&fases.length>0?' — Pronto para certificação ✓':''}</td></tr></tfoot>
+</table>`;
+  }).join('');
+  const w = window.open('', '_blank', 'width=800,height=650');
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatório — ${nome}</title>
+<style>body{margin:0;font-family:Arial,sans-serif;color:#111}.header{background:linear-gradient(135deg,#1e3a8a,#1d4ed8);padding:32px;color:#fff}.header h1{margin:0;font-size:20px}.header p{margin:4px 0 0;opacity:.7;font-size:13px}.body{padding:32px}.footer{border-top:1px solid #e5e7eb;padding:16px 32px;font-size:11px;color:#9ca3af}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
+</head><body>
+<div class="header"><h1>Relatório de Progressão Pedagógica</h1><p>${nome}</p></div>
+<div class="body">${sections}</div>
+<div class="footer">Mastchieve · Gerado em ${new Date().toLocaleDateString('pt-PT')}</div>
+<script>window.onload=()=>window.print()<\/script>
+</body></html>`);
+  w.document.close();
+}
 import { toast } from '@/lib/toast';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -495,6 +530,13 @@ export default function StudentDetailPage() {
                   <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
                     <Waves className="w-4 h-4 text-blue-500" /> Progressão Pedagógica Mastchieve
                   </h3>
+                  <button
+                    onClick={() => printProgressReport(student, fasesProgresso ?? [])}
+                    title="Exportar relatório de progressão"
+                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg transition border border-gray-200"
+                  >
+                    <Printer className="w-3.5 h-3.5" /> Relatório PDF
+                  </button>
                 </div>
                 <div className="space-y-4">
                   {(['AMA', 'INTERMEDIARIO', 'AVANCADO'] as const).map(nivel => {

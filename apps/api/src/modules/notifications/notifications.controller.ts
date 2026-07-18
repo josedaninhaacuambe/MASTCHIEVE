@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Delete, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { NotificationsGateway } from './notifications.gateway';
@@ -33,5 +33,23 @@ export class NotificationsController {
   @ApiOperation({ summary: 'Enviar notificação em massa' })
   sendBulk(@Body() body: { title: string; body: string; type: string; target: string }) {
     return this.service.sendBulk(body, this.gateway);
+  }
+
+  // ── Push subscription endpoints ─────────────────────────────────────────
+
+  @Get('push/vapid-public-key')
+  @ApiOperation({ summary: 'Obter VAPID public key para Web Push' })
+  getVapidPublicKey() { return this.service.getVapidPublicKey(); }
+
+  @Post('push/subscribe')
+  @ApiOperation({ summary: 'Registar push subscription' })
+  subscribe(@CurrentUser('id') userId: string, @Body() dto: { endpoint: string; p256dh: string; auth: string }) {
+    return this.service.subscribePush(userId, dto);
+  }
+
+  @Delete('push/unsubscribe')
+  @ApiOperation({ summary: 'Remover push subscription' })
+  unsubscribe(@CurrentUser('id') userId: string, @Body() dto: { endpoint: string }) {
+    return this.service.unsubscribePush(userId, dto.endpoint);
   }
 }

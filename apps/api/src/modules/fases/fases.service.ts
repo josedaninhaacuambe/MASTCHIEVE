@@ -189,7 +189,7 @@ export class FasesService {
         studentFases: {
           include: {
             student: {
-              select: { id: true, name: true, dateOfBirth: true, profilePicture: true },
+              select: { id: true, firstName: true, lastName: true, dateOfBirth: true, avatarUrl: true },
             },
           },
           orderBy: [{ estado: 'asc' }, { updatedAt: 'desc' }],

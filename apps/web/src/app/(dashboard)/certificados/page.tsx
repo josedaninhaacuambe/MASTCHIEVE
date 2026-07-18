@@ -2,7 +2,59 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import Link from 'next/link';
-import { Award, Plus, Search, ChevronRight, Loader2 } from 'lucide-react';
+import { Award, Plus, Search, ChevronRight, Loader2, Printer, Download } from 'lucide-react';
+
+function printCertificate(c: any) {
+  const nivel = c.fase?.certificacao ?? '—';
+  const nomeAluno = c.student ? `${c.student.firstName} ${c.student.lastName}` : '—';
+  const data = c.dataEmissao ? new Date(c.dataEmissao).toLocaleDateString('pt-PT', { year:'numeric',month:'long',day:'numeric' }) : '—';
+  const corBg: Record<string,string> = { BRONZE:'#fef3c7', PRATA:'#f3f4f6', OURO:'#fefce8' };
+  const corBorder: Record<string,string> = { BRONZE:'#d97706', PRATA:'#9ca3af', OURO:'#ca8a04' };
+  const w = window.open('', '_blank', 'width=800,height=600');
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Certificado ${c.numeroSerie}</title>
+<style>
+  body { margin:0; font-family: Georgia, serif; background:#fff; }
+  .cert { width:720px; margin:40px auto; padding:60px; background:${corBg[nivel]??'#f9fafb'}; border:4px solid ${corBorder[nivel]??'#6b7280'}; border-radius:16px; text-align:center; }
+  .logo { font-size:32px; font-weight:bold; color:#1e3a8a; letter-spacing:2px; }
+  .sub { font-size:12px; color:#6b7280; margin-bottom:40px; letter-spacing:4px; text-transform:uppercase; }
+  .declara { font-size:14px; color:#374151; margin-bottom:8px; }
+  .nome { font-size:36px; font-weight:bold; color:#111827; margin:16px 0; border-bottom:2px solid ${corBorder[nivel]??'#6b7280'}; padding-bottom:16px; }
+  .fase { font-size:18px; color:#374151; margin:8px 0; }
+  .nivel { display:inline-block; background:${corBorder[nivel]??'#6b7280'}; color:#fff; padding:6px 24px; border-radius:999px; font-size:16px; font-weight:bold; margin:24px 0; letter-spacing:2px; }
+  .serie { font-size:11px; color:#9ca3af; margin-top:32px; }
+  .data { font-size:13px; color:#6b7280; margin-top:8px; }
+  @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+</style></head><body>
+<div class="cert">
+  <div class="logo">MASTCHIEVE</div>
+  <div class="sub">Plataforma de Natação com IA</div>
+  <div class="declara">Certifica-se que</div>
+  <div class="nome">${nomeAluno}</div>
+  <div class="fase">concluiu com sucesso a fase <strong>${c.fase?.nome ?? '—'}</strong></div>
+  <div class="fase">do programa pedagógico Mastchieve</div>
+  <div class="nivel">${nivel}</div>
+  <div class="data">Emitido em ${data}</div>
+  ${c.evento?.nome ? `<div class="data">Evento: ${c.evento.nome}</div>` : ''}
+  <div class="serie">Número de Série: ${c.numeroSerie}</div>
+</div>
+<script>window.onload=()=>{window.print();}<\/script>
+</body></html>`);
+  w.document.close();
+}
+
+function exportListCSV(certs: any[]) {
+  const rows = [['Nº Série','Aluno','Fase','Nível','Data Emissão','Evento'].join(',')];
+  for (const c of certs) {
+    const aluno = c.student ? `${c.student.firstName} ${c.student.lastName}` : '';
+    const data = c.dataEmissao ? new Date(c.dataEmissao).toLocaleDateString('pt-PT') : '';
+    rows.push([c.numeroSerie, aluno, c.fase?.nome??'', c.fase?.certificacao??'', data, c.evento?.nome??''].map(v=>`"${v}"`).join(','));
+  }
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'certificados.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
 
 const NIVEL_CORES: Record<string, string> = { BRONZE:'bg-amber-100 text-amber-700 border-amber-300', PRATA:'bg-gray-100 text-gray-600 border-gray-300', OURO:'bg-yellow-100 text-yellow-700 border-yellow-300' };
 const NIVEL_ROUTE: Record<string, string> = { BRONZE: '/ama', PRATA: '/intermediario', OURO: '/avancado' };
@@ -87,9 +139,14 @@ export default function CertificadosPage() {
           <h1 className="text-2xl font-bold text-gray-900">Certificados</h1>
           <p className="text-gray-500 text-sm mt-1">Emissão e gestão de certificados Bronze, Prata e Ouro (SOP 07)</p>
         </div>
-        <button onClick={openForm} className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 text-sm font-medium">
-          <Plus className="w-4 h-4" /> Emitir Certificado
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => exportListCSV(certs)} disabled={certs.length === 0} className="flex items-center gap-2 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 text-sm font-medium disabled:opacity-40">
+            <Download className="w-4 h-4" /> Exportar CSV
+          </button>
+          <button onClick={openForm} className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 text-sm font-medium">
+            <Plus className="w-4 h-4" /> Emitir Certificado
+          </button>
+        </div>
       </div>
 
       {/* Stats por nível — cada tile linka ao módulo correspondente */}
@@ -173,7 +230,7 @@ export default function CertificadosPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {certs.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-gray-400">Nenhum certificado encontrado</td></tr>}
+              {certs.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-gray-400">Nenhum certificado encontrado</td></tr>}
               {certs.map((c: any) => (
                 <tr key={c.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-mono text-xs text-gray-600">{c.numeroSerie}</td>
@@ -184,6 +241,11 @@ export default function CertificadosPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-500">{c.dataEmissao ? new Date(c.dataEmissao).toLocaleDateString('pt-PT') : '—'}</td>
                   <td className="px-4 py-3 text-gray-500">{c.evento?.nome || '—'}</td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => printCertificate(c)} title="Imprimir certificado" className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition">
+                      <Printer className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
