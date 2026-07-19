@@ -10,27 +10,47 @@ datasource db {
 // ─── User & Auth ─────────────────────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  password      String    @db.VarChar(255)
-  role          String    // ADMIN | SUPERVISOR | INSTRUCTOR | COORDINATOR | STUDENT | PARENT | MARKETING | VISITOR
-  isActive      Boolean   @default(true)
-  lastLoginAt   DateTime?
-  refreshToken  String?   @db.Text
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String    @id @default(uuid())
+  email        String    @unique
+  password     String    @db.VarChar(255)
+  role         String // ADMIN | SUPERVISOR | INSTRUCTOR | COORDINATOR | STUDENT | PARENT | MARKETING | VISITOR | GESTOR_RH | SUPER_ADMIN
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  refreshToken String?   @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  admin              Admin?
-  instructor         Instructor?
-  student            Student?
-  parent             Parent?
-  notifications      Notification[]
-  pushSubscriptions  PushSubscription[]
-  auditLogs          AuditLog[]
-  incidentesReportados Incidente[] @relation("IncidenteReportado")
-  pedidosComunicacao  PedidoComunicacao[] @relation("PedidoSolicitante")
-  pedidosAprovados    PedidoComunicacao[] @relation("PedidoAprovado")
+  admin                 Admin?
+  instructor            Instructor?
+  student               Student?
+  parent                Parent?
+  notifications         Notification[]
+  pushSubscriptions     PushSubscription[]
+  auditLogs             AuditLog[]
+  incidentesReportados  Incidente[]         @relation("IncidenteReportado")
+  pedidosComunicacao    PedidoComunicacao[] @relation("PedidoSolicitante")
+  pedidosAprovados      PedidoComunicacao[] @relation("PedidoAprovado")
   certificadosValidados Certificado[]
+
+  funcionario                Funcionario?
+  vagasSolicitadas           Vaga[]                  @relation("VagaSolicitante")
+  vagasAprovadas             Vaga[]                  @relation("VagaAprovada")
+  candidaturasAvaliadas      Candidatura[]           @relation("CandidaturaAvaliada")
+  candidaturasAprovadas      Candidatura[]           @relation("CandidaturaAprovada")
+  contratosElaborados        Contrato[]              @relation("ContratoElaborado")
+  contratosAssinados         Contrato[]              @relation("ContratoAssinado")
+  avaliacoesDesempenho       AvaliacaoDesempenho[]
+  feriasFaltasSolicitadas    FeriasFalta[]           @relation("FeriasSolicitante")
+  feriasFaltasAprovadas      FeriasFalta[]           @relation("FeriasAprovada")
+  folhaPagamentosProcessadas FolhaPagamento[]        @relation("FolhaProcessada")
+  folhaPagamentosAprovadas   FolhaPagamento[]        @relation("FolhaAprovada")
+  ocorrenciasRegistadas      OcorrenciaDisciplinar[] @relation("OcorrenciaRegistada")
+  ocorrenciasDecididas       OcorrenciaDisciplinar[] @relation("OcorrenciaDecidida")
+  formacoesPropostas         Formacao[]              @relation("FormacaoProposta")
+  formacoesAprovadas         Formacao[]              @relation("FormacaoAprovada")
+  desligamentosIniciados     Desligamento[]          @relation("DesligamentoIniciado")
+  desligamentosAprovados     Desligamento[]          @relation("DesligamentoAprovado")
+  documentosRHValidados      DocumentoRH[]
 
   @@index([email])
   @@index([role])
@@ -40,16 +60,16 @@ model User {
 // ─── Admin ───────────────────────────────────────────────────────────────────
 
 model Admin {
-  id          String   @id @default(uuid())
-  userId      String   @unique
-  firstName   String
-  lastName    String
-  phone       String?
-  avatarUrl   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  firstName String
+  lastName  String
+  phone     String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("admins")
 }
@@ -57,27 +77,28 @@ model Admin {
 // ─── Instructor ───────────────────────────────────────────────────────────────
 
 model Instructor {
-  id              String    @id @default(uuid())
-  userId          String    @unique
+  id              String   @id @default(uuid())
+  userId          String   @unique
   firstName       String
   lastName        String
   phone           String?
   avatarUrl       String?
-  specializations String    @default("[]") @db.Text
-  bio             String?   @db.Text
-  isActive        Boolean   @default(true)
-  hireDate        DateTime  @default(now())
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  specializations String   @db.Text
+  bio             String?  @db.Text
+  isActive        Boolean  @default(true)
+  hireDate        DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  classes         Class[]
-  attendances     Attendance[]
-  feedbacks       Feedback[]
-  trainingPlans   TrainingPlan[]
-  avaliacoesIniciais AvaliacaoInicial[]
-  unidades        InstructorUnidade[]
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classes             Class[]
+  attendances         Attendance[]
+  feedbacks           Feedback[]
+  trainingPlans       TrainingPlan[]
+  avaliacoesIniciais  AvaliacaoInicial[]
+  unidades            InstructorUnidade[]
   checklistsProtocolo ChecklistProtocolo[]
+  funcionario         Funcionario?
 
   @@index([isActive])
   @@map("instructors")
@@ -86,30 +107,30 @@ model Instructor {
 // ─── Student ─────────────────────────────────────────────────────────────────
 
 model Student {
-  id                   String    @id @default(uuid())
-  userId               String    @unique
-  firstName            String
-  lastName             String
-  dateOfBirth          DateTime
-  gender               String    @default("OTHER")
-  phone                String?
-  avatarUrl            String?
-  medicalNotes         String?   @db.Text
-  emergencyContact     String?
-  emergencyPhone       String?
-  enrollmentDate       DateTime  @default(now())
-  isActive             Boolean   @default(true)
-  unidadeId            String?
-  autorizacaoImagem    Boolean   @default(false)
+  id                    String    @id @default(uuid())
+  userId                String    @unique
+  firstName             String
+  lastName              String
+  dateOfBirth           DateTime
+  gender                String    @default("OTHER")
+  phone                 String?
+  avatarUrl             String?
+  medicalNotes          String?   @db.Text
+  emergencyContact      String?
+  emergencyPhone        String?
+  enrollmentDate        DateTime  @default(now())
+  isActive              Boolean   @default(true)
+  unidadeId             String?
+  autorizacaoImagem     Boolean   @default(false)
   autorizacaoImagemData DateTime?
-  autorizacaoImagemDoc String?
-  leadId               String?   @unique
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  autorizacaoImagemDoc  String?
+  leadId                String?   @unique
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  unidade          Unidade?  @relation(fields: [unidadeId], references: [id])
-  lead             Lead?     @relation(fields: [leadId], references: [id])
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unidade          Unidade?           @relation(fields: [unidadeId], references: [id])
+  lead             Lead?              @relation(fields: [leadId], references: [id])
   parents          StudentParent[]
   enrollments      Enrollment[]
   attendances      Attendance[]
@@ -132,17 +153,17 @@ model Student {
 // ─── Parent ───────────────────────────────────────────────────────────────────
 
 model Parent {
-  id           String    @id @default(uuid())
-  userId       String    @unique
+  id           String   @id @default(uuid())
+  userId       String   @unique
   firstName    String
   lastName     String
   phone        String
-  relationship String    @default("Parent")
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  relationship String   @default("Parent")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  children     StudentParent[]
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  children StudentParent[]
 
   @@map("parents")
 }
@@ -153,8 +174,8 @@ model StudentParent {
   isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  parent    Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  parent  Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
 
   @@id([studentId, parentId])
   @@map("student_parents")
@@ -165,7 +186,7 @@ model StudentParent {
 model Unidade {
   id        String   @id @default(uuid())
   nome      String
-  codigo    String   @unique   // CCBM | OSCARS | POLANA
+  codigo    String   @unique // CCBM | OSCARS | POLANA
   tipo      String   @default("PRINCIPAL") // PRINCIPAL | COMUNITARIO | PREMIUM
   endereco  String?
   contacto  String?
@@ -181,6 +202,9 @@ model Unidade {
   incidentes   Incidente[]
   eventos      Evento[]
   competicoes  Competicao[]
+  funcionarios Funcionario[]
+  vagas        Vaga[]
+  escalas      Escala[]
 
   @@map("unidades")
 }
@@ -190,10 +214,10 @@ model InstructorUnidade {
   instrutorId String
   unidadeId   String
   isPrimary   Boolean  @default(false)
-  criadoEm   DateTime @default(now())
+  criadoEm    DateTime @default(now())
 
-  instrutor   Instructor @relation(fields: [instrutorId], references: [id], onDelete: Cascade)
-  unidade     Unidade    @relation(fields: [unidadeId], references: [id], onDelete: Cascade)
+  instrutor Instructor @relation(fields: [instrutorId], references: [id], onDelete: Cascade)
+  unidade   Unidade    @relation(fields: [unidadeId], references: [id], onDelete: Cascade)
 
   @@unique([instrutorId, unidadeId])
   @@map("instructor_unidades")
@@ -202,26 +226,26 @@ model InstructorUnidade {
 // ─── Lead / CRM ──────────────────────────────────────────────────────────────
 
 model Lead {
-  id               String    @id @default(uuid())
-  nome             String
-  email            String?
-  telefone         String?
-  origem           String    @default("OUTRO") // REFERIDO|REDES_SOCIAIS|OPEN_DAY|WALK_IN|WEBSITE|CAMPANHA|OUTRO
-  campanha         String?
-  estado           String    @default("NOVO") // NOVO|CONTACTADO|AGENDADO|CONVERTIDO|PERDIDO
-  unidadeId        String?
-  eventoId         String?
-  notas            String?   @db.Text
-  dataContacto     DateTime?
-  dataAgendamento  DateTime?
-  dataConversao    DateTime?
-  motivoPerda      String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id              String    @id @default(uuid())
+  nome            String
+  email           String?
+  telefone        String?
+  origem          String    @default("OUTRO") // REFERIDO|REDES_SOCIAIS|OPEN_DAY|WALK_IN|WEBSITE|CAMPANHA|OUTRO
+  campanha        String?
+  estado          String    @default("NOVO") // NOVO|CONTACTADO|AGENDADO|CONVERTIDO|PERDIDO
+  unidadeId       String?
+  eventoId        String?
+  notas           String?   @db.Text
+  dataContacto    DateTime?
+  dataAgendamento DateTime?
+  dataConversao   DateTime?
+  motivoPerda     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  unidade  Unidade? @relation(fields: [unidadeId], references: [id])
-  evento   Evento?  @relation(fields: [eventoId], references: [id])
-  student  Student?
+  unidade Unidade? @relation(fields: [unidadeId], references: [id])
+  evento  Evento?  @relation(fields: [eventoId], references: [id])
+  student Student?
 
   @@index([estado])
   @@index([unidadeId])
@@ -235,11 +259,11 @@ model AvaliacaoInicial {
   studentId             String    @unique
   instrutorId           String
   data                  DateTime  @default(now())
-  experienciaAquatica   Int       @default(1)  // 1-5
-  segurancaAdaptacao    Int       @default(1)  // 1-5
-  confortoAgua          Int       @default(1)  // 1-5
-  resistenciaBasica     Int       @default(1)  // 1-5
-  criteriosAvaliados    String    @default("[]") @db.Text  // JSON: [{fase,criterio,valor}]
+  experienciaAquatica   Int       @default(1) // 1-5
+  segurancaAdaptacao    Int       @default(1) // 1-5
+  confortoAgua          Int       @default(1) // 1-5
+  resistenciaBasica     Int       @default(1) // 1-5
+  criteriosAvaliados    String    @db.Text // JSON: [{fase,criterio,valor}]
   necessidadesEspeciais String?   @db.Text
   observacoes           String?   @db.Text
   faseRecomendadaId     String?
@@ -247,9 +271,9 @@ model AvaliacaoInicial {
   aprovadoEm            DateTime?
   createdAt             DateTime  @default(now())
 
-  student           Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  instrutor         Instructor     @relation(fields: [instrutorId], references: [id])
-  faseRecomendada   FaseProgressao? @relation(fields: [faseRecomendadaId], references: [id])
+  student         Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  instrutor       Instructor      @relation(fields: [instrutorId], references: [id])
+  faseRecomendada FaseProgressao? @relation(fields: [faseRecomendadaId], references: [id])
 
   @@map("avaliacoes_iniciais")
 }
@@ -257,19 +281,19 @@ model AvaliacaoInicial {
 // ─── Fases de Progressão (9 fases com animais) ───────────────────────────────
 
 model FaseProgressao {
-  id            String   @id @default(uuid())
-  nivel         String   // AMA | INTERMEDIARIO | AVANCADO
-  ordem         Int
-  nome          String   // Estrela-do-Mar, Cavalo-Marinho, etc.
-  animal        String
-  certificacao  String   // BRONZE | PRATA | OURO
-  descricao     String?  @db.Text
-  foco          String?  @db.Text  // foco pedagógico da fase
-  escala        String   @default("[]") @db.Text  // JSON: scale options ex: ["Não realiza","Com apoio","Autónomo"]
-  criterios     String   @default("[]") @db.Text // JSON array of criteria
-  assiduidade   Int      @default(80) // minimum attendance % required
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
+  id           String   @id @default(uuid())
+  nivel        String // AMA | INTERMEDIARIO | AVANCADO
+  ordem        Int
+  nome         String // Estrela-do-Mar, Cavalo-Marinho, etc.
+  animal       String
+  certificacao String // BRONZE | PRATA | OURO
+  descricao    String?  @db.Text
+  foco         String?  @db.Text // foco pedagógico da fase
+  escala       String   @db.Text // JSON: scale options ex: ["Não realiza","Com apoio","Autónomo"]
+  criterios    String   @db.Text // JSON array of criteria
+  assiduidade  Int      @default(80) // minimum attendance % required
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
 
   studentFases       StudentFase[]
   certificados       Certificado[]
@@ -299,15 +323,15 @@ model StudentFase {
 }
 
 model Certificado {
-  id              String   @id @default(uuid())
-  studentId       String
-  faseId          String
-  dataEmissao     DateTime @default(now())
-  validadoPorId   String
-  eventoId        String?
-  numeroSerie     String   @unique
-  observacoes     String?  @db.Text
-  createdAt       DateTime @default(now())
+  id            String   @id @default(uuid())
+  studentId     String
+  faseId        String
+  dataEmissao   DateTime @default(now())
+  validadoPorId String
+  eventoId      String?
+  numeroSerie   String   @unique
+  observacoes   String?  @db.Text
+  createdAt     DateTime @default(now())
 
   student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
   fase        FaseProgressao @relation(fields: [faseId], references: [id])
@@ -328,16 +352,16 @@ model Class {
   status       String   @default("ACTIVE")
   maxStudents  Int      @default(15)
   poolLane     String?
-  schedules    String   @default("[]") @db.Text
+  schedules    String   @db.Text
   instructorId String
   unidadeId    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  instructor   Instructor   @relation(fields: [instructorId], references: [id])
-  unidade      Unidade?     @relation(fields: [unidadeId], references: [id])
-  enrollments  Enrollment[]
-  sessions     ClassSession[]
+  instructor  Instructor     @relation(fields: [instructorId], references: [id])
+  unidade     Unidade?       @relation(fields: [unidadeId], references: [id])
+  enrollments Enrollment[]
+  sessions    ClassSession[]
 
   @@index([status])
   @@index([instructorId])
@@ -353,8 +377,8 @@ model Enrollment {
   isActive   Boolean  @default(true)
   notes      String?  @db.Text
 
-  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  class      Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, classId])
   @@index([isActive])
@@ -375,7 +399,7 @@ model ClassSession {
   checklistSeguranca    Boolean  @default(false)
   createdAt             DateTime @default(now())
 
-  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class       Class                @relation(fields: [classId], references: [id], onDelete: Cascade)
   attendances Attendance[]
   feedbacks   Feedback[]
   checklists  ChecklistProtocolo[]
@@ -393,9 +417,9 @@ model Attendance {
   notes        String?  @db.Text
   markedAt     DateTime @default(now())
 
-  session      ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  instructor   Instructor   @relation(fields: [instructorId], references: [id])
+  session    ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student    Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  instructor Instructor   @relation(fields: [instructorId], references: [id])
 
   @@unique([sessionId, studentId])
   @@index([studentId])
@@ -423,36 +447,36 @@ model PerformanceRecord {
   recordedAt      DateTime @default(now())
   createdAt       DateTime @default(now())
 
-  feedback        Feedback?
+  feedback Feedback?
 
   @@index([studentId])
   @@map("performance_records")
 }
 
 model Feedback {
-  id                   String   @id @default(uuid())
+  id                   String    @id @default(uuid())
   studentId            String
   sessionId            String?
   instructorId         String?
-  performanceRecordId  String?  @unique
-  status               String   @default("PENDING")
-  aiGeneratedText      String?  @db.LongText
-  instructorNotes      String?  @db.Text
-  finalText            String?  @db.LongText
-  recommendedLessons   String   @default("[]") @db.Text
-  interactiveExercises String   @default("[]") @db.Text
+  performanceRecordId  String?   @unique
+  status               String    @default("PENDING")
+  aiGeneratedText      String?   @db.LongText
+  instructorNotes      String?   @db.Text
+  finalText            String?   @db.LongText
+  recommendedLessons   String    @db.Text
+  interactiveExercises String    @db.Text
   sentToParentAt       DateTime?
   sentToStudentAt      DateTime?
   aiModel              String?
   aiTokensUsed         Int?
   aiConfidenceScore    Float?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  student             Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  session             ClassSession?      @relation(fields: [sessionId], references: [id])
-  instructor          Instructor?        @relation(fields: [instructorId], references: [id])
-  performanceRecord   PerformanceRecord? @relation(fields: [performanceRecordId], references: [id])
+  student           Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  session           ClassSession?      @relation(fields: [sessionId], references: [id])
+  instructor        Instructor?        @relation(fields: [instructorId], references: [id])
+  performanceRecord PerformanceRecord? @relation(fields: [performanceRecordId], references: [id])
 
   @@index([studentId])
   @@index([status])
@@ -467,12 +491,12 @@ model SwimmingModule {
   description String?  @db.Text
   level       String   @default("BEGINNER")
   order       Int
-  skills      String   @default("[]") @db.Text
-  videos      String   @default("[]") @db.Text
+  skills      String   @db.Text
+  videos      String   @db.Text
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
-  progress    Progress[]
+  progress Progress[]
 
   @@map("swimming_modules")
 }
@@ -488,8 +512,8 @@ model Progress {
   notes       String?   @db.Text
   updatedAt   DateTime  @updatedAt
 
-  student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  module      SwimmingModule @relation(fields: [moduleId], references: [id])
+  student Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  module  SwimmingModule @relation(fields: [moduleId], references: [id])
 
   @@unique([studentId, moduleId])
   @@index([studentId])
@@ -504,8 +528,8 @@ model TrainingPlan {
   instructorId String?
   title        String
   description  String?   @db.Text
-  objectives   String    @default("[]") @db.Text
-  exercises    String    @default("[]") @db.Text
+  objectives   String    @db.Text
+  exercises    String    @db.Text
   aiGenerated  Boolean   @default(false)
   isActive     Boolean   @default(true)
   validFrom    DateTime
@@ -513,8 +537,8 @@ model TrainingPlan {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  student      Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  instructor   Instructor? @relation(fields: [instructorId], references: [id])
+  student    Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  instructor Instructor? @relation(fields: [instructorId], references: [id])
 
   @@index([studentId])
   @@map("training_plans")
@@ -532,8 +556,8 @@ model MonthlyFee {
   description String?
   createdAt   DateTime @default(now())
 
-  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  payment     Payment?
+  student Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  payment Payment?
 
   @@unique([studentId, month, year])
   @@index([studentId])
@@ -555,8 +579,8 @@ model Payment {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  student       Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  monthlyFee    MonthlyFee? @relation(fields: [monthlyFeeId], references: [id])
+  student    Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  monthlyFee MonthlyFee? @relation(fields: [monthlyFeeId], references: [id])
 
   @@index([studentId])
   @@index([status])
@@ -567,19 +591,19 @@ model Payment {
 
 model Protocolo {
   id               String   @id @default(uuid())
-  ranking          Int      @unique  // 1–10 (prioridade oficial)
+  ranking          Int      @unique // 1–10 (prioridade oficial)
   nome             String
-  dimensao         String   // FISICA|OPERACIONAL|EMOCIONAL|PEDAGOGICA|GESTAO
-  prioridade       String   // CRITICO|MUITO_ALTO|ALTO|ESTRUTURANTE
+  dimensao         String // FISICA|OPERACIONAL|EMOCIONAL|PEDAGOGICA|GESTAO
+  prioridade       String // CRITICO|MUITO_ALTO|ALTO|ESTRUTURANTE
   justificacao     String   @db.Text
   objetivo         String   @db.Text
   momentoAplicacao String   @db.Text
   responsavel      String
   procedimento     String   @db.Text
-  checklistItems   String   @default("[]") @db.Text  // JSON string[]
-  sinaisAlerta     String   @default("[]") @db.Text  // JSON string[]
+  checklistItems   String   @db.Text // JSON string[]
+  sinaisAlerta     String   @db.Text // JSON string[]
   acaoFalha        String   @db.Text
-  isRelampago      Boolean  @default(false)           // true só no Protocolo 1
+  isRelampago      Boolean  @default(false) // true só no Protocolo 1
   isAtivo          Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -593,19 +617,19 @@ model Protocolo {
 }
 
 model ChecklistProtocolo {
-  id          String    @id @default(uuid())
+  id          String   @id @default(uuid())
   protocoloId String
   sessionId   String?
   instrutorId String
-  items       String    @db.Text  // JSON [{texto, checked}]
-  completado  Boolean   @default(false)
-  data        DateTime  @default(now())
-  observacoes String?   @db.Text
-  createdAt   DateTime  @default(now())
+  items       String   @db.Text // JSON [{texto, checked}]
+  completado  Boolean  @default(false)
+  data        DateTime @default(now())
+  observacoes String?  @db.Text
+  createdAt   DateTime @default(now())
 
-  protocolo Protocolo    @relation(fields: [protocoloId], references: [id])
+  protocolo Protocolo     @relation(fields: [protocoloId], references: [id])
   session   ClassSession? @relation(fields: [sessionId], references: [id])
-  instrutor Instructor   @relation(fields: [instrutorId], references: [id])
+  instrutor Instructor    @relation(fields: [instrutorId], references: [id])
 
   @@index([protocoloId])
   @@index([instrutorId])
@@ -618,14 +642,14 @@ model Incidente {
   id               String    @id @default(uuid())
   unidadeId        String?
   data             DateTime  @default(now())
-  tipo             String    // ACIDENTE_MENOR|ACIDENTE_GRAVE|NEAR_MISS|COMPORTAMENTO|EQUIPAMENTO|INSTALACOES|OUTRO
+  tipo             String // ACIDENTE_MENOR|ACIDENTE_GRAVE|NEAR_MISS|COMPORTAMENTO|EQUIPAMENTO|INSTALACOES|OUTRO
   tipoOcorrencia   String    @default("INCIDENTE_CONFIRMADO") // INCIDENTE_CONFIRMADO|QUASE_INCIDENTE
-  dimensoes        String    @default("[]") @db.Text  // JSON: EMOCIONAL|OPERACIONAL|FISICA|PEDAGOGICA
+  dimensoes        String    @db.Text // JSON: EMOCIONAL|OPERACIONAL|FISICA|PEDAGOGICA
   protocoloId      String?
   isRelampago      Boolean   @default(false)
   escalado         Boolean   @default(false)
   descricao        String    @db.Text
-  envolvidos       String    @default("[]") @db.Text // JSON
+  envolvidos       String    @db.Text // JSON
   acaoImediata     String    @db.Text
   relatorio        String?   @db.Text
   acoesPreventivas String?   @db.Text
@@ -661,7 +685,7 @@ model Evento {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  unidade     Unidade?     @relation(fields: [unidadeId], references: [id])
+  unidade      Unidade?      @relation(fields: [unidadeId], references: [id])
   certificados Certificado[]
   leads        Lead[]
 
@@ -684,8 +708,8 @@ model Competicao {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  unidade  Unidade?          @relation(fields: [unidadeId], references: [id])
-  atletas  CompeticaoAtleta[]
+  unidade Unidade?           @relation(fields: [unidadeId], references: [id])
+  atletas CompeticaoAtleta[]
 
   @@index([estado])
   @@map("competicoes")
@@ -710,20 +734,20 @@ model CompeticaoAtleta {
 // ─── Pedidos de Comunicação / Marketing (SOP 9.3–9.7) ────────────────────────
 
 model PedidoComunicacao {
-  id            String   @id @default(uuid())
-  tipo          String   // POSTER|VIDEO|NEWSLETTER|REDES_SOCIAIS|CATALOGO|OUTRO
+  id            String    @id @default(uuid())
+  tipo          String // POSTER|VIDEO|NEWSLETTER|REDES_SOCIAIS|CATALOGO|OUTRO
   titulo        String
-  descricao     String   @db.Text
+  descricao     String    @db.Text
   unidadeId     String?
   prazo         DateTime
-  estado        String   @default("RASCUNHO") // RASCUNHO|EM_APROVACAO|APROVADO|PUBLICADO|CANCELADO
+  estado        String    @default("RASCUNHO") // RASCUNHO|EM_APROVACAO|APROVADO|PUBLICADO|CANCELADO
   solicitanteId String
   aprovadoPorId String?
   aprovadoEm    DateTime?
   link          String?
-  observacoes   String?  @db.Text
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  observacoes   String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   solicitante User  @relation("PedidoSolicitante", fields: [solicitanteId], references: [id])
   aprovadoPor User? @relation("PedidoAprovado", fields: [aprovadoPorId], references: [id])
@@ -744,7 +768,7 @@ model Notification {
   readAt    DateTime?
   createdAt DateTime  @default(now())
 
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("notifications")
@@ -755,13 +779,14 @@ model Notification {
 model PushSubscription {
   id        String   @id @default(uuid())
   userId    String
-  endpoint  String   @unique @db.VarChar(2048)
+  endpoint  String   @db.VarChar(2048)
   p256dh    String   @db.Text
   auth      String   @db.Text
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([endpoint(length: 191)])
   @@index([userId])
   @@map("push_subscriptions")
 }
@@ -777,7 +802,7 @@ model Document {
   size       Int?
   uploadedAt DateTime @default(now())
 
-  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId])
   @@map("documents")
@@ -797,7 +822,7 @@ model AuditLog {
   userAgent String?  @db.Text
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@map("audit_logs")
@@ -827,4 +852,374 @@ model KpiSnapshot {
 
   @@index([unidadeId])
   @@map("kpi_snapshots")
+}
+
+// ─── Recursos Humanos (RH) ─────────────────────────────────────────────────
+
+model Funcionario {
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  instructorId       String?   @unique
+  numeroFuncionario  String    @unique
+  firstName          String
+  lastName           String
+  phone              String?
+  avatarUrl          String?
+  biNumero           String?
+  cargo              String // INSTRUTOR_NATACAO|SALVA_VIDAS|RECEPCIONISTA|ADMINISTRATIVO|COORDENADOR|MANUTENCAO|OUTRO
+  departamento       String    @default("OPERACOES") // OPERACOES|ADMINISTRATIVO|FINANCEIRO|MANUTENCAO
+  dataAdmissao       DateTime?
+  estado             String    @default("EM_RECRUTAMENTO") // EM_RECRUTAMENTO|EM_ADMISSAO|ATIVO|FERIAS|SUSPENSO|DESLIGADO
+  contactoEmergencia String?
+  telefoneEmergencia String?
+  salarioBase        Float?
+  unidadeId          String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user                     User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instructor               Instructor?               @relation(fields: [instructorId], references: [id])
+  unidade                  Unidade?                  @relation(fields: [unidadeId], references: [id])
+  candidaturaOrigem        Candidatura?
+  contratos                Contrato[]
+  escalas                  Escala[]
+  certificacoes            CertificacaoFuncionario[]
+  avaliacoesDesempenho     AvaliacaoDesempenho[]
+  feriasFaltas             FeriasFalta[]
+  folhaPagamentos          FolhaPagamento[]
+  ocorrenciasDisciplinares OcorrenciaDisciplinar[]
+  documentos               DocumentoRH[]
+  formacoes                FuncionarioFormacao[]
+  desligamento             Desligamento?
+
+  @@index([estado])
+  @@index([cargo])
+  @@index([unidadeId])
+  @@map("funcionarios")
+}
+
+model Vaga {
+  id                String    @id @default(uuid())
+  titulo            String
+  cargo             String
+  departamento      String    @default("OPERACOES")
+  unidadeId         String?
+  descricao         String    @db.Text
+  requisitos        String?   @db.Text
+  numeroVagas       Int       @default(1)
+  orcamentoEstimado Float?
+  estado            String    @default("RASCUNHO") // RASCUNHO|EM_APROVACAO|APROVADA|REJEITADA|PUBLICADA|EM_TRIAGEM|ENCERRADA|CANCELADA
+  solicitanteId     String
+  aprovadoPorId     String?
+  aprovadoEm        DateTime?
+  motivoRejeicao    String?   @db.Text
+  publicadaEm       DateTime?
+  encerradaEm       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  solicitante  User          @relation("VagaSolicitante", fields: [solicitanteId], references: [id])
+  aprovadoPor  User?         @relation("VagaAprovada", fields: [aprovadoPorId], references: [id])
+  unidade      Unidade?      @relation(fields: [unidadeId], references: [id])
+  candidaturas Candidatura[]
+
+  @@index([estado])
+  @@map("rh_vagas")
+}
+
+model Candidatura {
+  id               String    @id @default(uuid())
+  vagaId           String
+  nomeCandidato    String
+  email            String?
+  telefone         String?
+  cvUrl            String?
+  cartaMotivacao   String?   @db.Text
+  estado           String    @default("RECEBIDA") // RECEBIDA|TRIAGEM|ENTREVISTA_AGENDADA|ENTREVISTADO|TESTE_PRATICO|APROVADA_RH|APROVADA_FINAL|REJEITADA|CONTRATADA
+  notaEntrevista   Float?
+  notaTestePratico Float?
+  observacoesRH    String?   @db.Text
+  avaliadoPorId    String?
+  aprovadoPorId    String?
+  aprovadoEm       DateTime?
+  motivoRejeicao   String?   @db.Text
+  funcionarioId    String?   @unique
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  vaga        Vaga          @relation(fields: [vagaId], references: [id], onDelete: Cascade)
+  avaliadoPor User?         @relation("CandidaturaAvaliada", fields: [avaliadoPorId], references: [id])
+  aprovadoPor User?         @relation("CandidaturaAprovada", fields: [aprovadoPorId], references: [id])
+  funcionario Funcionario?  @relation(fields: [funcionarioId], references: [id])
+  documentos  DocumentoRH[]
+
+  @@index([estado])
+  @@index([vagaId])
+  @@map("rh_candidaturas")
+}
+
+model Contrato {
+  id             String    @id @default(uuid())
+  funcionarioId  String
+  tipo           String // EFETIVO|TERMO_CERTO|TERMO_INCERTO|ESTAGIO|PRESTACAO_SERVICOS
+  cargo          String
+  salarioBase    Float
+  dataInicio     DateTime
+  dataFim        DateTime?
+  clausulas      String?   @db.Text
+  documentoUrl   String?
+  estado         String    @default("RASCUNHO") // RASCUNHO|AGUARDA_ASSINATURA|ATIVO|EXPIRADO|RESCINDIDO|CANCELADO
+  elaboradoPorId String
+  assinadoPorId  String?
+  assinadoEm     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  funcionario  Funcionario @relation(fields: [funcionarioId], references: [id])
+  elaboradoPor User        @relation("ContratoElaborado", fields: [elaboradoPorId], references: [id])
+  assinadoPor  User?       @relation("ContratoAssinado", fields: [assinadoPorId], references: [id])
+
+  @@index([estado])
+  @@index([funcionarioId])
+  @@index([dataFim])
+  @@map("rh_contratos")
+}
+
+model Escala {
+  id            String   @id @default(uuid())
+  funcionarioId String
+  unidadeId     String?
+  classId       String?
+  data          DateTime
+  turno         String // MANHA|TARDE|NOITE
+  horaInicio    String
+  horaFim       String
+  tipo          String   @default("AULA") // AULA|SALVAMENTO|ADMINISTRATIVO|FORMACAO|FOLGA
+  estado        String   @default("PLANEADA") // PLANEADA|CONFIRMADA|CANCELADA|REALIZADA
+  observacoes   String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  funcionario Funcionario @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
+  unidade     Unidade?    @relation(fields: [unidadeId], references: [id])
+
+  @@index([funcionarioId])
+  @@index([data])
+  @@map("rh_escalas")
+}
+
+model CertificacaoFuncionario {
+  id               String    @id @default(uuid())
+  funcionarioId    String
+  tipo             String // NADADOR_SALVADOR|INSTRUTOR_NATACAO|PRIMEIROS_SOCORROS|REGISTO_CRIMINAL|ATESTADO_APTIDAO_FISICA|OUTRO
+  numeroDocumento  String?
+  entidadeEmissora String?
+  dataEmissao      DateTime?
+  dataValidade     DateTime?
+  documentoUrl     String?
+  estado           String    @default("ATIVA") // ATIVA|EXPIRADA|REVOGADA
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  funcionario Funcionario @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
+
+  @@index([funcionarioId])
+  @@index([dataValidade])
+  @@index([tipo])
+  @@map("rh_certificacoes")
+}
+
+model AvaliacaoDesempenho {
+  id                   String    @id @default(uuid())
+  funcionarioId        String
+  avaliadorId          String
+  periodo              String
+  dataAvaliacao        DateTime  @default(now())
+  dataLimite           DateTime?
+  pontualidade         Int?
+  competenciaTecnica   Int?
+  trabalhoEquipa       Int?
+  atendimento          Int?
+  pontuacaoGeral       Float?
+  pontosFortes         String?   @db.Text
+  areasMelhoria        String?   @db.Text
+  planoDesenvolvimento String?   @db.Text
+  estado               String    @default("PENDENTE") // PENDENTE|REALIZADA
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  funcionario Funcionario @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
+  avaliador   User        @relation(fields: [avaliadorId], references: [id])
+
+  @@index([funcionarioId])
+  @@index([estado])
+  @@map("rh_avaliacoes_desempenho")
+}
+
+model FeriasFalta {
+  id              String    @id @default(uuid())
+  funcionarioId   String
+  tipo            String // FERIAS|FALTA_JUSTIFICADA|FALTA_INJUSTIFICADA|LICENCA_MEDICA|LICENCA_MATERNIDADE|OUTRO
+  dataInicio      DateTime
+  dataFim         DateTime
+  diasSolicitados Int
+  motivo          String?   @db.Text
+  documentoUrl    String?
+  excepcional     Boolean   @default(false)
+  estado          String    @default("PENDENTE") // PENDENTE|APROVADA_RH|ENCAMINHADA_SUPER_ADMIN|APROVADA_SUPER_ADMIN|REJEITADA|CANCELADA
+  solicitanteId   String
+  aprovadoPorId   String?
+  aprovadoEm      DateTime?
+  motivoRejeicao  String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  funcionario Funcionario @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
+  solicitante User        @relation("FeriasSolicitante", fields: [solicitanteId], references: [id])
+  aprovadoPor User?       @relation("FeriasAprovada", fields: [aprovadoPorId], references: [id])
+
+  @@index([estado])
+  @@index([funcionarioId])
+  @@map("rh_ferias_faltas")
+}
+
+model FolhaPagamento {
+  id              String    @id @default(uuid())
+  funcionarioId   String
+  mes             Int
+  ano             Int
+  salarioBase     Float
+  premios         Float     @default(0)
+  descontos       Float     @default(0)
+  horasExtras     Float     @default(0)
+  valorLiquido    Float
+  detalhes        String?   @db.Text
+  estado          String    @default("RASCUNHO") // RASCUNHO|PENDENTE_APROVACAO|APROVADA|PAGA|REJEITADA
+  processadoPorId String
+  aprovadoPorId   String?
+  aprovadoEm      DateTime?
+  pagoEm          DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  funcionario   Funcionario @relation(fields: [funcionarioId], references: [id])
+  processadoPor User        @relation("FolhaProcessada", fields: [processadoPorId], references: [id])
+  aprovadoPor   User?       @relation("FolhaAprovada", fields: [aprovadoPorId], references: [id])
+
+  @@unique([funcionarioId, mes, ano])
+  @@index([estado])
+  @@map("rh_folha_pagamento")
+}
+
+model OcorrenciaDisciplinar {
+  id             String    @id @default(uuid())
+  funcionarioId  String
+  data           DateTime  @default(now())
+  tipo           String // ATRASO|ABSENTISMO|CONDUTA_INADEQUADA|VIOLACAO_SEGURANCA|REINCIDENCIA|OUTRO
+  gravidade      String    @default("LEVE") // LEVE|MODERADA|GRAVE
+  descricao      String    @db.Text
+  medidaAplicada String?   @db.Text
+  estado         String    @default("REGISTADA") // REGISTADA|EM_ANALISE|RESOLVIDA_RH|ESCALADA_SUPER_ADMIN|DECIDIDA_SUPER_ADMIN
+  decisaoFinal   String? // ADVERTENCIA|SUSPENSAO|RESCISAO_JUSTA_CAUSA|SEM_ACAO
+  registadoPorId String
+  decididoPorId  String?
+  decididoEm     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  funcionario  Funcionario @relation(fields: [funcionarioId], references: [id])
+  registadoPor User        @relation("OcorrenciaRegistada", fields: [registadoPorId], references: [id])
+  decididoPor  User?       @relation("OcorrenciaDecidida", fields: [decididoPorId], references: [id])
+
+  @@index([gravidade])
+  @@index([estado])
+  @@index([funcionarioId])
+  @@map("rh_ocorrencias_disciplinares")
+}
+
+model Formacao {
+  id            String    @id @default(uuid())
+  titulo        String
+  tipo          String // RECICLAGEM|CERTIFICACAO|SOFT_SKILLS|SEGURANCA|OUTRO
+  descricao     String?   @db.Text
+  custoEstimado Float?
+  dataInicio    DateTime?
+  dataFim       DateTime?
+  estado        String    @default("PROPOSTA") // PROPOSTA|APROVADA_ORCAMENTO|REJEITADA|EM_CURSO|CONCLUIDA|CANCELADA
+  propostoPorId String
+  aprovadoPorId String?
+  aprovadoEm    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  propostoPor   User                  @relation("FormacaoProposta", fields: [propostoPorId], references: [id])
+  aprovadoPor   User?                 @relation("FormacaoAprovada", fields: [aprovadoPorId], references: [id])
+  participantes FuncionarioFormacao[]
+
+  @@index([estado])
+  @@map("rh_formacoes")
+}
+
+model FuncionarioFormacao {
+  id             String   @id @default(uuid())
+  formacaoId     String
+  funcionarioId  String
+  estado         String   @default("INSCRITO") // INSCRITO|CONCLUIDO|DESISTIU
+  notaFinal      Float?
+  certificadoUrl String?
+  createdAt      DateTime @default(now())
+
+  formacao    Formacao    @relation(fields: [formacaoId], references: [id], onDelete: Cascade)
+  funcionario Funcionario @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
+
+  @@unique([formacaoId, funcionarioId])
+  @@map("rh_funcionario_formacoes")
+}
+
+model DocumentoRH {
+  id            String    @id @default(uuid())
+  funcionarioId String?
+  candidaturaId String?
+  tipo          String // BI|CERTIFICADO_NADADOR_SALVADOR|CERTIFICADO_INSTRUTOR|REGISTO_CRIMINAL|ATESTADO_APTIDAO_FISICA|CONTRATO|CV|OUTRO
+  nome          String
+  url           String
+  size          Int?
+  validado      Boolean   @default(false)
+  validadoPorId String?
+  validadoEm    DateTime?
+  uploadedAt    DateTime  @default(now())
+
+  funcionario Funcionario? @relation(fields: [funcionarioId], references: [id])
+  candidatura Candidatura? @relation(fields: [candidaturaId], references: [id])
+  validadoPor User?        @relation(fields: [validadoPorId], references: [id])
+
+  @@index([funcionarioId])
+  @@map("rh_documentos")
+}
+
+model Desligamento {
+  id                   String    @id @default(uuid())
+  funcionarioId        String    @unique
+  tipo                 String // DEMISSAO_VOLUNTARIA|DESPEDIMENTO_SEM_JUSTA_CAUSA|DESPEDIMENTO_JUSTA_CAUSA|FIM_CONTRATO|REFORMA
+  motivo               String?   @db.Text
+  dataInicioProcesso   DateTime  @default(now())
+  dataSaida            DateTime?
+  avisoPrevioDias      Int?
+  valorAcertoContas    Float?
+  detalhesAcerto       String?   @db.Text
+  estado               String    @default("INICIADO") // INICIADO|AGUARDA_APROVACAO|APROVADO|REJEITADO|CONCLUIDO
+  iniciadoPorId        String
+  aprovadoPorId        String?
+  aprovadoEm           DateTime?
+  acessosDesativadosEm DateTime?
+  arquivadoEm          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  funcionario Funcionario @relation(fields: [funcionarioId], references: [id])
+  iniciadoPor User        @relation("DesligamentoIniciado", fields: [iniciadoPorId], references: [id])
+  aprovadoPor User?       @relation("DesligamentoAprovado", fields: [aprovadoPorId], references: [id])
+
+  @@index([estado])
+  @@map("rh_desligamentos")
 }
