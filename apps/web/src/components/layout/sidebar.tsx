@@ -10,7 +10,7 @@ import {
   ClipboardList, MessageSquare, CreditCard, BarChart3,
   LogOut, Waves, Sparkles, X, Brain, TrendingUp, ShieldCheck,
   Smartphone, Download, Sun, Moon, Dumbbell, Heart, Globe, UserCircle, FileText, ScrollText,
-  AlertTriangle, Fish, Award, Calendar, Trophy, Megaphone, Building2, Shield, Zap,
+  AlertTriangle, Fish, Award, Calendar, Trophy, Megaphone, Building2, Shield, Zap, Bell,
 } from 'lucide-react';
 
 const navItems = [
@@ -43,6 +43,7 @@ const navItems = [
   { href: '/comunicacao',       icon: Megaphone,        label: 'Comunicação',            roles: ['ADMIN', 'MANAGER'] },
   { href: '/admin/users',       icon: ShieldCheck,      label: 'Gestão de Utilizadores', roles: ['ADMIN'] },
   { href: '/admin/audit',       icon: ScrollText,       label: 'Audit Log',               roles: ['ADMIN'] },
+  { href: '/notifications',     icon: Bell,             label: 'Notificações',             roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER', 'STUDENT', 'PARENT'] },
   // Student only
   { href: '/student/progress',   icon: TrendingUp,    label: 'O Meu Progresso',     roles: ['STUDENT'] },
   { href: '/student/feedback',   icon: Brain,          label: 'Os Meus Feedbacks',   roles: ['STUDENT'] },

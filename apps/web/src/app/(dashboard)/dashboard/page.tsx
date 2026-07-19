@@ -1041,7 +1041,7 @@ export default function DashboardPage() {
               <span className="font-semibold text-gray-900 text-sm">Metas do Projecto</span>
             </div>
             {[
-              { label: 'Concordância IA', value: 83, target: 85, color: 'bg-violet-500' },
+              { label: 'Concordância IA', value: kpis?.aiConcordanceRate ?? 0, target: 85, color: 'bg-violet-500' },
               { label: 'Adoção Instrutores', value: adoption?.rate ?? 0, target: 70, color: 'bg-blue-500' },
               { label: 'Assiduidade', value: kpis?.attendanceRate ?? 0, target: 85, color: 'bg-emerald-500' },
             ].map((g) => {

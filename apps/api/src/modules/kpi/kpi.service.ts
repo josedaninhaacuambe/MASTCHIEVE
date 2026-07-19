@@ -38,6 +38,14 @@ export class KpiService {
 
     const moduleProgress = await this.getModuleProgressStats();
 
+    const [totalFeedbacks, reviewedFeedbacks] = await Promise.all([
+      this.prisma.feedback.count({ where: { status: { not: 'PENDING' } } }),
+      this.prisma.feedback.count({ where: { status: { in: ['REVIEWED', 'SENT'] } } }),
+    ]);
+    const aiConcordanceRate = totalFeedbacks > 0
+      ? Math.round((reviewedFeedbacks / totalFeedbacks) * 100)
+      : 0;
+
     return {
       students: { total: totalStudents, active: activeStudents },
       instructors: totalInstructors,
@@ -47,6 +55,7 @@ export class KpiService {
       attendanceRate: attendanceStats.rate,
       recentFeedbacks,
       moduleProgress,
+      aiConcordanceRate,
     };
   }
 

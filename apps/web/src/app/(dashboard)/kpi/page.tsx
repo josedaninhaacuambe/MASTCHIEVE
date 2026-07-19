@@ -146,10 +146,10 @@ export default function KpiPage() {
         />
         <KpiCard
           icon={CheckCircle} label="Concordância IA"
-          value="83%"
-          sub="Meta: 85%"
+          value={`${kpis?.aiConcordanceRate ?? 0}%`}
+          sub={`${kpis?.aiConcordanceRate ?? 0 >= 85 ? '✓ Meta atingida' : 'Meta: 85% — feedbacks revistos'}`}
           color="orange"
-          target="85%" achieved={false}
+          target="85%" achieved={(kpis?.aiConcordanceRate ?? 0) >= 85}
         />
       </div>
 
