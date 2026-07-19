@@ -137,7 +137,7 @@ function AssignModal({ fase, config, onClose, onAssigned }: {
   const [assigning, setAssigning] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get('/students?limit=200').then(r => {
+    api.get('/students?limit=100').then(r => {
       const raw = r.data?.data ?? r.data;
       const arr: Student[] = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
       const assignedIds = new Set(fase.studentFases.map(sf => sf.studentId));

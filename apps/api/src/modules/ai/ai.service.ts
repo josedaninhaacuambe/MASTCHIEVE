@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
@@ -42,7 +42,7 @@ export class AiService {
       },
     });
 
-    if (!record) throw new Error('Performance record not found');
+    if (!record) throw new NotFoundException('Performance record not found');
 
     const student = await this.prisma.student.findUnique({
       where: { id: record.studentId },
@@ -56,19 +56,28 @@ export class AiService {
       },
     });
 
-    if (!student) throw new Error('Student not found');
+    if (!student) throw new NotFoundException('Student not found');
 
     const prompt = this.buildFeedbackPrompt(student, record);
 
-    const message = await this.anthropic.messages.create({
-      model: this.model,
-      max_tokens: 1024,
-      system: this.getSystemPrompt(),
-      messages: [{ role: 'user', content: prompt }],
-    });
+    let rawResponse: string;
+    let tokensUsed: number;
+    try {
+      const message = await this.anthropic.messages.create({
+        model: this.model,
+        max_tokens: 1024,
+        system: this.getSystemPrompt(),
+        messages: [{ role: 'user', content: prompt }],
+      });
 
-    const rawResponse = (message.content[0] as any).text;
-    const tokensUsed = message.usage.input_tokens + message.usage.output_tokens;
+      const block = message.content[0];
+      if (block.type !== 'text') throw new Error(`Unexpected response block type: ${block.type}`);
+      rawResponse = block.text;
+      tokensUsed = message.usage.input_tokens + message.usage.output_tokens;
+    } catch (err) {
+      this.logger.error(`Anthropic call failed for record ${performanceRecordId}`, err instanceof Error ? err.stack : String(err));
+      throw new InternalServerErrorException('Falha ao gerar feedback com IA. Tenta novamente mais tarde.');
+    }
 
     // Separate textual feedback from the appended recommendations JSON block.
     const recJsonMatch = rawResponse.match(/\{[\s\S]*\}$/);
@@ -140,7 +149,7 @@ export class AiService {
       },
     });
 
-    if (!student) throw new Error('Student not found');
+    if (!student) throw new NotFoundException('Student not found');
 
     const level = student.enrollments[0]?.class?.level || 'BEGINNER';
 

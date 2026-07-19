@@ -350,7 +350,7 @@ export function Header() {
     if (!user?.id) return;
 
     let mounted = true;
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:4301';
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:4301';
 
     // Use polling first to avoid "WebSocket closed before connection" race condition
     // during React hot-reload / StrictMode double-invoke.
