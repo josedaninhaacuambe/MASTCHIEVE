@@ -20,7 +20,6 @@ apps/web/.env.local
 apps/web/.env.production
 
 # Prisma
-apps/api/prisma/migrations/
 apps/api/prisma/dev.db
 apps/api/prisma/dev.db-journal
 *.db
