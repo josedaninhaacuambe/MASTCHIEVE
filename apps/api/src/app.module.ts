@@ -32,6 +32,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { EmailModule } from './modules/email/email.module';
 import { ParentsModule } from './modules/parents/parents.module';
 import { TrainingPlansModule } from './modules/training-plans/training-plans.module';
+import { RecursosHumanosModule } from './modules/recursos-humanos/recursos-humanos.module';
 
 @Module({
   imports: [
@@ -102,6 +103,7 @@ import { TrainingPlansModule } from './modules/training-plans/training-plans.mod
     ComunicacaoModule,
     ProtocolosModule,
     SegurancaModule,
+    RecursosHumanosModule,
   ],
 })
 export class AppModule {}

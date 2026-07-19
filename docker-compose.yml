@@ -8,8 +8,28 @@ version: '3.9'
 # Nginx:    http://localhost:4390
 # Postgres: localhost:5491
 # Redis:    localhost:6491
+# MySQL:    localhost:4306
 
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: mastchieve_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-mastchieve_dev}
+    ports:
+      - "4306:3306"
+    volumes:
+      - mastchieve_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mastchieve_network
+
   postgres:
     image: postgres:16-alpine
     container_name: mastchieve_postgres
@@ -93,6 +113,7 @@ services:
       - mastchieve_network
 
 volumes:
+  mastchieve_mysql_data:
   mastchieve_postgres_data:
   mastchieve_redis_data:
   mastchieve_n8n_data:

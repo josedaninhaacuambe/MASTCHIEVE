@@ -57,7 +57,7 @@ export class UsersService {
         const email = user.email;
         const nameParts = email.split('@')[0].split('.');
         await this.prisma.instructor.create({
-          data: { userId: id, firstName: nameParts[0] ?? 'Novo', lastName: nameParts[1] ?? 'Instrutor' },
+          data: { userId: id, firstName: nameParts[0] ?? 'Novo', lastName: nameParts[1] ?? 'Instrutor', specializations: '[]' },
         });
       }
     }

@@ -75,6 +75,7 @@ export class SwimmingModulesService {
       data: {
         ...dto,
         skills: JSON.stringify(dto.skills ?? []),
+        videos: '[]',
       },
     });
   }

@@ -15,11 +15,12 @@ export class TransformInterceptor<T> implements NestInterceptor<T, ApiResponse<T
     return next.handle().pipe(
       map((data) => {
         if (data && typeof data === 'object' && 'success' in data) return data;
+        const isPreWrapped = data && typeof data === 'object' && Array.isArray(data.data);
         return {
           success: true,
-          data: data?.data ?? data,
-          message: data?.message,
-          meta: data?.meta,
+          data: isPreWrapped ? data.data : data,
+          message: isPreWrapped ? data.message : undefined,
+          meta: isPreWrapped ? data.meta : undefined,
         };
       }),
     );

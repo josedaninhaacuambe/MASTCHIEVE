@@ -9,6 +9,6 @@ import { NotificationsScheduler } from './notifications.scheduler';
   imports: [ConfigModule],
   controllers: [NotificationsController],
   providers: [NotificationsService, NotificationsGateway, NotificationsScheduler],
-  exports: [NotificationsService, NotificationsScheduler],
+  exports: [NotificationsService, NotificationsGateway, NotificationsScheduler],
 })
 export class NotificationsModule {}

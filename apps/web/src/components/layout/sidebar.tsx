@@ -11,6 +11,8 @@ import {
   LogOut, Waves, Sparkles, X, Brain, TrendingUp, ShieldCheck,
   Smartphone, Download, Sun, Moon, Dumbbell, Heart, Globe, UserCircle, FileText, ScrollText,
   AlertTriangle, Fish, Award, Calendar, Trophy, Megaphone, Building2, Shield, Zap, Bell,
+  Briefcase, UserPlus, FileSignature, IdCard, CalendarClock, ClipboardCheck, CalendarX,
+  Banknote, Gavel, FolderOpen, PieChart,
 } from 'lucide-react';
 
 const navItems = [
@@ -44,6 +46,22 @@ const navItems = [
   { href: '/admin/users',       icon: ShieldCheck,      label: 'Gestão de Utilizadores', roles: ['ADMIN'] },
   { href: '/admin/audit',       icon: ScrollText,       label: 'Audit Log',               roles: ['ADMIN'] },
   { href: '/notifications',     icon: Bell,             label: 'Notificações',             roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER', 'STUDENT', 'PARENT'] },
+  // Recursos Humanos — Gestor de RH + Super Admin
+  { href: '/rh',                icon: Briefcase,        label: 'RH — Painel',            roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/funcionarios',   icon: Users,            label: 'Funcionários',           roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/vagas',          icon: Briefcase,        label: 'Vagas',                   roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/candidaturas',   icon: UserPlus,         label: 'Candidaturas',           roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/contratos',      icon: FileSignature,    label: 'Contratos',               roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/certificacoes',  icon: IdCard,           label: 'Certificações',           roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/escalas',        icon: CalendarClock,    label: 'Escalas',                 roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/avaliacoes-desempenho', icon: ClipboardCheck, label: 'Avaliações Desempenho', roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/ferias-faltas',  icon: CalendarX,        label: 'Férias / Faltas',        roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/folha-pagamento', icon: Banknote,        label: 'Folha de Pagamento',     roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/disciplina',     icon: Gavel,            label: 'Disciplina',              roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/formacao',       icon: GraduationCap,    label: 'Formação',                roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/desligamento',   icon: LogOut,           label: 'Desligamento',           roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/documentos',     icon: FolderOpen,       label: 'Documentos RH',          roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/relatorios',     icon: PieChart,         label: 'Relatórios RH',          roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
   // Student only
   { href: '/student/progress',   icon: TrendingUp,    label: 'O Meu Progresso',     roles: ['STUDENT'] },
   { href: '/student/feedback',   icon: Brain,          label: 'Os Meus Feedbacks',   roles: ['STUDENT'] },
@@ -133,7 +151,7 @@ export function Sidebar() {
   const { user, logout } = useAuthStore();
   const { sidebarOpen, closeSidebar, darkMode, toggleDarkMode } = useUIStore();
 
-  const filtered = navItems.filter((item) => item.roles.includes(user?.role || ''));
+  const filtered = navItems.filter((item) => item.roles.includes(user?.role || '') || user?.role === 'SUPER_ADMIN');
   const firstName = user?.profile?.firstName ?? user?.email?.split('@')[0] ?? '?';
   const initials = firstName[0]?.toUpperCase() ?? '?';
 

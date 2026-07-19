@@ -1,9 +1,16 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma/prisma.service';
+import { CertificacoesService } from '../recursos-humanos/certificacoes/certificacoes.service';
 
 @Injectable()
 export class ClassesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private certificacoesService: CertificacoesService) {}
+
+  private async assertInstrutorCertificado(instructorId: string | undefined) {
+    if (!instructorId) return;
+    const funcionario = await this.prisma.funcionario.findUnique({ where: { instructorId } });
+    if (funcionario) await this.certificacoesService.assertCertificacoesValidas(funcionario.id);
+  }
 
   async findAll(query: any) {
     const page = Math.max(1, parseInt(query.page) || 1);
@@ -70,6 +77,7 @@ export class ClassesService {
   }
 
   async create(dto: any) {
+    await this.assertInstrutorCertificado(dto.instructorId);
     return this.prisma.class.create({
       data: {
         ...dto,
@@ -81,6 +89,7 @@ export class ClassesService {
 
   async update(id: string, dto: any) {
     await this.findOne(id);
+    if (dto.instructorId) await this.assertInstrutorCertificado(dto.instructorId);
     const data: any = { ...dto };
     if (dto.schedules && typeof dto.schedules !== 'string') {
       data.schedules = JSON.stringify(dto.schedules);

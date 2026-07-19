@@ -57,6 +57,7 @@ export class IncidentesService {
         descricao: 'RELÂMPAGO ZERO — Evacuação imediata acionada pelo instrutor',
         acaoImediata: 'Atletas evacuados da piscina imediatamente. Aguardar 30 min após último trovão.',
         dimensoes: JSON.stringify(['FISICA']),
+        envolvidos: '[]',
         estado: 'REPORTADO',
         reportadoPorId: userId,
         ...(unidadeId && { unidadeId }),

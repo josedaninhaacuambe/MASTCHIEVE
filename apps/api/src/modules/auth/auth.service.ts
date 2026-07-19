@@ -40,7 +40,7 @@ export class AuthService {
           admin: { create: { firstName: dto.firstName, lastName: dto.lastName, phone: dto.phone } },
         }),
         ...(dto.role === 'INSTRUCTOR' && {
-          instructor: { create: { firstName: dto.firstName, lastName: dto.lastName, phone: dto.phone } },
+          instructor: { create: { firstName: dto.firstName, lastName: dto.lastName, phone: dto.phone, specializations: '[]' } },
         }),
         ...(dto.role === 'STUDENT' && {
           student: {
