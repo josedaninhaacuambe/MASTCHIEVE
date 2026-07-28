@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import {
-  Award, CheckCircle2, Circle, ChevronDown, ChevronRight,
+  Award, CheckCircle2, ChevronDown, ChevronRight,
   UserPlus, X, Search, Loader2, Trophy, Users, TrendingUp,
 } from 'lucide-react';
 
@@ -15,6 +15,12 @@ interface Student {
   avatarUrl?: string | null;
 }
 
+interface Avaliacao {
+  criterioIndex: number;
+  valor: number;
+  observacao?: string | null;
+}
+
 interface StudentFase {
   id: string;
   studentId: string;
@@ -24,6 +30,12 @@ interface StudentFase {
   iniciadoEm?: string | null;
   concluidoEm?: string | null;
   student: Student;
+  avaliacoes?: Avaliacao[];
+}
+
+interface Criterio {
+  nome: string;
+  obrigatoria: boolean;
 }
 
 interface Fase {
@@ -33,6 +45,7 @@ interface Fase {
   foco?: string;
   escala: string;
   criterios: string;
+  totalMinimo: number;
   assiduidade: number;
   studentFases: StudentFase[];
 }
@@ -52,8 +65,8 @@ export interface NivelConfig {
 export const NIVEL_CONFIGS: Record<string, NivelConfig> = {
   AMA: {
     nivel: 'AMA',
-    titulo: 'Módulo AMA',
-    subtitulo: 'Adaptação ao Meio Aquático · Certificação Bronze · 3 Fases',
+    titulo: 'Fase AMA',
+    subtitulo: 'Adaptação ao Meio Aquático · Certificação Bronze · 3 Módulos',
     gradFrom: 'from-blue-500',
     gradTo: 'to-cyan-500',
     badge: 'BRONZE',
@@ -67,8 +80,8 @@ export const NIVEL_CONFIGS: Record<string, NivelConfig> = {
   },
   INTERMEDIARIO: {
     nivel: 'INTERMEDIARIO',
-    titulo: 'Módulo Intermédio',
-    subtitulo: 'Autonomia Aquática e Eficiência Corporal · Certificação Prata · 3 Fases',
+    titulo: 'Fase Intermédio',
+    subtitulo: 'Autonomia Aquática e Eficiência Corporal · Certificação Prata · 3 Módulos',
     gradFrom: 'from-purple-500',
     gradTo: 'to-violet-600',
     badge: 'PRATA',
@@ -83,8 +96,8 @@ export const NIVEL_CONFIGS: Record<string, NivelConfig> = {
   },
   AVANCADO: {
     nivel: 'AVANCADO',
-    titulo: 'Módulo Avançado',
-    subtitulo: 'Eficiência Técnica de Nado · Certificação Ouro · 3 Fases',
+    titulo: 'Fase Avançado',
+    subtitulo: 'Eficiência Técnica de Nado · Certificação Ouro · 3 Módulos',
     gradFrom: 'from-amber-500',
     gradTo: 'to-orange-600',
     badge: 'OURO',
@@ -102,8 +115,10 @@ function parseJson<T>(raw: string | null | undefined, fallback: T): T {
   try { return JSON.parse(raw ?? '') ?? fallback; } catch { return fallback; }
 }
 
-function getVerificados(sf: StudentFase): number[] {
-  return parseJson<{ criteriosVerificados?: number[] }>(sf.notas, {}).criteriosVerificados ?? [];
+function scoresFromAvaliacoes(sf: StudentFase): Record<number, number> {
+  const map: Record<number, number> = {};
+  for (const a of sf.avaliacoes ?? []) map[a.criterioIndex] = a.valor;
+  return map;
 }
 
 function studentName(s: Student) {
@@ -156,7 +171,6 @@ function AssignModal({ fase, config, onClose, onAssigned }: {
       await api.put(`/fases/estudante/${student.id}/fase/${fase.id}`, {
         estado: 'EM_PROGRESSO',
         iniciadoEm: new Date().toISOString(),
-        notas: JSON.stringify({ criteriosVerificados: [] }),
       });
       onAssigned();
       onClose();
@@ -171,7 +185,7 @@ function AssignModal({ fase, config, onClose, onAssigned }: {
         <div className="flex items-center justify-between p-5 border-b">
           <div>
             <h3 className="font-bold text-gray-900">Adicionar Atleta</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Fase {fase.ordem} — {fase.nome}</p>
+            <p className="text-xs text-gray-500 mt-0.5">Módulo {fase.ordem} — {fase.nome}</p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition">
             <X className="w-5 h-5 text-gray-400" />
@@ -220,43 +234,67 @@ function AssignModal({ fase, config, onClose, onAssigned }: {
   );
 }
 
-function EstudanteRow({ sf, criterios, faseId, config, onUpdate }: {
-  sf: StudentFase; criterios: string[]; faseId: string;
+function EstudanteRow({ sf, criterios, totalMinimo, faseId, config, onUpdate }: {
+  sf: StudentFase; criterios: Criterio[]; totalMinimo: number; faseId: string;
   config: NivelConfig;
   onUpdate: (updated: Partial<StudentFase> & { studentId: string; faseId: string }) => void;
 }) {
-  const [verificados, setVerificados] = useState<number[]>(() => getVerificados(sf));
-  const [saving, setSaving] = useState(false);
+  const [scores, setScores] = useState<Record<number, number>>(() => scoresFromAvaliacoes(sf));
+  const [savingIdx, setSavingIdx] = useState<number | null>(null);
   const [completing, setCompleting] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   const isDone = sf.estado === 'CONCLUIDO';
-  const allVerified = verificados.length === criterios.length;
-  const pct = criterios.length > 0 ? Math.round((verificados.length / criterios.length) * 100) : 0;
+  const scoredCount = criterios.filter((_, i) => scores[i] != null).length;
+  const allScored = scoredCount === criterios.length;
+  const abaixoMinimo = criterios.filter((c, i) => (scores[i] ?? 0) < (c.obrigatoria ? 4 : 3));
+  const soma = Object.values(scores).reduce((s, v) => s + v, 0);
+  const sumOk = soma >= totalMinimo;
+  const canConcluir = allScored && abaixoMinimo.length === 0 && sumOk;
+  const pct = criterios.length > 0 ? Math.round((scoredCount / criterios.length) * 100) : 0;
 
-  const toggleCriterio = async (idx: number) => {
+  const tituloConcluir = !allScored
+    ? 'Falta pontuar todas as habilidades'
+    : abaixoMinimo.length > 0
+      ? `Habilidades abaixo do mínimo: ${abaixoMinimo.map(c => c.nome).join(', ')}`
+      : !sumOk
+        ? `Soma insuficiente (${soma}/${totalMinimo})`
+        : 'Concluir este módulo';
+
+  const setScore = async (idx: number, valor: number) => {
     if (isDone) return;
-    const next = verificados.includes(idx)
-      ? verificados.filter(v => v !== idx)
-      : [...verificados, idx];
-    setVerificados(next);
-    setSaving(true);
+    const prev = scores[idx];
+    const nextScores = { ...scores, [idx]: valor };
+    setScores(nextScores);
+    setSavingIdx(idx);
+    setErro(null);
     try {
-      const r = await api.put(`/fases/estudante/${sf.studentId}/fase/${faseId}`,
-        { notas: JSON.stringify({ criteriosVerificados: next }) });
-      onUpdate({ studentId: sf.studentId, faseId, notas: r.data?.notas ?? JSON.stringify({ criteriosVerificados: next }) });
-    } finally { setSaving(false); }
+      await api.put(`/fases/estudante/${sf.studentId}/fase/${faseId}`, { avaliacoes: [{ index: idx, valor }] });
+      const avaliacoes = Object.entries(nextScores).map(([i, v]) => ({ criterioIndex: Number(i), valor: v }));
+      onUpdate({ studentId: sf.studentId, faseId, avaliacoes });
+    } catch {
+      setScores(s => {
+        const next = { ...s };
+        if (prev === undefined) delete next[idx]; else next[idx] = prev;
+        return next;
+      });
+    } finally {
+      setSavingIdx(null);
+    }
   };
 
   const concluir = async () => {
-    if (!allVerified || isDone) return;
+    if (!canConcluir || isDone) return;
     setCompleting(true);
+    setErro(null);
     try {
-      const r = await api.put(`/fases/estudante/${sf.studentId}/fase/${faseId}`, {
+      await api.put(`/fases/estudante/${sf.studentId}/fase/${faseId}`, {
         estado: 'CONCLUIDO',
         concluidoEm: new Date().toISOString(),
-        notas: JSON.stringify({ criteriosVerificados: verificados }),
       });
-      onUpdate({ studentId: sf.studentId, faseId, estado: 'CONCLUIDO', ...(r.data ?? {}) });
+      onUpdate({ studentId: sf.studentId, faseId, estado: 'CONCLUIDO' });
+    } catch (e: any) {
+      setErro(e?.response?.data?.message ?? 'Não foi possível concluir. Verifica os mínimos e o total.');
     } finally { setCompleting(false); }
   };
 
@@ -270,7 +308,6 @@ function EstudanteRow({ sf, criterios, faseId, config, onUpdate }: {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold text-gray-900">{studentName(sf.student)}</span>
             {isDone && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Concluído</span>}
-            {saving && <Loader2 className="w-3 h-3 text-blue-400 animate-spin" />}
           </div>
           <div className="mt-1 flex items-center gap-2">
             <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -280,17 +317,17 @@ function EstudanteRow({ sf, criterios, faseId, config, onUpdate }: {
               />
             </div>
             <span className="text-[10px] text-gray-400 flex-shrink-0 tabular-nums">
-              {isDone ? criterios.length : verificados.length}/{criterios.length}
+              {isDone ? criterios.length : scoredCount}/{criterios.length} · {soma}/{totalMinimo} pts
             </span>
           </div>
         </div>
         {!isDone && (
           <button
             onClick={concluir}
-            disabled={!allVerified || completing}
-            title={!allVerified ? 'Verifica todos os critérios primeiro' : 'Concluir esta fase'}
+            disabled={!canConcluir || completing}
+            title={tituloConcluir}
             className={`flex-shrink-0 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold transition ${
-              allVerified
+              canConcluir
                 ? 'bg-green-500 hover:bg-green-600 text-white shadow-sm'
                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
@@ -302,22 +339,45 @@ function EstudanteRow({ sf, criterios, faseId, config, onUpdate }: {
       </div>
 
       {!isDone && criterios.length > 0 && (
-        <div className="space-y-1.5 pl-11">
+        <div className="space-y-2 pl-11">
           {criterios.map((c, i) => {
-            const checked = verificados.includes(i);
+            const valor = scores[i];
+            const minimo = c.obrigatoria ? 4 : 3;
+            const belowMin = valor != null && valor < minimo;
             return (
-              <button key={i} onClick={() => toggleCriterio(i)} className="w-full flex items-start gap-2 text-left group py-0.5">
-                {checked
-                  ? <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                  : <Circle className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5 group-hover:text-blue-300 transition" />}
-                <span className={`text-xs leading-relaxed ${checked ? 'text-blue-600 line-through decoration-blue-300' : 'text-gray-600'}`}>
-                  {c}
-                </span>
-              </button>
+              <div key={i} className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-gray-700">{c.nome}</span>
+                  {c.obrigatoria && (
+                    <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full">
+                      Obrigatória · mín. 4
+                    </span>
+                  )}
+                  {savingIdx === i && <Loader2 className="w-3 h-3 text-blue-400 animate-spin" />}
+                </div>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button
+                      key={n}
+                      onClick={() => setScore(i, n)}
+                      className={`w-6 h-6 rounded-md text-[11px] font-bold flex items-center justify-center border transition ${
+                        valor === n
+                          ? (n < minimo ? 'bg-red-500 border-red-500 text-white' : 'bg-blue-500 border-blue-500 text-white')
+                          : 'bg-white border-gray-200 text-gray-400 hover:border-blue-300'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                  {belowMin && <span className="text-[10px] text-red-500 ml-1">abaixo do mínimo ({minimo})</span>}
+                </div>
+              </div>
             );
           })}
         </div>
       )}
+
+      {erro && <p className="text-xs text-red-500 pl-11">{erro}</p>}
     </div>
   );
 }
@@ -329,7 +389,7 @@ function FaseCard({ fase, config, onRefresh }: { fase: Fase; config: NivelConfig
 
   useEffect(() => { setLocalStudentFases(fase.studentFases); }, [fase.studentFases]);
 
-  const criterios = parseJson<string[]>(fase.criterios, []);
+  const criterios = parseJson<Criterio[]>(fase.criterios, []);
   const escala = parseJson<string[]>(fase.escala, []);
   const active = localStudentFases.filter(sf => sf.estado !== 'NAO_INICIADO');
   const concluidos = active.filter(sf => sf.estado === 'CONCLUIDO').length;
@@ -400,12 +460,20 @@ function FaseCard({ fase, config, onRefresh }: { fase: Fase; config: NivelConfig
             </div>
 
             <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Critérios ({criterios.length})</p>
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Habilidades ({criterios.length})</p>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Total mínimo acumulado: <span className="text-gray-600">{fase.totalMinimo} pts</span></p>
+              </div>
               <div className="flex flex-wrap gap-y-1 gap-x-4">
                 {criterios.map((c, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
                     <div className={`w-1.5 h-1.5 rounded-full bg-gradient-to-br ${config.gradFrom} ${config.gradTo} flex-shrink-0`} />
-                    {c}
+                    {c.nome}
+                    {c.obrigatoria && (
+                      <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full">
+                        Obrigatória
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -415,7 +483,7 @@ function FaseCard({ fase, config, onRefresh }: { fase: Fase; config: NivelConfig
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Atletas ({active.length})</p>
               {active.length === 0 ? (
                 <div className="text-center py-8 text-sm text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
-                  Nenhum atleta nesta fase. Clica em "Adicionar Atleta" para começar.
+                  Nenhum atleta neste módulo. Clica em "Adicionar Atleta" para começar.
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -424,6 +492,7 @@ function FaseCard({ fase, config, onRefresh }: { fase: Fase; config: NivelConfig
                       key={`${sf.studentId}-${sf.faseId}`}
                       sf={sf}
                       criterios={criterios}
+                      totalMinimo={fase.totalMinimo}
                       faseId={fase.id}
                       config={config}
                       onUpdate={updateSf}
@@ -459,7 +528,7 @@ export function NivelPage({ nivel }: { nivel: 'AMA' | 'INTERMEDIARIO' | 'AVANCAD
     setError(null);
     api.get(`/fases/nivel/${nivel}`)
       .then(r => { const raw = r.data?.data ?? r.data; setFases(Array.isArray(raw) ? raw : []); })
-      .catch(() => setError(`Erro a carregar fases ${nivel}.`))
+      .catch(() => setError(`Erro a carregar módulos ${nivel}.`))
       .finally(() => setLoading(false));
   }, [nivel]);
 
@@ -491,7 +560,7 @@ export function NivelPage({ nivel }: { nivel: 'AMA' | 'INTERMEDIARIO' | 'AVANCAD
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard icon={Users}        value={totalAtletas}          label="Total Atletas"       colorCls="bg-blue-50 text-blue-600" />
         <StatCard icon={TrendingUp}   value={emProgresso}           label="Em Progresso"        colorCls="bg-amber-50 text-amber-600" />
-        <StatCard icon={CheckCircle2} value={totalFasesConcluidas}  label="Fases Concluídas"    colorCls="bg-green-50 text-green-600" />
+        <StatCard icon={CheckCircle2} value={totalFasesConcluidas}  label="Módulos Concluídos"  colorCls="bg-green-50 text-green-600" />
         <StatCard icon={Trophy}       value={prontosCert}            label={config.certLabel}   colorCls="bg-orange-50 text-orange-600" />
       </div>
 
@@ -542,12 +611,12 @@ export function NivelPage({ nivel }: { nivel: 'AMA' | 'INTERMEDIARIO' | 'AVANCAD
         <div className="text-center py-16 text-red-500 text-sm">{error}</div>
       ) : fases.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
-          <span className="text-sm">Nenhuma fase encontrada.</span>
+          <span className="text-sm">Nenhum módulo encontrado.</span>
           <button onClick={fetchData} className="text-xs text-blue-500 hover:underline">Tentar novamente</button>
         </div>
       ) : (
         <div className="space-y-4">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Fases do Módulo</p>
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Módulos da Fase</p>
           {fases.map(f => (
             <FaseCard key={f.id} fase={f} config={config} onRefresh={fetchData} />
           ))}

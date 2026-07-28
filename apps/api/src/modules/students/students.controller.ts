@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsNumber, IsOptional, IsString, Min, Max } from 'class-validator';
+import { Response } from 'express';
 import { StudentsService } from './students.service';
+import { StudentsReportService } from './students-report.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentQueryDto } from './dto/student-query.dto';
@@ -27,7 +29,10 @@ class CreatePerformanceDto {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('students')
 export class StudentsController {
-  constructor(private studentsService: StudentsService) {}
+  constructor(
+    private studentsService: StudentsService,
+    private studentsReportService: StudentsReportService,
+  ) {}
 
   @Get('me')
   @Roles('STUDENT')
@@ -48,6 +53,19 @@ export class StudentsController {
   @ApiOperation({ summary: 'Obter atleta por ID' })
   findOne(@Param('id') id: string) {
     return this.studentsService.findOne(id);
+  }
+
+  @Get(':id/report')
+  @Roles('ADMIN', 'INSTRUCTOR')
+  @ApiOperation({ summary: 'Exportar Ficha Técnica do Atleta em PDF' })
+  async getReport(@Param('id') id: string, @Res() res: Response) {
+    const buffer = await this.studentsReportService.generate(id);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="ficha-tecnica-${id}.pdf"`,
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
   }
 
   @Get(':id/performance')

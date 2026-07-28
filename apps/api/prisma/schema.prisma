@@ -32,25 +32,27 @@ model User {
   pedidosAprovados      PedidoComunicacao[] @relation("PedidoAprovado")
   certificadosValidados Certificado[]
 
-  funcionario                Funcionario?
-  vagasSolicitadas           Vaga[]                  @relation("VagaSolicitante")
-  vagasAprovadas             Vaga[]                  @relation("VagaAprovada")
-  candidaturasAvaliadas      Candidatura[]           @relation("CandidaturaAvaliada")
-  candidaturasAprovadas      Candidatura[]           @relation("CandidaturaAprovada")
-  contratosElaborados        Contrato[]              @relation("ContratoElaborado")
-  contratosAssinados         Contrato[]              @relation("ContratoAssinado")
-  avaliacoesDesempenho       AvaliacaoDesempenho[]
-  feriasFaltasSolicitadas    FeriasFalta[]           @relation("FeriasSolicitante")
-  feriasFaltasAprovadas      FeriasFalta[]           @relation("FeriasAprovada")
-  folhaPagamentosProcessadas FolhaPagamento[]        @relation("FolhaProcessada")
-  folhaPagamentosAprovadas   FolhaPagamento[]        @relation("FolhaAprovada")
-  ocorrenciasRegistadas      OcorrenciaDisciplinar[] @relation("OcorrenciaRegistada")
-  ocorrenciasDecididas       OcorrenciaDisciplinar[] @relation("OcorrenciaDecidida")
-  formacoesPropostas         Formacao[]              @relation("FormacaoProposta")
-  formacoesAprovadas         Formacao[]              @relation("FormacaoAprovada")
-  desligamentosIniciados     Desligamento[]          @relation("DesligamentoIniciado")
-  desligamentosAprovados     Desligamento[]          @relation("DesligamentoAprovado")
-  documentosRHValidados      DocumentoRH[]
+  funcionario                 Funcionario?
+  vagasSolicitadas            Vaga[]                  @relation("VagaSolicitante")
+  vagasAprovadas              Vaga[]                  @relation("VagaAprovada")
+  candidaturasAvaliadas       Candidatura[]           @relation("CandidaturaAvaliada")
+  candidaturasAprovadas       Candidatura[]           @relation("CandidaturaAprovada")
+  contratosElaborados         Contrato[]              @relation("ContratoElaborado")
+  contratosAssinados          Contrato[]              @relation("ContratoAssinado")
+  avaliacoesDesempenho        AvaliacaoDesempenho[]
+  feriasFaltasSolicitadas     FeriasFalta[]           @relation("FeriasSolicitante")
+  feriasFaltasAprovadas       FeriasFalta[]           @relation("FeriasAprovada")
+  folhaPagamentosProcessadas  FolhaPagamento[]        @relation("FolhaProcessada")
+  folhaPagamentosAprovadas    FolhaPagamento[]        @relation("FolhaAprovada")
+  ocorrenciasRegistadas       OcorrenciaDisciplinar[] @relation("OcorrenciaRegistada")
+  ocorrenciasDecididas        OcorrenciaDisciplinar[] @relation("OcorrenciaDecidida")
+  formacoesPropostas          Formacao[]              @relation("FormacaoProposta")
+  formacoesAprovadas          Formacao[]              @relation("FormacaoAprovada")
+  desligamentosIniciados      Desligamento[]          @relation("DesligamentoIniciado")
+  desligamentosAprovados      Desligamento[]          @relation("DesligamentoAprovado")
+  documentosRHValidados       DocumentoRH[]
+  dispositivosQuiosqueCriados DispositivoQuiosque[]   @relation("DispositivoCriado")
+  presencasLancadas           RegistoPresenca[]       @relation("PresencaLancadaManualmente")
 
   @@index([email])
   @@index([role])
@@ -195,16 +197,18 @@ model Unidade {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  turmas       Class[]
-  estudantes   Student[]
-  instrutores  InstructorUnidade[]
-  leads        Lead[]
-  incidentes   Incidente[]
-  eventos      Evento[]
-  competicoes  Competicao[]
-  funcionarios Funcionario[]
-  vagas        Vaga[]
-  escalas      Escala[]
+  turmas               Class[]
+  estudantes           Student[]
+  instrutores          InstructorUnidade[]
+  leads                Lead[]
+  incidentes           Incidente[]
+  eventos              Evento[]
+  competicoes          Competicao[]
+  funcionarios         Funcionario[]
+  vagas                Vaga[]
+  escalas              Escala[]
+  dispositivosQuiosque DispositivoQuiosque[]
+  presencasBiometricas RegistoPresenca[]
 
   @@map("unidades")
 }
@@ -278,19 +282,24 @@ model AvaliacaoInicial {
   @@map("avaliacoes_iniciais")
 }
 
-// ─── Fases de Progressão (9 fases com animais) ───────────────────────────────
+// ─── Módulos de Progressão (9 módulos com animais, agrupados em 3 fases) ─────
+// Nota de terminologia (ficha técnica oficial): FASE = nivel (AMA/INTERMEDIARIO/AVANCADO),
+// MÓDULO = cada linha desta tabela (nível-animal, 3 por fase). O nome do modelo
+// mantém-se `FaseProgressao` por compatibilidade de schema/BD, mas conceptualmente
+// representa um MÓDULO.
 
 model FaseProgressao {
   id           String   @id @default(uuid())
-  nivel        String // AMA | INTERMEDIARIO | AVANCADO
+  nivel        String // FASE: AMA | INTERMEDIARIO | AVANCADO
   ordem        Int
-  nome         String // Estrela-do-Mar, Cavalo-Marinho, etc.
+  nome         String // Estrela-do-Mar, Cavalo-Marinho, etc. (nome do MÓDULO)
   animal       String
   certificacao String // BRONZE | PRATA | OURO
   descricao    String?  @db.Text
-  foco         String?  @db.Text // foco pedagógico da fase
-  escala       String   @db.Text // JSON: scale options ex: ["Não realiza","Com apoio","Autónomo"]
-  criterios    String   @db.Text // JSON array of criteria
+  foco         String?  @db.Text // foco pedagógico do módulo
+  escala       String   @db.Text // JSON: ["1 - Péssimo","2 - Fraco","3 - Razoável","4 - Bom","5 - Excelente"]
+  criterios    String   @db.Text // JSON: { nome: string; obrigatoria: boolean }[] — obrigatoria=true exige mínimo 4, geral exige mínimo 3
+  totalMinimo  Int      @default(0) // soma mínima acumulada das pontuações das habilidades para concluir o módulo
   assiduidade  Int      @default(80) // minimum attendance % required
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -314,12 +323,31 @@ model StudentFase {
   notas       String?   @db.Text
   updatedAt   DateTime  @updatedAt
 
-  student Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  fase    FaseProgressao @relation(fields: [faseId], references: [id])
+  student    Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  fase       FaseProgressao        @relation(fields: [faseId], references: [id])
+  avaliacoes StudentFaseCriterio[]
 
   @@unique([studentId, faseId])
   @@index([studentId])
   @@map("student_fases")
+}
+
+// Pontuação (1-5) de cada habilidade de um módulo, por aluno. criterioIndex indexa
+// posicionalmente o array FaseProgressao.criterios — nunca reordenar esse array
+// depois de existirem avaliações.
+model StudentFaseCriterio {
+  id            String   @id @default(uuid())
+  studentFaseId String
+  criterioIndex Int
+  valor         Int // 1-5
+  observacao    String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  studentFase StudentFase @relation(fields: [studentFaseId], references: [id], onDelete: Cascade)
+
+  @@unique([studentFaseId, criterioIndex])
+  @@map("student_fase_criterios")
 }
 
 model Certificado {
@@ -891,6 +919,8 @@ model Funcionario {
   documentos               DocumentoRH[]
   formacoes                FuncionarioFormacao[]
   desligamento             Desligamento?
+  credenciaisBiometricas   CredencialBiometrica[]
+  presencasBiometricas     RegistoPresenca[]
 
   @@index([estado])
   @@index([cargo])
@@ -1000,8 +1030,9 @@ model Escala {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  funcionario Funcionario @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
-  unidade     Unidade?    @relation(fields: [unidadeId], references: [id])
+  funcionario          Funcionario       @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
+  unidade              Unidade?          @relation(fields: [unidadeId], references: [id])
+  presencasBiometricas RegistoPresenca[]
 
   @@index([funcionarioId])
   @@index([data])
@@ -1222,4 +1253,84 @@ model Desligamento {
 
   @@index([estado])
   @@map("rh_desligamentos")
+}
+
+// ─── Presença Biométrica ─────────────────────────────────────────────────
+
+model DispositivoQuiosque {
+  id           String    @id @default(uuid())
+  nome         String
+  unidadeId    String
+  chaveHash    String    @db.VarChar(255)
+  ultimoAcesso DateTime?
+  ativo        Boolean   @default(true)
+  criadoPorId  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  unidade             Unidade                @relation(fields: [unidadeId], references: [id])
+  criadoPor           User                   @relation("DispositivoCriado", fields: [criadoPorId], references: [id])
+  credenciaisWebauthn CredencialBiometrica[] @relation("CredencialDispositivo")
+  registosPresenca    RegistoPresenca[]
+
+  @@index([unidadeId])
+  @@index([ativo])
+  @@map("rh_dispositivos_quiosque")
+}
+
+model CredencialBiometrica {
+  id            String  @id @default(uuid())
+  funcionarioId String
+  tipo          String // WEBAUTHN | USB_TEMPLATE
+  dispositivoId String? // obrigatório para WEBAUTHN (credencial ligada a um quiosque físico); null para USB_TEMPLATE
+
+  // --- campos específicos WEBAUTHN ---
+  credentialId String? @unique @db.VarChar(512)
+  publicKey    String? @db.Text
+  counter      BigInt? @default(0)
+  transports   String? // JSON stringificado, ex. ["internal"]
+  deviceLabel  String?
+
+  // --- campos específicos USB_TEMPLATE ---
+  fabricante      String?
+  templateData    Bytes?  @db.LongBlob
+  templateFormato String?
+
+  ativo            Boolean   @default(true)
+  registadoEm      DateTime  @default(now())
+  ultimaUtilizacao DateTime?
+
+  funcionario Funcionario          @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
+  dispositivo DispositivoQuiosque? @relation("CredencialDispositivo", fields: [dispositivoId], references: [id])
+
+  @@index([funcionarioId])
+  @@index([tipo])
+  @@index([dispositivoId])
+  @@map("rh_credenciais_biometricas")
+}
+
+model RegistoPresenca {
+  id                 String   @id @default(uuid())
+  funcionarioId      String
+  dispositivoId      String?
+  unidadeId          String?
+  escalaId           String?
+  tipo               String // ENTRADA | SAIDA
+  metodoVerificacao  String // WEBAUTHN | USB_TEMPLATE | MANUAL
+  timestamp          DateTime @default(now())
+  lancadoManualmente Boolean  @default(false)
+  responsavelId      String?
+  observacao         String?  @db.Text
+
+  funcionario Funcionario          @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
+  dispositivo DispositivoQuiosque? @relation(fields: [dispositivoId], references: [id])
+  unidade     Unidade?             @relation(fields: [unidadeId], references: [id])
+  escala      Escala?              @relation(fields: [escalaId], references: [id])
+  responsavel User?                @relation("PresencaLancadaManualmente", fields: [responsavelId], references: [id])
+
+  @@index([funcionarioId])
+  @@index([dispositivoId])
+  @@index([timestamp])
+  @@index([funcionarioId, timestamp])
+  @@map("rh_presencas_biometricas")
 }

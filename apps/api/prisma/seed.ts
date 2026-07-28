@@ -146,6 +146,7 @@ async function main() {
         level: mod.level,
         order: mod.order,
         skills: JSON.stringify(mod.skills),
+        videos: JSON.stringify([]),
       },
     });
   }
@@ -484,6 +485,8 @@ async function main() {
             studentId, sessionId, instructorId,
             performanceRecordId: record.id,
             status: feedbackStatus,
+            recommendedLessons: JSON.stringify([]),
+            interactiveExercises: JSON.stringify([]),
             aiGeneratedText: feedbackStatus !== 'PENDING' ? feedbackText : null,
             instructorNotes: feedbackStatus === 'REVIEWED' || feedbackStatus === 'SENT'
               ? pickRandom(['Confirmo a avaliação da IA. Excelente sessão!', 'Adicionei foco nas viragens para a próxima sessão.', 'Concordo com a análise. Vamos trabalhar a respiração.', null, null])

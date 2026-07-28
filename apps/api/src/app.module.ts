@@ -33,6 +33,7 @@ import { EmailModule } from './modules/email/email.module';
 import { ParentsModule } from './modules/parents/parents.module';
 import { TrainingPlansModule } from './modules/training-plans/training-plans.module';
 import { RecursosHumanosModule } from './modules/recursos-humanos/recursos-humanos.module';
+import { RedisModule } from './common/redis/redis.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { RecursosHumanosModule } from './modules/recursos-humanos/recursos-human
 
     ScheduleModule.forRoot(),
     PrismaModule,
+    RedisModule,
     AuditModule,
     AuthModule,
     UsersModule,

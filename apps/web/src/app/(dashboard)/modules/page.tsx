@@ -787,13 +787,13 @@ export default function ModulesPage() {
       <div className="bg-gradient-to-r from-blue-50 via-purple-50 to-amber-50 border border-gray-200 rounded-2xl p-4">
         <div className="flex items-center gap-2 mb-3">
           <Award className="w-4 h-4 text-gray-500" />
-          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Módulos Pedagógicos Mastchieve (9 fases)</p>
+          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Fases Pedagógicas Mastchieve (9 módulos)</p>
         </div>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { href: '/ama',           label: 'Módulo AMA',        sub: 'Estrela-do-Mar · Cavalo-Marinho · Polvo',     grad: 'from-blue-500 to-cyan-500',     icon: Fish  },
-            { href: '/intermediario', label: 'Módulo Intermédio', sub: 'Tartaruga · Dugongo · Crocodilo',             grad: 'from-purple-500 to-violet-500', icon: Waves },
-            { href: '/avancado',      label: 'Módulo Avançado',  sub: 'Tubarão · Marlim · Golfinho',                 grad: 'from-amber-400 to-orange-500',  icon: Zap   },
+            { href: '/ama',           label: 'Fase AMA',        sub: 'Estrela-do-Mar · Cavalo-Marinho · Polvo',     grad: 'from-blue-500 to-cyan-500',     icon: Fish  },
+            { href: '/intermediario', label: 'Fase Intermédio', sub: 'Tartaruga · Dugongo · Crocodilo',             grad: 'from-purple-500 to-violet-500', icon: Waves },
+            { href: '/avancado',      label: 'Fase Avançado',  sub: 'Tubarão · Marlim · Golfinho',                 grad: 'from-amber-400 to-orange-500',  icon: Zap   },
           ].map(({ href, label, sub, grad, icon: Icon }) => (
             <Link key={href} href={href} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-gray-100 hover:shadow-md transition group">
               <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${grad} flex items-center justify-center flex-shrink-0`}>

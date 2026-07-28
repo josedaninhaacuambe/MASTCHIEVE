@@ -3,13 +3,13 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth.store';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Fingerprint, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 const ROLES = ['ADMIN', 'INSTRUCTOR', 'STUDENT', 'PARENT', 'FINANCIAL', 'MANAGER', 'VISITOR', 'GESTOR_RH', 'SUPER_ADMIN'];
 const ESTADOS = ['EM_RECRUTAMENTO', 'EM_ADMISSAO', 'ATIVO', 'FERIAS', 'SUSPENSO', 'DESLIGADO'];
 
-const TABS = ['Dados', 'Contratos', 'Certificações', 'Escalas', 'Avaliações', 'Férias/Faltas', 'Disciplina', 'Documentos'];
+const TABS = ['Dados', 'Contratos', 'Certificações', 'Escalas', 'Avaliações', 'Férias/Faltas', 'Disciplina', 'Documentos', 'Biometria'];
 
 export default function FuncionarioDetalhePage() {
   const { id } = useParams<{ id: string }>();
@@ -149,6 +149,62 @@ export default function FuncionarioDetalhePage() {
             {' '}· {d.tipo} · <span className={`px-2 py-0.5 rounded-full text-xs ${d.validado ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{d.validado ? 'Validado' : 'Pendente'}</span>
           </>
         )} vazio="Sem documentos" />
+      )}
+
+      {tab === 'Biometria' && <BiometriaTab funcionarioId={f.id} />}
+    </div>
+  );
+}
+
+function BiometriaTab({ funcionarioId }: { funcionarioId: string }) {
+  const [credenciais, setCredenciais] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    const r = await api.get(`/rh/presenca/credenciais/funcionario/${funcionarioId}`);
+    setCredenciais(r.data.data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [funcionarioId]);
+
+  const revogar = async (id: string) => {
+    await api.delete(`/rh/presenca/credenciais/${id}`);
+    load();
+  };
+
+  if (loading) return <div className="text-center py-10 text-gray-400">A carregar...</div>;
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+        O registo de novas impressões digitais é feito diretamente no computador do quiosque, em <code>/quiosque/enrolar</code>, uma vez que a credencial fica vinculada ao leitor físico daquele computador.
+      </p>
+      {credenciais.length === 0 ? (
+        <div className="text-center py-10 text-gray-400 bg-white rounded-xl border border-gray-200">
+          <Fingerprint className="w-8 h-8 mx-auto mb-2 text-gray-300" /> Nenhuma credencial biométrica registada
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+          {credenciais.map((c: any) => (
+            <div key={c.id} className="px-4 py-3 text-sm flex items-center justify-between gap-3">
+              <div>
+                <span className="font-medium">{c.tipo === 'WEBAUTHN' ? 'Leitor embutido' : 'Leitor USB'}</span>
+                {c.dispositivo?.nome && <span className="text-gray-500"> · {c.dispositivo.nome}</span>}
+                {c.deviceLabel && <span className="text-gray-500"> · {c.deviceLabel}</span>}
+                {c.fabricante && <span className="text-gray-500"> · {c.fabricante}</span>}
+                <div className="text-xs text-gray-400 mt-0.5">
+                  Registado em {new Date(c.registadoEm).toLocaleDateString('pt-PT')}
+                  {c.ultimaUtilizacao && ` · Última utilização ${new Date(c.ultimaUtilizacao).toLocaleString('pt-PT')}`}
+                </div>
+              </div>
+              <button onClick={() => revogar(c.id)} title="Revogar" className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

@@ -8,8 +8,68 @@ import { useAuthStore } from '@/stores/auth.store';
 import { formatDate, getInitials, cn } from '@/lib/utils';
 import {
   User, Mail, Phone, Lock, Save, Eye, EyeOff,
-  Shield, Edit2, CheckCircle, AlertCircle, Waves,
+  Shield, Edit2, CheckCircle, AlertCircle, Waves, Fingerprint, Trash2,
 } from 'lucide-react';
+
+function BiometriaSection() {
+  const [credenciais, setCredenciais] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/rh/presenca/credenciais/minhas');
+      setCredenciais(data.data || []);
+      setErro(false);
+    } catch {
+      setErro(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const revogar = async (id: string) => {
+    await api.delete(`/rh/presenca/credenciais/${id}`);
+    load();
+  };
+
+  if (erro) return null;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Fingerprint className="w-4 h-4 text-gray-500" />
+        <h2 className="text-sm font-semibold text-gray-900">As minhas credenciais biométricas</h2>
+      </div>
+      <p className="text-xs text-gray-500 mb-4">
+        Usadas para marcar presença nos quiosques das piscinas. Para registar uma nova impressão digital, aceda a <code>/quiosque/enrolar</code> no computador do quiosque.
+      </p>
+      {loading ? (
+        <div className="text-center py-6 text-gray-400 text-sm">A carregar...</div>
+      ) : credenciais.length === 0 ? (
+        <div className="text-center py-6 text-gray-400 text-sm bg-gray-50 rounded-xl">Nenhuma credencial registada</div>
+      ) : (
+        <div className="divide-y divide-gray-100">
+          {credenciais.map((c: any) => (
+            <div key={c.id} className="py-3 flex items-center justify-between gap-3 text-sm">
+              <div>
+                <span className="font-medium">{c.tipo === 'WEBAUTHN' ? 'Leitor embutido' : 'Leitor USB'}</span>
+                {c.dispositivo?.nome && <span className="text-gray-500"> · {c.dispositivo.nome}</span>}
+                <div className="text-xs text-gray-400 mt-0.5">Registado em {new Date(c.registadoEm).toLocaleDateString('pt-PT')}</div>
+              </div>
+              <button onClick={() => revogar(c.id)} title="Revogar" className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Field({ label, value, onChange, type = 'text', placeholder = '', rows = 0 }: {
   label: string; value: string; onChange: (v: string) => void;
@@ -229,6 +289,9 @@ export default function ProfilePage() {
 
       {/* Security */}
       <PasswordSection userId={user?.id ?? ''} />
+
+      {/* Biometric attendance credentials */}
+      <BiometriaSection />
 
       {/* Account info */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6">

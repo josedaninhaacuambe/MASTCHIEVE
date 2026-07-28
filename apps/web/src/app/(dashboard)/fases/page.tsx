@@ -50,8 +50,8 @@ export default function FasesPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Progressão Pedagógica — 9 Fases</h1>
-        <p className="text-gray-500 text-sm mt-1">Metodologia oficial Mastchieve · 3 módulos · certificação Bronze, Prata e Ouro</p>
+        <h1 className="text-2xl font-bold text-gray-900">Progressão Pedagógica — 9 Módulos</h1>
+        <p className="text-gray-500 text-sm mt-1">Metodologia oficial Mastchieve · 3 fases · certificação Bronze, Prata e Ouro</p>
       </div>
 
       {loading ? <div className="text-center py-12 text-gray-400">A carregar...</div> : (
@@ -73,13 +73,13 @@ export default function FasesPage() {
                       : 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100'
                     }`}
                   >
-                    Gerir Módulo <ChevronRight className="w-4 h-4" />
+                    Gerir Fase <ChevronRight className="w-4 h-4" />
                   </Link>
                 </div>
 
                 <div className="space-y-3">
                   {fasesNivel.map((fase: any) => {
-                    const criterios: string[] = (() => { try { return JSON.parse(fase.criterios); } catch { return []; } })();
+                    const criterios: { nome: string; obrigatoria: boolean }[] = (() => { try { return JSON.parse(fase.criterios); } catch { return []; } })();
                     const escala: string[] = (() => { try { return JSON.parse(fase.escala || '[]'); } catch { return []; } })();
                     const isOpen = !!expanded[fase.id];
 
@@ -133,21 +133,32 @@ export default function FasesPage() {
 
                             {/* Criteria */}
                             <div>
-                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Critérios de Avaliação</p>
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Habilidades Avaliadas</p>
                               <div className="space-y-1.5">
-                                {criterios.map((c: string, i: number) => (
+                                {criterios.map((c, i) => (
                                   <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
                                     <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 bg-gradient-to-br ${NIVEL_CORES[nivel]}`} />
-                                    {c}
+                                    {c.nome}
+                                    {c.obrigatoria && (
+                                      <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full">
+                                        Obrigatória · mín. 4
+                                      </span>
+                                    )}
                                   </div>
                                 ))}
                               </div>
                             </div>
 
-                            {/* Attendance */}
-                            <div className="flex items-center gap-2 pt-1">
-                              <span className="text-xs text-gray-400">Assiduidade mínima para progressão:</span>
-                              <span className={`text-xs font-bold ${NIVEL_TEXT[nivel]}`}>{fase.assiduidade}%</span>
+                            {/* Attendance & total mínimo */}
+                            <div className="flex items-center gap-4 pt-1 flex-wrap">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400">Assiduidade mínima para progressão:</span>
+                                <span className={`text-xs font-bold ${NIVEL_TEXT[nivel]}`}>{fase.assiduidade}%</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400">Total mínimo acumulado:</span>
+                                <span className={`text-xs font-bold ${NIVEL_TEXT[nivel]}`}>{fase.totalMinimo} pontos</span>
+                              </div>
                             </div>
 
                             {/* Transition arrow */}

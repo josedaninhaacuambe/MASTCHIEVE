@@ -14,23 +14,23 @@ import {
 function printProgressReport(student: any, fasesProgresso: any[]) {
   const nome = student ? `${student.firstName} ${student.lastName}` : '—';
   const niveis = ['AMA', 'INTERMEDIARIO', 'AVANCADO'];
-  const NIVEL_LABEL: Record<string,string> = { AMA:'Módulo AMA (Bronze)', INTERMEDIARIO:'Módulo Intermédio (Prata)', AVANCADO:'Módulo Avançado (Ouro)' };
+  const NIVEL_LABEL: Record<string,string> = { AMA:'Fase AMA (Bronze)', INTERMEDIARIO:'Fase Intermédio (Prata)', AVANCADO:'Fase Avançado (Ouro)' };
   const ESTADO_LABEL: Record<string,string> = { CONCLUIDO:'Concluído', EM_PROGRESSO:'Em Progresso', NAO_INICIADO:'Não Iniciado' };
   const sections = niveis.map(nivel => {
     const fases = fasesProgresso.filter((f: any) => f.nivel === nivel);
     const rows = fases.map((f: any) => {
       const est = f.progresso?.estado ?? 'NAO_INICIADO';
       const icon = est === 'CONCLUIDO' ? '✓' : est === 'EM_PROGRESSO' ? '◐' : '○';
-      const notas: number[] = (() => { try { return JSON.parse(f.progresso?.notas ?? '{}').criteriosVerificados ?? []; } catch { return []; } })();
       const total = ((): number => { try { return JSON.parse(f.criterios ?? '[]').length; } catch { return 0; } })();
-      return `<tr><td style="padding:6px 12px">${icon} ${f.nome}</td><td style="padding:6px 12px">${ESTADO_LABEL[est]??est}</td><td style="padding:6px 12px;text-align:center">${total?`${notas.length}/${total}`:'—'}</td></tr>`;
+      const avaliadas = (f.progresso?.avaliacoes ?? []).length;
+      return `<tr><td style="padding:6px 12px">${icon} ${f.nome}</td><td style="padding:6px 12px">${ESTADO_LABEL[est]??est}</td><td style="padding:6px 12px;text-align:center">${total?`${avaliadas}/${total}`:'—'}</td></tr>`;
     }).join('');
     const concluidos = fases.filter((f: any) => f.progresso?.estado === 'CONCLUIDO').length;
     return `<h2 style="font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#6b7280;margin:24px 0 8px">${NIVEL_LABEL[nivel]}</h2>
 <table style="width:100%;border-collapse:collapse;font-size:13px">
-<thead><tr style="background:#f3f4f6"><th style="padding:6px 12px;text-align:left">Fase</th><th style="padding:6px 12px;text-align:left">Estado</th><th style="padding:6px 12px;text-align:center">Critérios</th></tr></thead>
+<thead><tr style="background:#f3f4f6"><th style="padding:6px 12px;text-align:left">Módulo</th><th style="padding:6px 12px;text-align:left">Estado</th><th style="padding:6px 12px;text-align:center">Critérios</th></tr></thead>
 <tbody>${rows}</tbody>
-<tfoot><tr><td colspan="3" style="padding:6px 12px;font-size:11px;color:#6b7280">${concluidos}/${fases.length} fases concluídas${concluidos===fases.length&&fases.length>0?' — Pronto para certificação ✓':''}</td></tr></tfoot>
+<tfoot><tr><td colspan="3" style="padding:6px 12px;font-size:11px;color:#6b7280">${concluidos}/${fases.length} módulos concluídos${concluidos===fases.length&&fases.length>0?' — Pronto para certificação ✓':''}</td></tr></tfoot>
 </table>`;
   }).join('');
   const w = window.open('', '_blank', 'width=800,height=650');
@@ -559,16 +559,15 @@ export default function StudentDetailPage() {
                             )}
                           </div>
                           <Link href={NIVEL_ROUTE[nivel]} className="text-xs text-blue-600 hover:underline font-medium">
-                            Ver módulo →
+                            Ver fase →
                           </Link>
                         </div>
                         <div className="space-y-1.5">
                           {nivelFases.map((f: any) => {
                             const estado: string = f.progresso?.estado ?? 'NAO_INICIADO';
-                            const notas = (() => { try { return JSON.parse(f.progresso?.notas || '{}'); } catch { return {}; } })();
-                            const verificados: number[] = notas.criteriosVerificados ?? [];
-                            const criterios: string[] = (() => { try { return JSON.parse(f.criterios || '[]'); } catch { return []; } })();
-                            const pct = criterios.length > 0 ? Math.round((verificados.length / criterios.length) * 100) : 0;
+                            const avaliadas: number = (f.progresso?.avaliacoes ?? []).length;
+                            const criterios: { nome: string; obrigatoria: boolean }[] = (() => { try { return JSON.parse(f.criterios || '[]'); } catch { return []; } })();
+                            const pct = criterios.length > 0 ? Math.round((avaliadas / criterios.length) * 100) : 0;
                             return (
                               <div key={f.id} className={cn('flex items-center gap-3 px-3 py-2 rounded-lg border text-xs',
                                 estado === 'CONCLUIDO' ? 'bg-green-50 border-green-200'
@@ -583,7 +582,7 @@ export default function StudentDetailPage() {
                                     <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                       <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
                                     </div>
-                                    <span className="text-gray-400 tabular-nums">{verificados.length}/{criterios.length}</span>
+                                    <span className="text-gray-400 tabular-nums">{avaliadas}/{criterios.length}</span>
                                   </div>
                                 )}
                                 <span className={cn('px-2 py-0.5 rounded-full font-semibold flex-shrink-0',

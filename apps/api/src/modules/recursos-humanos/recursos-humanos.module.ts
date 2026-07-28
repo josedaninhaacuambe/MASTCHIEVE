@@ -29,6 +29,15 @@ import { FormacaoController } from './formacao/formacao.controller';
 import { FormacaoService } from './formacao/formacao.service';
 import { RelatoriosRhController } from './relatorios/relatorios-rh.controller';
 import { RelatoriosRhService } from './relatorios/relatorios-rh.service';
+import { DispositivosController } from './presenca-biometrica/dispositivos.controller';
+import { DispositivosService } from './presenca-biometrica/dispositivos.service';
+import { CredenciaisController } from './presenca-biometrica/credenciais.controller';
+import { CredenciaisService } from './presenca-biometrica/credenciais.service';
+import { PresencaQuiosqueController } from './presenca-biometrica/presenca-quiosque.controller';
+import { PresencaQuiosqueService } from './presenca-biometrica/presenca-quiosque.service';
+import { PresencaAdminController } from './presenca-biometrica/presenca-admin.controller';
+import { PresencaAdminService } from './presenca-biometrica/presenca-admin.service';
+import { WebauthnConfig } from './presenca-biometrica/webauthn.config';
 
 @Module({
   imports: [NotificationsModule],
@@ -47,6 +56,10 @@ import { RelatoriosRhService } from './relatorios/relatorios-rh.service';
     DesligamentoController,
     FormacaoController,
     RelatoriosRhController,
+    DispositivosController,
+    CredenciaisController,
+    PresencaQuiosqueController,
+    PresencaAdminController,
   ],
   providers: [
     FuncionariosService,
@@ -64,6 +77,11 @@ import { RelatoriosRhService } from './relatorios/relatorios-rh.service';
     FormacaoService,
     RelatoriosRhService,
     RhNotificationsScheduler,
+    DispositivosService,
+    CredenciaisService,
+    PresencaQuiosqueService,
+    PresencaAdminService,
+    WebauthnConfig,
   ],
   exports: [FuncionariosService, CertificacoesService],
 })

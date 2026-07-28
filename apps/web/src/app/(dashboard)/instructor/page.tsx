@@ -598,14 +598,14 @@ export default function InstructorPage() {
           })}
         </div>
 
-        {/* Módulos pedagógicos */}
+        {/* Fases pedagógicas */}
         <div>
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Módulos Pedagógicos</p>
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Fases Pedagógicas</p>
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Módulo AMA', sub: 'Bronze · 3 fases', icon: Fish,  href: '/ama',           color: 'from-blue-500 to-cyan-500' },
-              { label: 'Intermédio',  sub: 'Prata · 3 fases',  icon: Waves, href: '/intermediario', color: 'from-purple-500 to-violet-600' },
-              { label: 'Avançado',    sub: 'Ouro · 3 fases',   icon: Zap,   href: '/avancado',      color: 'from-amber-500 to-orange-500' },
+              { label: 'Fase AMA',    sub: 'Bronze · 3 módulos', icon: Fish,  href: '/ama',           color: 'from-blue-500 to-cyan-500' },
+              { label: 'Intermédio',  sub: 'Prata · 3 módulos',  icon: Waves, href: '/intermediario', color: 'from-purple-500 to-violet-600' },
+              { label: 'Avançado',    sub: 'Ouro · 3 módulos',   icon: Zap,   href: '/avancado',      color: 'from-amber-500 to-orange-500' },
             ].map((action) => {
               const Icon = action.icon;
               return (

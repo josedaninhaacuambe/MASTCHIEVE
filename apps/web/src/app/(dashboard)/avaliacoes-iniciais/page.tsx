@@ -193,7 +193,6 @@ function DiagnosticModal({ students, fases, onClose, onSaved }: {
         await api.put(`/fases/estudante/${studentId}/fase/${faseRecomendadaDb.id}`, {
           estado: 'EM_PROGRESSO',
           iniciadoEm: new Date().toISOString(),
-          notas: JSON.stringify({ criteriosVerificados: [] }),
         }).catch(() => {});
       }
       onSaved();
@@ -378,7 +377,7 @@ function AvaliacaoCard({ a }: { a: any }) {
                 href={NIVEL_ROUTE[a.faseRecomendada.nivel] ?? '/fases'}
                 className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline font-medium"
               >
-                Ver módulo →
+                Ver fase →
               </Link>
             </div>
           )}

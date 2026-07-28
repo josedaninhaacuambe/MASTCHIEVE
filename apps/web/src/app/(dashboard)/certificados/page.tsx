@@ -31,7 +31,7 @@ function printCertificate(c: any) {
   <div class="sub">Plataforma de Natação com IA</div>
   <div class="declara">Certifica-se que</div>
   <div class="nome">${nomeAluno}</div>
-  <div class="fase">concluiu com sucesso a fase <strong>${c.fase?.nome ?? '—'}</strong></div>
+  <div class="fase">concluiu com sucesso o módulo <strong>${c.fase?.nome ?? '—'}</strong></div>
   <div class="fase">do programa pedagógico Mastchieve</div>
   <div class="nivel">${nivel}</div>
   <div class="data">Emitido em ${data}</div>
@@ -44,7 +44,7 @@ function printCertificate(c: any) {
 }
 
 function exportListCSV(certs: any[]) {
-  const rows = [['Nº Série','Aluno','Fase','Nível','Data Emissão','Evento'].join(',')];
+  const rows = [['Nº Série','Aluno','Módulo','Nível','Data Emissão','Evento'].join(',')];
   for (const c of certs) {
     const aluno = c.student ? `${c.student.firstName} ${c.student.lastName}` : '';
     const data = c.dataEmissao ? new Date(c.dataEmissao).toLocaleDateString('pt-PT') : '';
@@ -58,7 +58,7 @@ function exportListCSV(certs: any[]) {
 
 const NIVEL_CORES: Record<string, string> = { BRONZE:'bg-amber-100 text-amber-700 border-amber-300', PRATA:'bg-gray-100 text-gray-600 border-gray-300', OURO:'bg-yellow-100 text-yellow-700 border-yellow-300' };
 const NIVEL_ROUTE: Record<string, string> = { BRONZE: '/ama', PRATA: '/intermediario', OURO: '/avancado' };
-const NIVEL_LABEL: Record<string, string> = { BRONZE: 'Módulo AMA', PRATA: 'Módulo Intermédio', OURO: 'Módulo Avançado' };
+const NIVEL_LABEL: Record<string, string> = { BRONZE: 'Fase AMA', PRATA: 'Fase Intermédio', OURO: 'Fase Avançado' };
 
 interface ProntoInfo { studentId: string; name: string; nivel: string; }
 
@@ -173,7 +173,7 @@ export default function CertificadosPage() {
           <div className="flex items-center gap-2 mb-3">
             <Award className="w-4 h-4 text-green-600" />
             <h2 className="text-sm font-bold text-green-800">Prontos para Certificação</h2>
-            <span className="text-xs text-green-500 ml-1">Completaram todas as fases do módulo</span>
+            <span className="text-xs text-green-500 ml-1">Completaram todos os módulos da fase</span>
           </div>
           {loadingProntos ? (
             <div className="flex items-center gap-2 text-green-600 text-xs"><Loader2 className="w-4 h-4 animate-spin" /> A calcular...</div>
@@ -224,7 +224,7 @@ export default function CertificadosPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Nº Série','Aluno','Fase','Nível','Data Emissão','Evento'].map(h => (
+                {['Nº Série','Aluno','Módulo','Nível','Data Emissão','Evento'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>
                 ))}
               </tr>
@@ -268,10 +268,10 @@ export default function CertificadosPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Fase concluída*</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Módulo concluído*</label>
               <select value={form.faseId} onChange={e => setForm(f => ({ ...f, faseId: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                <option value="">Selecionar fase...</option>
-                {fases.map((f: any) => <option key={f.id} value={f.id}>Fase {f.ordem} — {f.nome} ({f.certificacao})</option>)}
+                <option value="">Selecionar módulo...</option>
+                {fases.map((f: any) => <option key={f.id} value={f.id}>Módulo {f.ordem} — {f.nome} ({f.certificacao})</option>)}
               </select>
             </div>
             <div>

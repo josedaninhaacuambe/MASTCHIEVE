@@ -12,7 +12,7 @@ import {
   Smartphone, Download, Sun, Moon, Dumbbell, Heart, Globe, UserCircle, FileText, ScrollText,
   AlertTriangle, Fish, Award, Calendar, Trophy, Megaphone, Building2, Shield, Zap, Bell,
   Briefcase, UserPlus, FileSignature, IdCard, CalendarClock, ClipboardCheck, CalendarX,
-  Banknote, Gavel, FolderOpen, PieChart,
+  Banknote, Gavel, FolderOpen, PieChart, Fingerprint,
 } from 'lucide-react';
 
 const navItems = [
@@ -33,9 +33,9 @@ const navItems = [
   { href: '/leads',             icon: TrendingUp,       label: 'CRM — Leads',            roles: ['ADMIN', 'MANAGER'] },
   { href: '/avaliacoes-iniciais', icon: ClipboardList,  label: 'Avaliações Iniciais',    roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
   { href: '/fases',             icon: Fish,             label: 'Fases Pedagógicas',      roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
-  { href: '/ama',               icon: Waves,            label: 'Módulo AMA',             roles: ['ADMIN', 'INSTRUCTOR'] },
-  { href: '/intermediario',     icon: Waves,            label: 'Módulo Intermédio',      roles: ['ADMIN', 'INSTRUCTOR'] },
-  { href: '/avancado',          icon: Zap,              label: 'Módulo Avançado',        roles: ['ADMIN', 'INSTRUCTOR'] },
+  { href: '/ama',               icon: Waves,            label: 'Fase AMA',               roles: ['ADMIN', 'INSTRUCTOR'] },
+  { href: '/intermediario',     icon: Waves,            label: 'Fase Intermédio',        roles: ['ADMIN', 'INSTRUCTOR'] },
+  { href: '/avancado',          icon: Zap,              label: 'Fase Avançado',          roles: ['ADMIN', 'INSTRUCTOR'] },
   { href: '/certificados',      icon: Award,            label: 'Certificados',           roles: ['ADMIN', 'MANAGER'] },
   { href: '/protocolos',        icon: Shield,           label: 'Protocolos Segurança',   roles: ['ADMIN', 'INSTRUCTOR'] },
   { href: '/seguranca',         icon: Zap,              label: 'Dashboard Segurança',    roles: ['ADMIN'] },
@@ -49,11 +49,10 @@ const navItems = [
   // Recursos Humanos — Gestor de RH + Super Admin
   { href: '/rh',                icon: Briefcase,        label: 'RH — Painel',            roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
   { href: '/rh/funcionarios',   icon: Users,            label: 'Funcionários',           roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/vagas',          icon: Briefcase,        label: 'Vagas',                   roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/candidaturas',   icon: UserPlus,         label: 'Candidaturas',           roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
   { href: '/rh/contratos',      icon: FileSignature,    label: 'Contratos',               roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
   { href: '/rh/certificacoes',  icon: IdCard,           label: 'Certificações',           roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
   { href: '/rh/escalas',        icon: CalendarClock,    label: 'Escalas',                 roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/presenca',       icon: Fingerprint,      label: 'Presença Biométrica',     roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
   { href: '/rh/avaliacoes-desempenho', icon: ClipboardCheck, label: 'Avaliações Desempenho', roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
   { href: '/rh/ferias-faltas',  icon: CalendarX,        label: 'Férias / Faltas',        roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
   { href: '/rh/folha-pagamento', icon: Banknote,        label: 'Folha de Pagamento',     roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
