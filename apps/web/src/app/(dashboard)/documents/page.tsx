@@ -291,13 +291,13 @@ export default function DocumentsPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
-                          <a href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${doc.url}`}
+                          <a href={`${process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v\d+\/?$/, '')}${doc.url}`}
                             target="_blank" rel="noopener noreferrer"
                             className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                             title="Visualizar">
                             <Eye className="w-4 h-4" />
                           </a>
-                          <a href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${doc.url}`}
+                          <a href={`${process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v\d+\/?$/, '')}${doc.url}`}
                             download={doc.name}
                             className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition"
                             title="Descarregar">

@@ -7,6 +7,7 @@ import { StudentsReportService } from './students-report.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentQueryDto } from './dto/student-query.dto';
+import { ChamadaAtencaoDto } from './dto/chamada-atencao.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -73,6 +74,31 @@ export class StudentsController {
   @ApiOperation({ summary: 'Resumo de desempenho do atleta' })
   getPerformance(@Param('id') id: string) {
     return this.studentsService.getPerformanceSummary(id);
+  }
+
+  @Get(':id/reports')
+  @Roles('ADMIN', 'INSTRUCTOR')
+  @ApiOperation({ summary: 'Histórico de relatórios mensais e chamadas de atenção' })
+  getReportsHistory(@Param('id') id: string) {
+    return this.studentsService.getReportsHistory(id);
+  }
+
+  @Post(':id/report/monthly')
+  @Roles('ADMIN', 'INSTRUCTOR')
+  @ApiOperation({ summary: 'Enviar relatório mensal detalhado ao atleta' })
+  sendMonthlyReport(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.studentsService.sendMonthlyReport(id, userId);
+  }
+
+  @Post(':id/report/chamada-atencao')
+  @Roles('ADMIN', 'INSTRUCTOR')
+  @ApiOperation({ summary: 'Enviar chamada de atenção ao atleta' })
+  sendChamadaAtencao(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: ChamadaAtencaoDto,
+  ) {
+    return this.studentsService.sendChamadaAtencao(id, userId, dto.mensagem);
   }
 
   @Post(':id/performance')

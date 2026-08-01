@@ -1,11 +1,87 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
+import { StudentsReportService } from './students-report.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class StudentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private reportService: StudentsReportService,
+    private email: EmailService,
+  ) {}
+
+  private async getContactEmail(studentId: string): Promise<{ email: string | null; name: string }> {
+    const student = await this.prisma.student.findUnique({
+      where: { id: studentId },
+      include: {
+        user: { select: { email: true } },
+        parents: { include: { parent: { include: { user: { select: { email: true } } } } } },
+      },
+    });
+    if (!student) throw new NotFoundException('Atleta não encontrado');
+    const name = `${student.firstName} ${student.lastName}`.trim();
+    const primaryParent = student.parents.find((p) => p.isPrimary)?.parent ?? student.parents[0]?.parent;
+    const email = student.user?.email || primaryParent?.user?.email || null;
+    return { email, name };
+  }
+
+  async sendMonthlyReport(studentId: string, userId: string) {
+    const { email, name } = await this.getContactEmail(studentId);
+    if (!email) throw new BadRequestException('Atleta sem email de contacto (próprio ou de encarregado) disponível');
+    const instructor = await this.prisma.instructor.findFirst({ where: { userId } });
+
+    const pdfBuffer = await this.reportService.generate(studentId, { detalhado: true });
+    await this.email.sendMonthlyReport(email, name, pdfBuffer);
+
+    return this.prisma.athleteReport.create({
+      data: {
+        studentId,
+        instructorId: instructor?.id ?? null,
+        tipo: 'MENSAL',
+        referenceMonth: new Date().toISOString().slice(0, 7),
+        sentAt: new Date(),
+      },
+    });
+  }
+
+  async sendChamadaAtencao(studentId: string, userId: string, mensagem: string) {
+    if (!mensagem?.trim()) throw new BadRequestException('Mensagem da chamada de atenção é obrigatória');
+    const { email, name } = await this.getContactEmail(studentId);
+    const instructor = await this.prisma.instructor.findFirst({ where: { userId } });
+    if (!email) throw new BadRequestException('Atleta sem email de contacto (próprio ou de encarregado) disponível');
+
+    const studentFases = await this.prisma.studentFase.findMany({
+      where: { studentId, estado: 'EM_PROGRESSO' },
+      include: { fase: true, avaliacoes: true },
+    });
+    const habilidadesAbaixoMinimo: string[] = [];
+    for (const sf of studentFases) {
+      const criterios: { nome: string; obrigatoria: boolean }[] = JSON.parse(sf.fase.criterios);
+      for (const av of sf.avaliacoes) {
+        const criterio = criterios[av.criterioIndex];
+        if (!criterio) continue;
+        const minimo = criterio.obrigatoria ? 4 : 3;
+        if (av.valor < minimo) habilidadesAbaixoMinimo.push(`${criterio.nome} (${sf.fase.nome}) — ${av.valor}/${minimo}`);
+      }
+    }
+
+    await this.email.sendChamadaAtencao(email, name, mensagem, habilidadesAbaixoMinimo);
+
+    return this.prisma.athleteReport.create({
+      data: { studentId, instructorId: instructor?.id ?? null, tipo: 'CHAMADA_ATENCAO', mensagem, sentAt: new Date() },
+    });
+  }
+
+  async getReportsHistory(studentId: string) {
+    return this.prisma.athleteReport.findMany({
+      where: { studentId },
+      orderBy: { createdAt: 'desc' },
+      include: { instructor: { select: { firstName: true, lastName: true } } },
+    });
+  }
 
   async findAll(query: any) {
     const page = Math.max(1, parseInt(query.page) || 1);

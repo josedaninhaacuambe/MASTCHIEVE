@@ -82,7 +82,7 @@ export class StudentsReportService {
 
   constructor(private prisma: PrismaService) {}
 
-  async generate(studentId: string): Promise<Buffer> {
+  async generate(studentId: string, opts: { detalhado?: boolean } = {}): Promise<Buffer> {
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
       include: {
@@ -123,7 +123,7 @@ export class StudentsReportService {
       professor: professorNome,
     });
 
-    this.drawHabilidades(fases, student.studentFases);
+    this.drawHabilidades(fases, student.studentFases, !!opts.detalhado);
 
     this.drawLegenda(fases);
 
@@ -193,7 +193,7 @@ export class StudentsReportService {
     this.y -= 6;
   }
 
-  private drawHabilidades(fases: any[], studentFases: any[]) {
+  private drawHabilidades(fases: any[], studentFases: any[], detalhado: boolean) {
     this.drawSectionTitle('Habilidades e Avaliação');
 
     let historicalGap = false;
@@ -251,7 +251,10 @@ export class StudentsReportService {
         const rowLines = Math.max(nomeLines.length, obsLines.length);
         const rowHeight = rowLines * 12 + 6;
 
-        this.ensureSpace(rowHeight + 4);
+        const descricaoLines = detalhado && av ? wrapText(this.font, ESCALA_LEGENDA[av.valor - 1].descricao, 8, CONTENT_WIDTH - 10) : [];
+        const descricaoHeight = descricaoLines.length ? descricaoLines.length * 11 + 8 : 0;
+
+        this.ensureSpace(rowHeight + descricaoHeight + 4);
 
         nomeLines.forEach((line, li) => {
           this.page.drawText(line, { x: colHabilidade, y: this.y - li * 12, size: 9, font: this.font, color: DARK });
@@ -262,6 +265,14 @@ export class StudentsReportService {
         });
 
         this.y -= rowHeight;
+
+        if (descricaoLines.length) {
+          descricaoLines.forEach((line, li) => {
+            this.page.drawText(line, { x: colHabilidade + 10, y: this.y - li * 11, size: 8, font: this.font, color: BLUE });
+          });
+          this.y -= descricaoHeight;
+        }
+
         this.page.drawLine({
           start: { x: MARGIN, y: this.y + 4 }, end: { x: PAGE_WIDTH - MARGIN, y: this.y + 4 },
           thickness: 0.3, color: LIGHT_GRAY,

@@ -1,6 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -87,6 +96,66 @@ export class EmailService {
       `,
     });
     this.logger.log(`Feedback email sent to ${to}`);
+  }
+
+  async sendMonthlyReport(to: string, studentName: string, pdfBuffer: Buffer) {
+    if (!process.env.SMTP_USER || process.env.SMTP_USER === 'noreply@mastchieve.com') {
+      this.logger.warn(`[EMAIL SKIPPED] Monthly report to ${to} — SMTP not configured`);
+      return;
+    }
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
+      to,
+      subject: '📋 Relatório Mensal de Progressão — Mastchieve',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #1A3A9C 0%, #1A56DB 100%); padding: 32px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">Mastchieve</h1>
+            <p style="color: rgba(255,255,255,0.7); margin: 8px 0 0;">Relatório Mensal de Progressão</p>
+          </div>
+          <div style="padding: 32px; background: #f9fafb; border-radius: 0 0 12px 12px;">
+            <p style="color: #374151; font-size: 16px;">Olá, <strong>${studentName}</strong>!</p>
+            <p style="color: #6b7280;">Segue em anexo o relatório mensal com a avaliação detalhada das habilidades trabalhadas este mês.</p>
+          </div>
+        </div>
+      `,
+      attachments: [
+        { filename: `relatorio-mensal-${studentName.replace(/\s+/g, '-').toLowerCase()}.pdf`, content: pdfBuffer, contentType: 'application/pdf' },
+      ],
+    });
+    this.logger.log(`Monthly report sent to ${to}`);
+  }
+
+  async sendChamadaAtencao(to: string, studentName: string, mensagem: string, habilidadesAbaixoMinimo: string[] = []) {
+    if (!process.env.SMTP_USER || process.env.SMTP_USER === 'noreply@mastchieve.com') {
+      this.logger.warn(`[EMAIL SKIPPED] Chamada de atenção to ${to} — SMTP not configured`);
+      return;
+    }
+    const listaHtml = habilidadesAbaixoMinimo.length
+      ? `<ul style="color: #6b7280; padding-left: 20px;">${habilidadesAbaixoMinimo.map((h) => `<li>${escapeHtml(h)}</li>`).join('')}</ul>`
+      : '';
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
+      to,
+      subject: '⚠️ Chamada de Atenção — Mastchieve',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%); padding: 32px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">Mastchieve</h1>
+            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0;">Chamada de Atenção</p>
+          </div>
+          <div style="padding: 32px; background: #f9fafb; border-radius: 0 0 12px 12px;">
+            <p style="color: #374151; font-size: 16px;">Olá, <strong>${studentName}</strong>!</p>
+            <p style="color: #6b7280;">O teu instrutor deixou uma nota sobre o teu desempenho recente:</p>
+            <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 16px; border-radius: 4px; margin: 20px 0;">
+              <p style="color: #991b1b; margin: 0; font-size: 14px;">${escapeHtml(mensagem)}</p>
+            </div>
+            ${listaHtml ? `<p style="color: #6b7280; font-size: 14px;">Habilidades a reforçar:</p>${listaHtml}` : ''}
+          </div>
+        </div>
+      `,
+    });
+    this.logger.log(`Chamada de atenção sent to ${to}`);
   }
 
   async sendWelcome(to: string, firstName: string, role: string) {

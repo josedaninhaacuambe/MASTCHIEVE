@@ -101,6 +101,7 @@ model Instructor {
   unidades            InstructorUnidade[]
   checklistsProtocolo ChecklistProtocolo[]
   funcionario         Funcionario?
+  athleteReports      AthleteReport[]
 
   @@index([isActive])
   @@map("instructors")
@@ -146,10 +147,31 @@ model Student {
   documents        Document[]
   avaliacaoInicial AvaliacaoInicial?
   competicoes      CompeticaoAtleta[]
+  athleteReports   AthleteReport[]
 
   @@index([isActive])
   @@index([unidadeId])
   @@map("students")
+}
+
+// ─── Athlete Report (relatório mensal + chamada de atenção) ──────────────────
+
+model AthleteReport {
+  id             String    @id @default(uuid())
+  studentId      String
+  instructorId   String?
+  tipo           String // MENSAL | CHAMADA_ATENCAO
+  referenceMonth String? // "2026-08", só para MENSAL
+  mensagem       String?   @db.Text // nota do instrutor, obrigatória para CHAMADA_ATENCAO
+  sentAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  student    Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  instructor Instructor? @relation(fields: [instructorId], references: [id])
+
+  @@index([studentId])
+  @@index([tipo])
+  @@map("athlete_reports")
 }
 
 // ─── Parent ───────────────────────────────────────────────────────────────────

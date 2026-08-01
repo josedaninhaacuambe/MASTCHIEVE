@@ -9,6 +9,7 @@ import {
   ArrowLeft, User, Brain, Activity, BookOpen, CreditCard,
   CheckCircle, XCircle, Clock, AlertCircle, Dumbbell, Send, TrendingUp,
   Upload, FileText, Trash2, Waves, History, FileDown, Printer,
+  Mail, AlertTriangle, X,
 } from 'lucide-react';
 
 function printProgressReport(student: any, fasesProgresso: any[]) {
@@ -135,6 +136,8 @@ export default function StudentDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>('Desempenho');
   const [showPerf, setShowPerf] = useState(false);
   const [generatingFeedback, setGeneratingFeedback] = useState(false);
+  const [showChamada, setShowChamada] = useState(false);
+  const [chamadaMsg, setChamadaMsg] = useState('');
 
   // ── Queries ────────────────────────────────────────────────────────────────
   const { data: student, isLoading: loadingStudent } = useQuery({
@@ -165,6 +168,35 @@ export default function StudentDetailPage() {
     queryFn: async () => { const { data } = await api.get(`/fases/estudante/${id}/progresso`); return (data?.data ?? data ?? []) as any[]; },
     enabled: activeTab === 'Módulos',
   });
+
+  const { data: reportsHistory } = useQuery({
+    queryKey: ['student-reports', id],
+    queryFn: async () => { const { data } = await api.get(`/students/${id}/reports`); return (data?.data ?? data ?? []) as any[]; },
+    enabled: !!id,
+  });
+
+  const sendMonthlyMutation = useMutation({
+    mutationFn: () => api.post(`/students/${id}/report/monthly`),
+    onSuccess: () => {
+      toast.success('Relatório mensal enviado');
+      qc.invalidateQueries({ queryKey: ['student-reports', id] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Erro ao enviar relatório mensal'),
+  });
+
+  const chamadaMutation = useMutation({
+    mutationFn: (mensagem: string) => api.post(`/students/${id}/report/chamada-atencao`, { mensagem }),
+    onSuccess: () => {
+      toast.success('Chamada de atenção enviada');
+      qc.invalidateQueries({ queryKey: ['student-reports', id] });
+      setShowChamada(false);
+      setChamadaMsg('');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Erro ao enviar chamada de atenção'),
+  });
+
+  const lastMonthlyReport = reportsHistory?.find((r: any) => r.tipo === 'MENSAL');
+  const chamadasHistory = (reportsHistory ?? []).filter((r: any) => r.tipo === 'CHAMADA_ATENCAO');
 
   const NIVEL_GRAD: Record<string, string> = {
     AMA: 'from-blue-400 to-cyan-500',
@@ -272,6 +304,44 @@ export default function StudentDetailPage() {
         />
       )}
 
+      {showChamada && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500" /> Chamada de Atenção
+              </h3>
+              <button onClick={() => setShowChamada(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500">
+              Esta mensagem é enviada por email ao atleta/encarregado, junto com as habilidades atualmente abaixo do mínimo.
+            </p>
+            <textarea
+              value={chamadaMsg}
+              onChange={(e) => setChamadaMsg(e.target.value)}
+              rows={4}
+              placeholder="Descreve o motivo da chamada de atenção..."
+              className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-200"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowChamada(false)}
+                className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                Cancelar
+              </button>
+              <button
+                onClick={() => chamadaMutation.mutate(chamadaMsg)}
+                disabled={!chamadaMsg.trim() || chamadaMutation.isPending}
+                className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+              >
+                <Send className="w-4 h-4" /> {chamadaMutation.isPending ? 'A enviar...' : 'Enviar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <div className="flex flex-col sm:flex-row sm:items-start gap-4">
@@ -339,6 +409,25 @@ export default function StudentDetailPage() {
               <FileDown className="w-4 h-4" /> Exportar PDF
             </button>
 
+            <button
+              onClick={() => {
+                if (confirm('Enviar o relatório mensal detalhado ao atleta/encarregado por email?')) {
+                  sendMonthlyMutation.mutate();
+                }
+              }}
+              disabled={sendMonthlyMutation.isPending}
+              className="flex items-center gap-1.5 border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-60 px-3 py-2 rounded-lg text-sm font-medium transition"
+            >
+              <Mail className="w-4 h-4" /> {sendMonthlyMutation.isPending ? 'A enviar...' : 'Relatório Mensal'}
+            </button>
+
+            <button
+              onClick={() => setShowChamada(true)}
+              className="flex items-center gap-1.5 border border-red-200 text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg text-sm font-medium transition"
+            >
+              <AlertTriangle className="w-4 h-4" /> Chamada de Atenção
+            </button>
+
             {enrollment?.class?.id && (
               <Link href={`/classes/${enrollment.class.id}`}
                 className="flex items-center gap-1.5 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium transition">
@@ -356,6 +445,11 @@ export default function StudentDetailPage() {
             </button>
           </div>
         </div>
+        {lastMonthlyReport && (
+          <p className="text-xs text-gray-400 mt-3 text-right">
+            Último relatório mensal enviado em {formatDate(lastMonthlyReport.sentAt ?? lastMonthlyReport.createdAt)}
+          </p>
+        )}
       </div>
 
       {/* ── Quick stats ─────────────────────────────────────────────────────── */}
@@ -783,7 +877,7 @@ export default function StudentDetailPage() {
                         {doc.type} · {doc.size ? `${Math.round(doc.size / 1024)} KB` : '—'}
                       </div>
                     </div>
-                    <a href={`http://localhost:4301${doc.url}`} target="_blank" rel="noreferrer"
+                    <a href={`${process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v\d+\/?$/, '')}${doc.url}`} target="_blank" rel="noreferrer"
                       className="text-xs text-mastchieve-600 hover:underline flex-shrink-0">
                       Ver
                     </a>
@@ -808,6 +902,27 @@ export default function StudentDetailPage() {
         {/* HISTÓRICO */}
         {activeTab === 'Histórico' && (
           <div className="space-y-4">
+            {chamadasHistory.length > 0 && (
+              <div className="bg-white border border-gray-100 rounded-xl p-6">
+                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-500" /> Chamadas de Atenção enviadas
+                </h3>
+                <div className="space-y-2">
+                  {chamadasHistory.map((r: any) => (
+                    <div key={r.id} className="bg-red-50 border border-red-100 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-500">
+                          {formatDate(r.sentAt ?? r.createdAt)}
+                          {r.instructor && ` · ${r.instructor.firstName} ${r.instructor.lastName}`}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700">{r.mensagem}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="bg-white border border-gray-100 rounded-xl p-6">
               <h3 className="font-semibold text-gray-900 mb-5 flex items-center gap-2">
                 <History className="w-4 h-4 text-mastchieve-500" /> Últimos 10 registos de desempenho
