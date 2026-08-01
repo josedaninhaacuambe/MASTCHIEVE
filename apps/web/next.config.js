@@ -32,7 +32,15 @@ const nextConfig = {
   // porque essa fase do `next build` esgota a RAM do hosting cPanel (OOM kill).
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
-  experimental: { serverActions: { allowedOrigins: ['localhost:4300', 'mastchieve.co.mz'] } },
+  // O hosting cPanel reporta o nº de CPUs da máquina física partilhada, não o
+  // limite real de RAM da conta — cada worker de build abre a sua própria
+  // instância V8, multiplicando o consumo de memória até estourar o limite
+  // (OOM kill). Forçar build single-thread evita isso.
+  experimental: {
+    serverActions: { allowedOrigins: ['localhost:4300', 'mastchieve.co.mz'] },
+    cpus: 1,
+    workerThreads: false,
+  },
   images: {
     domains: ['localhost', 'mastchieve.co.mz', 'api.mastchieve.co.mz'],
     formats: ['image/avif', 'image/webp'],
