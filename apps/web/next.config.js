@@ -28,6 +28,10 @@ const withPWA = require('next-pwa')({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Type-check/lint já são validados localmente antes do deploy; desativados aqui
+  // porque essa fase do `next build` esgota a RAM do hosting cPanel (OOM kill).
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
   experimental: { serverActions: { allowedOrigins: ['localhost:4300', 'mastchieve.co.mz'] } },
   images: {
     domains: ['localhost', 'mastchieve.co.mz', 'api.mastchieve.co.mz'],
