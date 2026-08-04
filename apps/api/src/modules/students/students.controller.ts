@@ -1,6 +1,5 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString, Min, Max } from 'class-validator';
 import { Response } from 'express';
 import { StudentsService } from './students.service';
 import { StudentsReportService } from './students-report.service';
@@ -12,18 +11,6 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-
-class CreatePerformanceDto {
-  @IsOptional() @IsString() sessionId?: string;
-  @IsOptional() @IsNumber() @Min(1) @Max(10) technique?: number;
-  @IsOptional() @IsNumber() @Min(1) @Max(10) stamina?: number;
-  @IsOptional() @IsNumber() @Min(1) @Max(10) speed?: number;
-  @IsOptional() @IsNumber() @Min(1) @Max(10) coordination?: number;
-  @IsOptional() @IsNumber() @Min(1) @Max(10) breathing?: number;
-  @IsOptional() @IsNumber() @Min(1) @Max(10) turns?: number;
-  @IsOptional() @IsNumber() @Min(1) @Max(10) startDive?: number;
-  @IsOptional() @IsString() instructorNotes?: string;
-}
 
 @ApiTags('students')
 @ApiBearerAuth()
@@ -99,17 +86,6 @@ export class StudentsController {
     @Body() dto: ChamadaAtencaoDto,
   ) {
     return this.studentsService.sendChamadaAtencao(id, userId, dto.mensagem);
-  }
-
-  @Post(':id/performance')
-  @Roles('ADMIN', 'INSTRUCTOR')
-  @ApiOperation({ summary: 'Registar avaliação de desempenho' })
-  createPerformance(
-    @Param('id') id: string,
-    @CurrentUser('id') userId: string,
-    @Body() dto: CreatePerformanceDto,
-  ) {
-    return this.studentsService.createPerformanceRecord(id, userId, dto);
   }
 
   @Post()

@@ -5,6 +5,8 @@ import { UnidadesModule } from './modules/unidades/unidades.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { IncidentesModule } from './modules/incidentes/incidentes.module';
 import { FasesModule } from './modules/fases/fases.module';
+import { AvaliacoesAgendadasModule } from './modules/avaliacoes-agendadas/avaliacoes-agendadas.module';
+import { AvaliacoesModule } from './modules/avaliacoes/avaliacoes.module';
 import { CertificadosModule } from './modules/certificados/certificados.module';
 import { AvaliacoesIniciaisModule } from './modules/avaliacoes-iniciais/avaliacoes-iniciais.module';
 import { EventosModule } from './modules/eventos/eventos.module';
@@ -98,6 +100,8 @@ import { RedisModule } from './common/redis/redis.module';
     LeadsModule,
     IncidentesModule,
     FasesModule,
+    AvaliacoesModule,
+    AvaliacoesAgendadasModule,
     CertificadosModule,
     AvaliacoesIniciaisModule,
     EventosModule,

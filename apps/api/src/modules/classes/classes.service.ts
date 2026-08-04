@@ -119,6 +119,15 @@ export class ClassesService {
     });
   }
 
+  async findMyClasses(userId: string) {
+    const instructor = await this.prisma.instructor.findUnique({ where: { userId } });
+    if (!instructor) return [];
+    return this.prisma.class.findMany({
+      where: { instructorId: instructor.id, status: 'ACTIVE' },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async getSessions(classId: string) {
     const sessions = await this.prisma.classSession.findMany({
       where: { classId },

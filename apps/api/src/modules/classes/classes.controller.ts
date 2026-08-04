@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateClassDto, CreateSessionDto } from './dto/create-class.dto';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('classes')
 @ApiBearerAuth()
@@ -15,6 +16,9 @@ export class ClassesController {
 
   @Get() @Roles('ADMIN', 'INSTRUCTOR') @ApiOperation({ summary: 'Listar turmas' })
   findAll(@Query() query: any) { return this.service.findAll(query); }
+
+  @Get('my') @Roles('ADMIN', 'INSTRUCTOR') @ApiOperation({ summary: 'Listar as minhas turmas (instrutor autenticado)' })
+  findMyClasses(@CurrentUser('id') userId: string) { return this.service.findMyClasses(userId); }
 
   @Get(':id') @Roles('ADMIN', 'INSTRUCTOR') @ApiOperation({ summary: 'Detalhes da turma' })
   findOne(@Param('id') id: string) { return this.service.findOne(id); }

@@ -6,6 +6,11 @@ import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 
+export interface FeedbackJobData {
+  performanceRecordId?: string;
+  avaliacaoId?: string;
+}
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
@@ -24,28 +29,104 @@ export class AiService {
     this.model = this.config.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6');
   }
 
-  async queueFeedbackGeneration(performanceRecordId: string, priority = 5) {
-    const job = await this.feedbackQueue.add(
-      'generate-feedback',
-      { performanceRecordId },
-      { priority, delay: 0 },
-    );
+  async queueFeedbackGeneration(params: FeedbackJobData, priority = 5) {
+    const job = await this.feedbackQueue.add('generate-feedback', params, { priority, delay: 0 });
     this.logger.log(`Feedback job queued: ${job.id}`);
     return { jobId: job.id, status: 'queued' };
   }
 
-  async generateFeedback(performanceRecordId: string): Promise<string> {
-    const record = await this.prisma.performanceRecord.findUnique({
-      where: { id: performanceRecordId },
-      include: {
-        feedback: true,
+  async generateFeedback(params: FeedbackJobData): Promise<string> {
+    if (params.avaliacaoId) return this.generateFeedbackFromAvaliacao(params.avaliacaoId);
+    if (params.performanceRecordId) return this.generateFeedbackFromPerformanceRecord(params.performanceRecordId);
+    throw new NotFoundException('É necessário indicar avaliacaoId ou performanceRecordId');
+  }
+
+  // Fluxo NOVO: avaliação diária pontua os critérios do módulo ativo do aluno (escala 1-5).
+  private async generateFeedbackFromAvaliacao(avaliacaoId: string): Promise<string> {
+    const avaliacao = await this.prisma.avaliacao.findUnique({
+      where: { id: avaliacaoId },
+      include: { studentFase: { include: { fase: true } } },
+    });
+    if (!avaliacao) throw new NotFoundException('Avaliação não encontrada');
+
+    const student = await this.fetchStudentContext(avaliacao.studentId);
+
+    const criterios: { nome: string; obrigatoria: boolean; valor: number | null }[] = JSON.parse(avaliacao.pontuacoes);
+    const prompt = this.buildFeedbackPromptFromAvaliacao(student, avaliacao, criterios);
+    const { feedbackText, recommendedLessons, interactiveExercises, tokensUsed } = await this.callAnthropicForFeedback(
+      prompt,
+      `avaliacao ${avaliacaoId}`,
+    );
+    const confidence = criterios.length ? criterios.filter(c => c.valor !== null).length / criterios.length : 0;
+
+    await this.prisma.feedback.upsert({
+      where: { avaliacaoId },
+      create: {
+        studentId: student.id,
+        avaliacaoId,
+        ...this.feedbackData(feedbackText, tokensUsed, confidence, recommendedLessons, interactiveExercises),
       },
+      update: { ...this.feedbackData(feedbackText, tokensUsed, confidence, recommendedLessons, interactiveExercises), updatedAt: new Date() },
     });
 
+    await this.notifyStudentFeedback(student.id, student.firstName, feedbackText);
+    this.logger.log(`Feedback generated for student ${student.id}, tokens: ${tokensUsed}`);
+    return feedbackText;
+  }
+
+  // Fluxo LEGADO: mantém o prompt original das 7 métricas fixas para registos antigos.
+  private async generateFeedbackFromPerformanceRecord(performanceRecordId: string): Promise<string> {
+    const record = await this.prisma.performanceRecord.findUnique({
+      where: { id: performanceRecordId },
+      include: { feedback: true },
+    });
     if (!record) throw new NotFoundException('Performance record not found');
 
-    const student = await this.prisma.student.findUnique({
-      where: { id: record.studentId },
+    const student = await this.fetchStudentContext(record.studentId);
+
+    const prompt = this.buildFeedbackPrompt(student, record);
+    const { feedbackText, recommendedLessons, interactiveExercises, tokensUsed } = await this.callAnthropicForFeedback(
+      prompt,
+      `record ${performanceRecordId}`,
+    );
+    const confidence = this.calculateConfidence(record);
+
+    await this.prisma.feedback.upsert({
+      where: { performanceRecordId },
+      create: {
+        studentId: student.id,
+        performanceRecordId,
+        ...this.feedbackData(feedbackText, tokensUsed, confidence, recommendedLessons, interactiveExercises),
+      },
+      update: { ...this.feedbackData(feedbackText, tokensUsed, confidence, recommendedLessons, interactiveExercises), updatedAt: new Date() },
+    });
+
+    await this.notifyStudentFeedback(student.id, student.firstName, feedbackText);
+    this.logger.log(`Feedback generated for student ${student.id}, tokens: ${tokensUsed}`);
+    return feedbackText;
+  }
+
+  private feedbackData(
+    feedbackText: string,
+    tokensUsed: number,
+    confidence: number,
+    recommendedLessons: any[],
+    interactiveExercises: any[],
+  ) {
+    return {
+      aiGeneratedText: feedbackText,
+      status: 'GENERATED',
+      aiModel: this.model,
+      aiTokensUsed: tokensUsed,
+      aiConfidenceScore: confidence,
+      recommendedLessons: JSON.stringify(recommendedLessons),
+      interactiveExercises: JSON.stringify(interactiveExercises),
+    };
+  }
+
+  private fetchStudentContext(studentId: string) {
+    return this.prisma.student.findUnique({
+      where: { id: studentId },
       include: {
         progressRecords: { include: { module: true }, take: 5 },
         feedbacks: { take: 3, orderBy: { createdAt: 'desc' } },
@@ -54,14 +135,13 @@ export class AiService {
           include: { class: { select: { name: true, level: true } } },
         },
       },
+    }).then(student => {
+      if (!student) throw new NotFoundException('Student not found');
+      return student;
     });
+  }
 
-    if (!student) throw new NotFoundException('Student not found');
-
-    const prompt = this.buildFeedbackPrompt(student, record);
-
-    let rawResponse: string;
-    let tokensUsed: number;
+  private async callAnthropicForFeedback(prompt: string, logContext: string) {
     try {
       const message = await this.anthropic.messages.create({
         model: this.model,
@@ -72,68 +152,42 @@ export class AiService {
 
       const block = message.content[0];
       if (block.type !== 'text') throw new Error(`Unexpected response block type: ${block.type}`);
-      rawResponse = block.text;
-      tokensUsed = message.usage.input_tokens + message.usage.output_tokens;
+      const rawResponse = block.text;
+      const tokensUsed = message.usage.input_tokens + message.usage.output_tokens;
+
+      // Separate textual feedback from the appended recommendations JSON block.
+      const recJsonMatch = rawResponse.match(/\{[\s\S]*\}$/);
+      let feedbackText = rawResponse;
+      let recommendedLessons: any[] = [];
+      let interactiveExercises: any[] = [];
+
+      if (recJsonMatch) {
+        const jsonText = recJsonMatch[0];
+        feedbackText = rawResponse.replace(jsonText, '').trim();
+        try {
+          const parsed = JSON.parse(jsonText);
+          recommendedLessons = parsed.recommendedLessons || [];
+          interactiveExercises = parsed.interactiveExercises || [];
+        } catch (err) {
+          this.logger.warn('Failed to parse recommendations JSON from AI response');
+        }
+      }
+
+      return { feedbackText, recommendedLessons, interactiveExercises, tokensUsed };
     } catch (err) {
-      this.logger.error(`Anthropic call failed for record ${performanceRecordId}`, err instanceof Error ? err.stack : String(err));
+      this.logger.error(`Anthropic call failed for ${logContext}`, err instanceof Error ? err.stack : String(err));
       throw new InternalServerErrorException('Falha ao gerar feedback com IA. Tenta novamente mais tarde.');
     }
+  }
 
-    // Separate textual feedback from the appended recommendations JSON block.
-    const recJsonMatch = rawResponse.match(/\{[\s\S]*\}$/);
-    let feedbackText = rawResponse;
-    let recommendedLessons: any[] = [];
-    let interactiveExercises: any[] = [];
-
-    if (recJsonMatch) {
-      const jsonText = recJsonMatch[0];
-      feedbackText = rawResponse.replace(jsonText, '').trim();
-      try {
-        const parsed = JSON.parse(jsonText);
-        recommendedLessons = parsed.recommendedLessons || [];
-        interactiveExercises = parsed.interactiveExercises || [];
-      } catch (err) {
-        this.logger.warn('Failed to parse recommendations JSON from AI response');
-      }
-    }
-
-    // Create or update feedback record (including recommendations)
-    await this.prisma.feedback.upsert({
-      where: { performanceRecordId },
-      create: {
-        studentId: student.id,
-        performanceRecordId,
-        aiGeneratedText: feedbackText,
-        status: 'GENERATED',
-        aiModel: this.model,
-        aiTokensUsed: tokensUsed,
-        aiConfidenceScore: this.calculateConfidence(record),
-        recommendedLessons: JSON.stringify(recommendedLessons),
-        interactiveExercises: JSON.stringify(interactiveExercises),
-      },
-      update: {
-        aiGeneratedText: feedbackText,
-        status: 'GENERATED',
-        aiModel: this.model,
-        aiTokensUsed: tokensUsed,
-        aiConfidenceScore: this.calculateConfidence(record),
-        recommendedLessons: JSON.stringify(recommendedLessons),
-        interactiveExercises: JSON.stringify(interactiveExercises),
-        updatedAt: new Date(),
-      },
-    });
-
-    // Send email notification to student
+  private async notifyStudentFeedback(studentId: string, firstName: string, feedbackText: string) {
     const userAccount = await this.prisma.user.findFirst({
-      where: { student: { id: student.id } },
+      where: { student: { id: studentId } },
       select: { email: true },
     });
     if (userAccount?.email) {
-      this.email.sendFeedbackReady(userAccount.email, student.firstName, feedbackText).catch(() => {});
+      this.email.sendFeedbackReady(userAccount.email, firstName, feedbackText).catch(() => {});
     }
-
-    this.logger.log(`Feedback generated for student ${student.id}, tokens: ${tokensUsed}`);
-    return feedbackText;
   }
 
   async generateTrainingPlan(studentId: string, instructorNotes?: string): Promise<any> {
@@ -262,6 +316,48 @@ Gera feedback para a aula de hoje:
 - Nota global: ${record.overallScore || 'N/A'}/10
 
 **Notas do instrutor:** ${record.instructorNotes || 'Sem notas adicionais'}
+
+Gera um feedback completo e personalizado seguindo as diretrizes.
+
+Adicionalmente, com base no feedback acima, fornece recomendações práticas:
+
+1) Lista 3 aulas/vídeos do YouTube relevantes (título, link, duração aproximada, e uma frase sobre por que o vídeo é útil). Prioriza conteúdos em português quando possível.
+2) Lista 3 exercícios interativos práticos (nome, descrição passo-a-passo, sets/reps/duração, objetivos de melhoria), concebidos para melhorar os pontos identificados no feedback.
+
+Responde primeiro com o feedback textual (máx. 200 palavras), seguido por um bloco JSON válido com as chaves "recommendedLessons" e "interactiveExercises" no formato:
+{
+  "recommendedLessons": [{ "title": "", "url": "", "duration": "", "why": "" }],
+  "interactiveExercises": [{ "name": "", "description": "", "sets": 0, "reps": 0, "durationMinutes": 0, "notes": "" }]
+}
+
+Mantém o tom profissional e instrutivo. Responde em português europeu.
+    `.trim();
+  }
+
+  private buildFeedbackPromptFromAvaliacao(
+    student: any,
+    avaliacao: { notaGlobal: number; observacoes: string | null; studentFase: { fase: { nome: string } } },
+    criterios: { nome: string; obrigatoria: boolean; valor: number | null }[],
+  ): string {
+    const age = Math.floor(
+      (Date.now() - new Date(student.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000),
+    );
+    const level = student.enrollments[0]?.class?.level || 'BEGINNER';
+    const moduloNome = avaliacao.studentFase?.fase?.nome ?? 'N/A';
+    const linhasCriterios = criterios
+      .map(c => `- ${c.nome}${c.obrigatoria ? ' (obrigatória)' : ''}: ${c.valor ?? 'N/A'}/5`)
+      .join('\n');
+
+    return `
+Gera feedback para a aula de hoje:
+
+**Atleta:** ${student.firstName}, ${age} anos, nível ${level}
+**Módulo pedagógico Mastchieve:** ${moduloNome}
+**Avaliação da sessão (critérios do módulo, escala 1-5):**
+${linhasCriterios}
+- Nota global: ${avaliacao.notaGlobal?.toFixed?.(1) ?? avaliacao.notaGlobal ?? 'N/A'}/10
+
+**Notas do instrutor:** ${avaliacao.observacoes || 'Sem notas adicionais'}
 
 Gera um feedback completo e personalizado seguindo as diretrizes.
 

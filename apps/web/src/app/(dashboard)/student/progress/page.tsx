@@ -6,10 +6,11 @@ import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import {
-  Waves, Award, TrendingUp, Star, Zap, Target,
+  Waves, Award, TrendingUp, Star, Target,
   ChevronDown, ChevronUp, Lock, CheckCircle, Clock,
-  Dumbbell, Brain, Calendar, Trophy, Flame, Shield,
+  Dumbbell, Brain, Calendar, Trophy, Shield,
   ArrowUp, ArrowDown, Minus, BarChart3, BookOpen,
+  ClipboardCheck, CheckCircle2, XCircle,
 } from 'lucide-react';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -41,15 +42,8 @@ const STATUS_CFG: Record<string, { label: string; icon: any; color: string }> = 
   IN_PROGRESS: { label: 'Em progresso', icon: TrendingUp,  color: 'text-blue-600 bg-blue-50 border-blue-200' },
   COMPLETED:   { label: 'Concluído',    icon: CheckCircle, color: 'text-green-600 bg-green-50 border-green-200' },
 };
-const METRIC_CFG: Record<string, { label: string; icon: any; color: string; barColor: string }> = {
-  technique:    { label: 'Técnica',     icon: Star,       color: 'text-blue-500',   barColor: 'from-blue-400 to-blue-600' },
-  stamina:      { label: 'Resistência', icon: Flame,      color: 'text-green-500',  barColor: 'from-green-400 to-emerald-600' },
-  speed:        { label: 'Velocidade',  icon: Zap,        color: 'text-amber-500',  barColor: 'from-amber-400 to-orange-500' },
-  coordination: { label: 'Coordenação', icon: Target,     color: 'text-purple-500', barColor: 'from-purple-400 to-violet-600' },
-  breathing:    { label: 'Respiração',  icon: Waves,      color: 'text-cyan-500',   barColor: 'from-cyan-400 to-teal-500' },
-  turns:        { label: 'Viragens',    icon: TrendingUp, color: 'text-pink-500',   barColor: 'from-pink-400 to-rose-500' },
-  startDive:    { label: 'Saída',       icon: ArrowUp,    color: 'text-indigo-500', barColor: 'from-indigo-400 to-blue-500' },
-};
+// Paleta cíclica para as barras de critério — os critérios são dinâmicos (módulo ativo do aluno), sem cor fixa por nome.
+const CRITERIO_BAR_COLORS = ['bg-blue-400', 'bg-green-400', 'bg-amber-400', 'bg-purple-400', 'bg-cyan-400', 'bg-pink-400', 'bg-indigo-400'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -95,28 +89,26 @@ function AnimatedBar({ pct, gradient, height = 'h-2.5', delay = 0 }: { pct: numb
 
 // ─── Metric row ───────────────────────────────────────────────────────────────
 
-function MetricRow({ metricKey, current, prev, delay }: { metricKey: string; current: number; prev?: number; delay?: number }) {
-  const cfg = METRIC_CFG[metricKey];
-  if (!cfg || current == null) return null;
-  const Icon = cfg.icon;
-  const pct = (current / 10) * 100;
-  const trend = prev != null ? (current > prev ? 'up' : current < prev ? 'down' : 'same') : null;
+function MetricRow({ nome, valor, max, prev, delay }: { nome: string; valor: number; max: number; prev?: number; delay?: number }) {
+  if (valor == null) return null;
+  const pct = (valor / max) * 100;
+  const trend = prev != null ? (valor > prev ? 'up' : valor < prev ? 'down' : 'same') : null;
 
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-1.5">
-          <Icon className={cn('w-3.5 h-3.5', cfg.color)} />
-          <span className="font-medium text-gray-700">{cfg.label}</span>
+          <Target className="w-3.5 h-3.5 text-gray-400" />
+          <span className="font-medium text-gray-700">{nome}</span>
         </div>
         <div className="flex items-center gap-1.5">
           {trend === 'up'   && <ArrowUp   className="w-3 h-3 text-green-500" />}
           {trend === 'down' && <ArrowDown  className="w-3 h-3 text-red-500" />}
           {trend === 'same' && <Minus      className="w-3 h-3 text-gray-400" />}
-          <span className={cn('font-bold', scoreColor(current))}>{current}/10</span>
+          <span className={cn('font-bold', scoreColor((pct / 100) * 10))}>{valor}/{max}</span>
         </div>
       </div>
-      <AnimatedBar pct={pct} gradient={cfg.barColor} delay={delay ?? 0} />
+      <AnimatedBar pct={pct} gradient="from-mastchieve-400 to-mastchieve-600" delay={delay ?? 0} />
     </div>
   );
 }
@@ -227,7 +219,7 @@ function ModuleCard({ pr, index }: { pr: any; index: number }) {
 
 function SessionRow({ record, index }: { record: any; index: number }) {
   const [open, setOpen] = useState(false);
-  const metrics = Object.keys(METRIC_CFG).filter((k) => record[k] != null);
+  const criterios: Array<{ nome: string; valor: number; max: number }> = record.criterios ?? [];
   const score = record.overallScore;
 
   return (
@@ -249,11 +241,11 @@ function SessionRow({ record, index }: { record: any; index: number }) {
         </div>
         {/* Mini sparkline of scores */}
         <div className="flex items-end gap-0.5 h-6">
-          {metrics.slice(0, 5).map((k) => (
+          {criterios.slice(0, 5).map((c, i) => (
             <div
-              key={k}
-              className={cn('w-2 rounded-sm', METRIC_CFG[k]?.barColor.includes('blue') ? 'bg-blue-400' : METRIC_CFG[k]?.barColor.includes('green') ? 'bg-green-400' : METRIC_CFG[k]?.barColor.includes('amber') ? 'bg-amber-400' : METRIC_CFG[k]?.barColor.includes('purple') ? 'bg-purple-400' : 'bg-cyan-400')}
-              style={{ height: `${((record[k] / 10) * 24)}px` }}
+              key={c.nome}
+              className={cn('w-2 rounded-sm', CRITERIO_BAR_COLORS[i % CRITERIO_BAR_COLORS.length])}
+              style={{ height: `${((c.valor / c.max) * 24)}px` }}
             />
           ))}
         </div>
@@ -264,13 +256,76 @@ function SessionRow({ record, index }: { record: any; index: number }) {
 
       {open && (
         <div className="border-t border-gray-50 px-3 pb-3 space-y-2.5 pt-3">
-          {metrics.map((k) => (
-            <MetricRow key={k} metricKey={k} current={record[k]} />
+          {criterios.map((c) => (
+            <MetricRow key={c.nome} nome={c.nome} valor={c.valor} max={c.max} />
           ))}
-          {record.instructorNotes && (
+          {record.notes && (
             <div className="bg-amber-50 rounded-xl p-3 text-xs text-amber-800">
               <div className="text-amber-500 text-[10px] font-semibold uppercase mb-1">Nota do instrutor</div>
-              {record.instructorNotes}
+              {record.notes}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Scheduled evaluation row ─────────────────────────────────────────────────
+
+function AvaliacaoAgendadaRow({ resultado }: { resultado: any }) {
+  const [open, setOpen] = useState(false);
+  const pontuacoes: Array<{ criterioIndex: number; nome: string; obrigatoria: boolean; valor: number | null; minimo: number }> =
+    parseJson(resultado.pontuacoes, []);
+  const fase = resultado.studentFase?.fase;
+
+  return (
+    <div className={cn('rounded-xl border transition-all', open ? 'border-mastchieve-200' : 'border-gray-100')}>
+      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center gap-3 p-3 text-left">
+        <div className={cn(
+          'w-8 h-8 rounded-xl flex items-center justify-center text-white flex-shrink-0',
+          resultado.aprovado ? 'bg-green-500' : 'bg-red-400',
+        )}>
+          {resultado.aprovado ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-semibold text-gray-800">
+            {fase ? `${fase.nome} — Fase ${fase.ordem} (${fase.nivel})` : 'Módulo'}
+          </div>
+          <div className="text-[10px] text-gray-400 mt-0.5">
+            {new Date(resultado.avaliadoEm).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })}
+            {' · '}{resultado.soma}/{resultado.totalMinimoSnapshot} pts
+          </div>
+        </div>
+        <span className={cn(
+          'text-[10px] font-bold px-2 py-0.5 rounded-full',
+          resultado.aprovado ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700',
+        )}>
+          {resultado.aprovado ? 'Aprovado' : 'Reprovado'}
+        </span>
+        <span className="text-gray-400">
+          {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </span>
+      </button>
+
+      {open && (
+        <div className="border-t border-gray-50 px-3 pb-3 space-y-2 pt-3">
+          {pontuacoes.map((p) => (
+            <div key={p.criterioIndex} className="flex items-center justify-between text-xs gap-2">
+              <div className="min-w-0">
+                <span className="text-gray-700">{p.nome}</span>
+                {p.obrigatoria && (
+                  <span className="ml-1.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Obrigatória</span>
+                )}
+              </div>
+              <span className={cn('font-bold flex-shrink-0', p.valor != null && p.valor >= p.minimo ? 'text-green-600' : 'text-red-500')}>
+                {p.valor ?? '—'} <span className="text-gray-400 font-normal">/ mín. {p.minimo}</span>
+              </span>
+            </div>
+          ))}
+          {!resultado.aprovado && resultado.motivoReprovacao && (
+            <div className="bg-red-50 rounded-xl p-3 text-xs text-red-700 mt-1">
+              {resultado.motivoReprovacao}
             </div>
           )}
         </div>
@@ -374,7 +429,7 @@ function LevelPath({ currentLevel }: { currentLevel: string }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'overview' | 'modulos' | 'desempenho' | 'conquistas';
+type Tab = 'overview' | 'modulos' | 'desempenho' | 'avaliacoes' | 'conquistas';
 
 export default function StudentProgressPage() {
   const [tab, setTab] = useState<Tab>('overview');
@@ -385,6 +440,15 @@ export default function StudentProgressPage() {
     queryFn: async () => {
       const { data } = await api.get('/students/me');
       return data.data;
+    },
+    enabled: user?.role === 'STUDENT',
+  });
+
+  const { data: avaliacoesAgendadas } = useQuery({
+    queryKey: ['avaliacoes-agendadas-me'],
+    queryFn: async () => {
+      const { data } = await api.get('/avaliacoes-agendadas/me');
+      return data.data ?? data;
     },
     enabled: user?.role === 'STUDENT',
   });
@@ -420,6 +484,7 @@ export default function StudentProgressPage() {
     { id: 'overview',   label: 'Visão Geral', icon: BarChart3 },
     { id: 'modulos',    label: 'Módulos',     icon: BookOpen },
     { id: 'desempenho', label: 'Desempenho',  icon: TrendingUp },
+    { id: 'avaliacoes', label: 'Avaliações',  icon: ClipboardCheck },
     { id: 'conquistas', label: 'Conquistas',  icon: Trophy },
   ];
 
@@ -582,17 +647,16 @@ export default function StudentProgressPage() {
                     </span>
                   </div>
                   <div className="space-y-3">
-                    {Object.keys(METRIC_CFG)
-                      .filter((k) => latestPerf[k] != null)
-                      .map((k, i) => (
-                        <MetricRow
-                          key={k}
-                          metricKey={k}
-                          current={latestPerf[k]}
-                          prev={prevPerf?.[k]}
-                          delay={i * 60}
-                        />
-                      ))}
+                    {(latestPerf.criterios ?? []).map((c: any, i: number) => (
+                      <MetricRow
+                        key={c.nome}
+                        nome={c.nome}
+                        valor={c.valor}
+                        max={c.max}
+                        prev={prevPerf?.criterios?.find((p: any) => p.nome === c.nome)?.valor}
+                        delay={i * 60}
+                      />
+                    ))}
                   </div>
                   {latestPerf.overallScore != null && (
                     <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
@@ -732,6 +796,26 @@ export default function StudentProgressPage() {
                     ))}
                   </div>
                 </>
+              )}
+            </div>
+          )}
+
+          {/* ── Avaliações Agendadas ── */}
+          {tab === 'avaliacoes' && (
+            <div className="space-y-3">
+              {!avaliacoesAgendadas || avaliacoesAgendadas.length === 0 ? (
+                <div className="text-center py-10 text-gray-400">
+                  <ClipboardCheck className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">Nenhuma avaliação formal registada ainda</p>
+                  <p className="text-xs mt-1">Os resultados aparecem aqui após uma sessão de avaliação agendada pelo teu instrutor</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-gray-600">Histórico de avaliações formais</div>
+                  {avaliacoesAgendadas.map((r: any) => (
+                    <AvaliacaoAgendadaRow key={r.id} resultado={r} />
+                  ))}
+                </div>
               )}
             </div>
           )}

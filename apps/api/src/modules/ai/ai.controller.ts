@@ -24,16 +24,16 @@ export class AiController {
 
   @Post('feedback/queue')
   @Roles('ADMIN', 'INSTRUCTOR')
-  @ApiOperation({ summary: 'Enfileirar geração de feedback' })
+  @ApiOperation({ summary: 'Enfileirar geração de feedback (legado, registo de desempenho fixo)' })
   queueFeedback(@Body() dto: GenerateFeedbackDto) {
-    return this.aiService.queueFeedbackGeneration(dto.performanceRecordId);
+    return this.aiService.queueFeedbackGeneration({ performanceRecordId: dto.performanceRecordId });
   }
 
   @Post('feedback/generate/:recordId')
   @Roles('ADMIN', 'INSTRUCTOR')
-  @ApiOperation({ summary: 'Gerar feedback imediato' })
+  @ApiOperation({ summary: 'Gerar feedback imediato (legado, registo de desempenho fixo)' })
   generateFeedback(@Param('recordId') recordId: string) {
-    return this.aiService.generateFeedback(recordId);
+    return this.aiService.generateFeedback({ performanceRecordId: recordId });
   }
 
   @Post('training-plan/:studentId')

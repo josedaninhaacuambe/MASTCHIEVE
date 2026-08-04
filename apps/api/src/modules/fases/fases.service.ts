@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { UpdateStudentFaseDto } from './dto/update-student-fase.dto';
+import { avaliarRegraConclusao } from './regra-conclusao.util';
 
 const ESCALA_OFICIAL = JSON.stringify(['1 - Péssimo', '2 - Fraco', '3 - Razoável', '4 - Bom', '5 - Excelente']);
 
@@ -181,24 +182,20 @@ export class FasesService {
 
   private validarConclusao(fase: { criterios: string; totalMinimo: number }, avaliacoes: Array<{ criterioIndex: number; valor: number }>) {
     const criterios: { nome: string; obrigatoria: boolean }[] = JSON.parse(fase.criterios);
+    const resultado = avaliarRegraConclusao(criterios, fase.totalMinimo, avaliacoes);
 
-    const faltantes = criterios.filter((_, i) => !avaliacoes.some(a => a.criterioIndex === i));
-    if (faltantes.length > 0) {
-      throw new BadRequestException(`Faltam pontuações para: ${faltantes.map(c => c.nome).join(', ')}`);
+    if (resultado.criteriosFaltando.length > 0) {
+      throw new BadRequestException(`Faltam pontuações para: ${resultado.criteriosFaltando.join(', ')}`);
     }
 
-    const abaixoDoMinimo = criterios
-      .map((c, i) => ({ criterio: c, valor: avaliacoes.find(a => a.criterioIndex === i)!.valor }))
-      .filter(({ criterio, valor }) => valor < (criterio.obrigatoria ? 4 : 3));
-    if (abaixoDoMinimo.length > 0) {
+    if (resultado.criteriosAbaixoMinimo.length > 0) {
       throw new BadRequestException(
-        `Habilidades abaixo do mínimo exigido: ${abaixoDoMinimo.map(({ criterio, valor }) => `${criterio.nome} (${valor}, mín. ${criterio.obrigatoria ? 4 : 3})`).join(', ')}`,
+        `Habilidades abaixo do mínimo exigido: ${resultado.criteriosAbaixoMinimo.map(({ nome, valor, minimo }) => `${nome} (${valor}, mín. ${minimo})`).join(', ')}`,
       );
     }
 
-    const soma = avaliacoes.reduce((s, a) => s + a.valor, 0);
-    if (soma < fase.totalMinimo) {
-      throw new BadRequestException(`Pontuação total (${soma}) abaixo do mínimo exigido (${fase.totalMinimo})`);
+    if (resultado.soma < fase.totalMinimo) {
+      throw new BadRequestException(`Pontuação total (${resultado.soma}) abaixo do mínimo exigido (${fase.totalMinimo})`);
     }
   }
 

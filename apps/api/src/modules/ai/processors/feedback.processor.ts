@@ -1,7 +1,7 @@
 import { Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bull';
-import { AiService } from '../ai.service';
+import { AiService, FeedbackJobData } from '../ai.service';
 
 @Processor('feedback')
 export class FeedbackProcessor {
@@ -10,10 +10,10 @@ export class FeedbackProcessor {
   constructor(private aiService: AiService) {}
 
   @Process('generate-feedback')
-  async handleFeedbackGeneration(job: Job<{ performanceRecordId: string }>) {
-    this.logger.log(`Processing feedback job ${job.id} for record ${job.data.performanceRecordId}`);
+  async handleFeedbackGeneration(job: Job<FeedbackJobData>) {
+    this.logger.log(`Processing feedback job ${job.id}: ${JSON.stringify(job.data)}`);
     try {
-      const feedback = await this.aiService.generateFeedback(job.data.performanceRecordId);
+      const feedback = await this.aiService.generateFeedback(job.data);
       this.logger.log(`Feedback job ${job.id} completed`);
       return { success: true, feedback };
     } catch (error) {

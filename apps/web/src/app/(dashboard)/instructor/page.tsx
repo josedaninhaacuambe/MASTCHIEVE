@@ -210,14 +210,8 @@ export default function InstructorPage() {
       id: s.id,
       name: `${s.profile?.firstName ?? s.firstName ?? ''} ${s.profile?.lastName ?? s.lastName ?? ''}`.trim() || s.email,
       initials: `${(s.profile?.firstName ?? s.firstName ?? '')[0] ?? ''}${(s.profile?.lastName ?? s.lastName ?? '')[0] ?? ''}`.toUpperCase(),
-      score: s.performanceRecords[0]
-        ? Math.round(
-            (s.performanceRecords[0].technique +
-              s.performanceRecords[0].stamina +
-              s.performanceRecords[0].speed +
-              s.performanceRecords[0].coordination +
-              s.performanceRecords[0].breathing) / 5,
-          )
+      score: s.performanceRecords[0]?.overallScore != null
+        ? Math.round(s.performanceRecords[0].overallScore)
         : null,
       date: s.performanceRecords[0]?.recordedAt,
     }));

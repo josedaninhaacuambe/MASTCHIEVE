@@ -4,6 +4,7 @@ import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentsReportService } from './students-report.service';
 import { EmailService } from '../email/email.service';
+import { mesclarRegistosDesempenho } from '../avaliacoes/normalizar-desempenho.util';
 
 @Injectable()
 export class StudentsService {
@@ -169,7 +170,7 @@ export class StudentsService {
     });
     if (!student) throw new NotFoundException('Perfil de atleta não encontrado');
 
-    const [attendanceStats, performanceRecords, trainingPlans] = await Promise.all([
+    const [attendanceStats, performanceRecords, avaliacoesDiarias, trainingPlans] = await Promise.all([
       this.prisma.attendance.groupBy({
         by: ['status'],
         where: { studentId: student.id },
@@ -184,6 +185,12 @@ export class StudentsService {
           coordination: true, breathing: true, turns: true,
           startDive: true, overallScore: true, instructorNotes: true, recordedAt: true,
         },
+      }),
+      this.prisma.avaliacao.findMany({
+        where: { studentId: student.id, tipo: 'DIARIA' },
+        orderBy: { avaliadoEm: 'desc' },
+        take: 10,
+        select: { id: true, pontuacoes: true, notaGlobal: true, observacoes: true, avaliadoEm: true },
       }),
       this.prisma.trainingPlan.findMany({
         where: { studentId: student.id, isActive: true },
@@ -201,7 +208,7 @@ export class StudentsService {
 
     return {
       ...student,
-      performanceRecords,
+      performanceRecords: mesclarRegistosDesempenho(performanceRecords, avaliacoesDiarias).slice(0, 10),
       trainingPlans,
       attendanceStats: { total: totalSessions, present, rate: totalSessions ? Math.round((present / totalSessions) * 100) : 0 },
     };
@@ -285,7 +292,7 @@ export class StudentsService {
   }
 
   async getPerformanceSummary(studentId: string) {
-    const [records, feedbacks, progress, attendance, trainingPlans] = await Promise.all([
+    const [performanceRecords, avaliacoesDiarias, feedbacks, progress, attendance, trainingPlans] = await Promise.all([
       this.prisma.performanceRecord.findMany({
         where: { studentId },
         orderBy: { recordedAt: 'desc' },
@@ -295,6 +302,12 @@ export class StudentsService {
           coordination: true, breathing: true, turns: true,
           startDive: true, overallScore: true, instructorNotes: true, recordedAt: true,
         },
+      }),
+      this.prisma.avaliacao.findMany({
+        where: { studentId, tipo: 'DIARIA' },
+        orderBy: { avaliadoEm: 'desc' },
+        take: 20,
+        select: { id: true, pontuacoes: true, notaGlobal: true, observacoes: true, avaliadoEm: true },
       }),
       this.prisma.feedback.findMany({
         where: { studentId },
@@ -328,34 +341,11 @@ export class StudentsService {
       ? Math.round((presentCount / attendance.length) * 100)
       : 0;
 
+    const records = mesclarRegistosDesempenho(performanceRecords, avaliacoesDiarias).slice(0, 20);
     const avgScore = records.length
       ? parseFloat((records.reduce((s, r) => s + (r.overallScore || 0), 0) / records.length).toFixed(1))
       : 0;
 
     return { records, feedbacks, progress, attendance, trainingPlans, attendanceRate, avgScore };
-  }
-
-  async createPerformanceRecord(studentId: string, userId: string, dto: any) {
-    await this.findOne(studentId);
-    const instructor = await this.prisma.instructor.findFirst({ where: { userId } });
-    const scores = [dto.technique, dto.stamina, dto.speed, dto.coordination, dto.breathing, dto.turns, dto.startDive]
-      .filter((v) => v != null) as number[];
-    const overallScore = scores.length ? parseFloat((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)) : null;
-    return this.prisma.performanceRecord.create({
-      data: {
-        studentId,
-        instructorId: instructor?.id ?? null,
-        sessionId: dto.sessionId ?? null,
-        technique: dto.technique ?? null,
-        stamina: dto.stamina ?? null,
-        speed: dto.speed ?? null,
-        coordination: dto.coordination ?? null,
-        breathing: dto.breathing ?? null,
-        turns: dto.turns ?? null,
-        startDive: dto.startDive ?? null,
-        instructorNotes: dto.instructorNotes ?? null,
-        overallScore,
-      },
-    });
   }
 }

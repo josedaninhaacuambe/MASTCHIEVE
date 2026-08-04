@@ -292,12 +292,8 @@ function StudentDashboard({ user }: { user: any }) {
 
   // Derived metrics
   const attendanceRateNum = attendance.rate ?? 0;
-  const overallScore = latestPerf
-    ? Math.round((latestPerf.technique + latestPerf.stamina + latestPerf.speed + latestPerf.coordination + latestPerf.breathing) / 5)
-    : 0;
-  const prevScore = prevPerf
-    ? Math.round((prevPerf.technique + prevPerf.stamina + prevPerf.speed + prevPerf.coordination + prevPerf.breathing) / 5)
-    : 0;
+  const overallScore = latestPerf?.overallScore != null ? Math.round(latestPerf.overallScore) : 0;
+  const prevScore = prevPerf?.overallScore != null ? Math.round(prevPerf.overallScore) : 0;
   const scoreDelta = overallScore - prevScore;
 
   // Attendance rank insight (simulate based on rate)
@@ -382,13 +378,9 @@ function StudentDashboard({ user }: { user: any }) {
     },
   ];
 
-  const perfMetrics = latestPerf ? [
-    { key: 'technique',    label: 'Técnica',    value: latestPerf.technique },
-    { key: 'stamina',      label: 'Resistência', value: latestPerf.stamina },
-    { key: 'speed',        label: 'Velocidade',  value: latestPerf.speed },
-    { key: 'coordination', label: 'Coord.',      value: latestPerf.coordination },
-    { key: 'breathing',    label: 'Respiração',  value: latestPerf.breathing },
-  ] : [];
+  const perfMetrics = (latestPerf?.criterios ?? []).slice(0, 5).map((c: any) => ({
+    key: c.nome, label: c.nome, value: c.valor, max: c.max,
+  }));
 
   const barColors = ['bg-violet-400', 'bg-blue-400', 'bg-cyan-400', 'bg-emerald-400', 'bg-yellow-400'];
 
@@ -512,7 +504,7 @@ function StudentDashboard({ user }: { user: any }) {
             {perfMetrics.length > 0 && (
               <div className="flex items-end gap-1.5">
                 {perfMetrics.map((m, i) => (
-                  <MiniBar key={m.key} value={m.value} color={barColors[i % barColors.length]} />
+                  <MiniBar key={m.key} value={m.value} max={m.max} color={barColors[i % barColors.length]} />
                 ))}
               </div>
             )}
@@ -605,8 +597,8 @@ function StudentDashboard({ user }: { user: any }) {
               <div className="p-5">
                 <div className="grid grid-cols-5 gap-3">
                   {perfMetrics.map((m, i) => {
-                    const pct = (m.value / 10) * 100;
-                    const prevVal = prevPerf ? (prevPerf as any)[m.key] : m.value;
+                    const pct = (m.value / m.max) * 100;
+                    const prevVal = prevPerf?.criterios?.find((c: any) => c.nome === m.key)?.valor ?? m.value;
                     const delta = m.value - prevVal;
                     return (
                       <div key={m.key} className="flex flex-col items-center gap-1.5">
@@ -635,9 +627,9 @@ function StudentDashboard({ user }: { user: any }) {
                   })}
                 </div>
 
-                {latestPerf.instructorNotes && (
+                {latestPerf.notes && (
                   <div className="mt-4 bg-gray-50 rounded-xl px-4 py-3 text-xs text-gray-600 leading-relaxed border border-gray-100">
-                    <span className="font-semibold text-gray-800">Nota do instrutor: </span>{latestPerf.instructorNotes}
+                    <span className="font-semibold text-gray-800">Nota do instrutor: </span>{latestPerf.notes}
                   </div>
                 )}
               </div>

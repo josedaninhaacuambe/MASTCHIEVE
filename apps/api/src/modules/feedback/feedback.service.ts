@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { EmailService } from '../email/email.service';
 
@@ -8,47 +7,9 @@ import { EmailService } from '../email/email.service';
 export class FeedbackService {
   constructor(
     private prisma: PrismaService,
-    private aiService: AiService,
     private audit: AuditService,
     private email: EmailService,
   ) {}
-
-  async recordPerformance(dto: any) {
-    const overallScore = this.calculateOverall(dto);
-    const record = await this.prisma.performanceRecord.create({
-      data: {
-        studentId: dto.studentId,
-        sessionId: dto.sessionId || null,
-        instructorId: dto.instructorId || null,
-        technique: dto.technique ? Number(dto.technique) : null,
-        stamina: dto.stamina ? Number(dto.stamina) : null,
-        speed: dto.speed ? Number(dto.speed) : null,
-        coordination: dto.coordination ? Number(dto.coordination) : null,
-        breathing: dto.breathing ? Number(dto.breathing) : null,
-        turns: dto.turns ? Number(dto.turns) : null,
-        startDive: dto.startDive ? Number(dto.startDive) : null,
-        overallScore,
-        instructorNotes: dto.instructorNotes || null,
-      },
-    });
-
-    if (dto.instructorId) {
-      this.audit.log({
-        userId: dto.instructorId,
-        action: 'RECORD_PERFORMANCE',
-        entity: 'PerformanceRecord',
-        entityId: record.id,
-        newValues: { studentId: dto.studentId, overallScore },
-      });
-    }
-
-    try {
-      await this.aiService.queueFeedbackGeneration(record.id);
-    } catch (e) {
-      // Queue unavailable (Redis not running) — record saved, feedback generation deferred
-    }
-    return record;
-  }
 
   async getFeedbacks(query: any) {
     const page = Math.max(1, parseInt(query.page) || 1);
@@ -155,12 +116,5 @@ export class FeedbackService {
       this.email.sendFeedbackReady(studentEmail, studentName, preview).catch(() => {});
     }
     return updated;
-  }
-
-  private calculateOverall(dto: any): number {
-    const scores = [dto.technique, dto.stamina, dto.speed, dto.coordination, dto.breathing, dto.turns, dto.startDive]
-      .filter((s) => s !== undefined && s !== null)
-      .map(Number);
-    return scores.length ? parseFloat((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)) : 0;
   }
 }

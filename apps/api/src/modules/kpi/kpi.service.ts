@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Logger } from '@nestjs/common';
+import { mesclarRegistosDesempenho } from '../avaliacoes/normalizar-desempenho.util';
 
 @Injectable()
 export class KpiService {
@@ -77,15 +78,28 @@ export class KpiService {
   }
 
   async getStudentProgressTrend(studentId: string) {
-    return this.prisma.performanceRecord.findMany({
-      where: { studentId },
-      orderBy: { recordedAt: 'asc' },
-      take: 20,
-      select: {
-        recordedAt: true, technique: true, stamina: true,
-        speed: true, overallScore: true, coordination: true,
-      },
-    });
+    const [performanceRecords, avaliacoesDiarias] = await Promise.all([
+      this.prisma.performanceRecord.findMany({
+        where: { studentId },
+        orderBy: { recordedAt: 'desc' },
+        take: 20,
+        select: {
+          id: true, technique: true, stamina: true, speed: true,
+          coordination: true, breathing: true, turns: true,
+          startDive: true, overallScore: true, recordedAt: true,
+        },
+      }),
+      this.prisma.avaliacao.findMany({
+        where: { studentId, tipo: 'DIARIA' },
+        orderBy: { avaliadoEm: 'desc' },
+        take: 20,
+        select: { id: true, pontuacoes: true, notaGlobal: true, observacoes: true, avaliadoEm: true },
+      }),
+    ]);
+
+    return mesclarRegistosDesempenho(performanceRecords, avaliacoesDiarias)
+      .slice(0, 20)
+      .reverse();
   }
 
   async getInstructorAdoptionRate() {

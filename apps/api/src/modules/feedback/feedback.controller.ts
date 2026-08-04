@@ -5,7 +5,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { RecordPerformanceDto, ReviewFeedbackDto } from './dto/feedback.dto';
+import { ReviewFeedbackDto } from './dto/feedback.dto';
 
 @ApiTags('feedback')
 @ApiBearerAuth()
@@ -13,11 +13,6 @@ import { RecordPerformanceDto, ReviewFeedbackDto } from './dto/feedback.dto';
 @Controller('feedback')
 export class FeedbackController {
   constructor(private service: FeedbackService) {}
-
-  @Post('performance')
-  @Roles('ADMIN', 'INSTRUCTOR')
-  @ApiOperation({ summary: 'Registar desempenho e gerar feedback IA' })
-  recordPerformance(@Body() dto: RecordPerformanceDto) { return this.service.recordPerformance(dto); }
 
   @Get('me')
   @Roles('STUDENT')

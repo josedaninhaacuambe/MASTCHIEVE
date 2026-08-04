@@ -50,7 +50,7 @@ import { toast } from '@/lib/toast';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import PerformanceModal from '@/components/feedback/performance-modal';
+import AvaliacaoModal from '@/components/avaliacoes/AvaliacaoModal';
 import Link from 'next/link';
 
 // ─── Tab definition ────────────────────────────────────────────────────────────
@@ -280,8 +280,6 @@ export default function StudentDetailPage() {
   const chartData = (perf?.records ?? []).slice().reverse().map((r: any, i: number) => ({
     label: `#${i + 1}`,
     Nota: r.overallScore,
-    Técnica: r.technique,
-    Resistência: r.stamina,
   }));
 
   // Financial summary
@@ -293,7 +291,8 @@ export default function StudentDetailPage() {
   return (
     <div className="space-y-6">
       {showPerf && (
-        <PerformanceModal
+        <AvaliacaoModal
+          tipo="DIARIA"
           studentId={id}
           studentName={`${student.firstName} ${student.lastName}`}
           onClose={() => setShowPerf(false)}
@@ -509,7 +508,6 @@ export default function StudentDetailPage() {
                     <YAxis domain={[0, 10]} tick={{ fontSize: 11 }} />
                     <Tooltip />
                     <Line type="monotone" dataKey="Nota" stroke="#1a56db" strokeWidth={2.5} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="Técnica" stroke="#10b981" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -525,10 +523,10 @@ export default function StudentDetailPage() {
                     <div key={r.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
                       <div className="text-xs text-gray-400 w-20 flex-shrink-0">{formatDate(r.recordedAt)}</div>
                       <div className="flex-1 grid grid-cols-4 gap-2">
-                        {[['Técnica', r.technique], ['Resistência', r.stamina], ['Velocidade', r.speed], ['Coordenação', r.coordination]].map(([label, val]) => (
-                          <div key={label as string} className="text-center">
-                            <div className="text-xs text-gray-400">{label as string}</div>
-                            <div className="text-sm font-semibold text-gray-900">{val ?? '—'}</div>
+                        {(r.criterios ?? []).slice(0, 4).map((c: any) => (
+                          <div key={c.nome} className="text-center">
+                            <div className="text-xs text-gray-400 truncate">{c.nome}</div>
+                            <div className="text-sm font-semibold text-gray-900">{c.valor ?? '—'}</div>
                           </div>
                         ))}
                       </div>
@@ -957,20 +955,15 @@ export default function StudentDetailPage() {
 
                       {/* Metrics mini-row */}
                       <div className="bg-gray-50 rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {[
-                          ['Técnica', r.technique],
-                          ['Resistência', r.stamina],
-                          ['Velocidade', r.speed],
-                          ['Coordenação', r.coordination],
-                        ].map(([label, val]) => (
-                          <div key={label as string} className="text-center">
-                            <div className="text-xs text-gray-400 mb-0.5">{label as string}</div>
-                            <div className="text-sm font-bold text-gray-800">{val ?? <span className="text-gray-300">—</span>}</div>
-                            {typeof val === 'number' && (
+                        {(r.criterios ?? []).map((c: any) => (
+                          <div key={c.nome} className="text-center">
+                            <div className="text-xs text-gray-400 mb-0.5 truncate">{c.nome}</div>
+                            <div className="text-sm font-bold text-gray-800">{c.valor ?? <span className="text-gray-300">—</span>}</div>
+                            {typeof c.valor === 'number' && (
                               <div className="mt-1 h-1 bg-gray-200 rounded-full overflow-hidden">
                                 <div
                                   className="h-full rounded-full bg-mastchieve-500"
-                                  style={{ width: `${(val / 10) * 100}%` }}
+                                  style={{ width: `${(c.valor / c.max) * 100}%` }}
                                 />
                               </div>
                             )}
