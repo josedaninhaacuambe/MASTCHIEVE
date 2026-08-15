@@ -13,42 +13,54 @@ import {
   AlertTriangle, Fish, Award, Calendar, Trophy, Megaphone, Building2, Shield, Zap, Bell,
   Briefcase, UserPlus, FileSignature, IdCard, CalendarClock, ClipboardCheck, CalendarX,
   Banknote, Gavel, FolderOpen, PieChart, Fingerprint,
+  Users2, Boxes, DoorOpen, MessageSquareWarning, FileBarChart, CalendarCheck,
 } from 'lucide-react';
 
 const navItems = [
   // Admin + Manager
   { href: '/dashboard',         icon: LayoutDashboard, label: 'Dashboard',              roles: ['ADMIN', 'STUDENT', 'FINANCIAL', 'MANAGER'] },
   { href: '/instructor',        icon: LayoutDashboard, label: 'Dashboard',              roles: ['INSTRUCTOR'] },
-  { href: '/students',          icon: Users,            label: 'Atletas',                roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
-  { href: '/instructors',       icon: GraduationCap,    label: 'Instrutores',            roles: ['ADMIN', 'MANAGER'] },
-  { href: '/classes',           icon: BookOpen,         label: 'Turmas',                 roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
+  { href: '/students',          icon: Users,            label: 'Atletas',                roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER', 'ASSISTENTE_ADMIN'] },
+  { href: '/instructors',       icon: GraduationCap,    label: 'Instrutores',            roles: ['ADMIN', 'MANAGER', 'ASSISTENTE_ADMIN'] },
+  { href: '/classes',           icon: BookOpen,         label: 'Turmas',                 roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER', 'ASSISTENTE_ADMIN'] },
   { href: '/attendance',        icon: ClipboardList,    label: 'Presenças',              roles: ['ADMIN', 'INSTRUCTOR'], badge: 'Hoje' },
   { href: '/feedback',          icon: MessageSquare,    label: 'Feedback IA',            roles: ['ADMIN', 'INSTRUCTOR'] },
   { href: '/training-plans',    icon: Dumbbell,         label: 'Planos de Treino',       roles: ['ADMIN', 'INSTRUCTOR'] },
-  { href: '/financial',         icon: CreditCard,       label: 'Financeiro',             roles: ['ADMIN', 'FINANCIAL'] },
+  { href: '/financial',         icon: CreditCard,       label: 'Financeiro',             roles: ['ADMIN', 'FINANCIAL', 'ASSISTENTE_ADMIN'] },
   { href: '/kpi',               icon: BarChart3,        label: 'KPIs',                   roles: ['ADMIN', 'MANAGER'] },
-  { href: '/modules',           icon: Waves,            label: 'Módulos',                roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
-  { href: '/documents',         icon: FileText,         label: 'Documentos',             roles: ['ADMIN', 'INSTRUCTOR'] },
+  { href: '/modules',           icon: Waves,            label: 'Módulos',                roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER', 'ASSISTENTE_ADMIN'] },
+  { href: '/documents',         icon: FileText,         label: 'Documentos',             roles: ['ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN'] },
   { href: '/unidades',           icon: Building2,        label: 'Unidades',               roles: ['ADMIN'] },
-  { href: '/leads',             icon: TrendingUp,       label: 'CRM — Leads',            roles: ['ADMIN', 'MANAGER'] },
-  { href: '/avaliacoes-iniciais', icon: ClipboardList,  label: 'Avaliações Iniciais',    roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
+  { href: '/leads',             icon: TrendingUp,       label: 'CRM — Leads',            roles: ['ADMIN', 'MANAGER', 'ASSISTENTE_ADMIN'] },
+  { href: '/avaliacoes-iniciais', icon: ClipboardList,  label: 'Avaliações Iniciais',    roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER', 'ASSISTENTE_ADMIN'] },
   { href: '/fases',             icon: Fish,             label: 'Fases Pedagógicas',      roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
+  { href: '/avaliacoes-agendadas', icon: ClipboardCheck, label: 'Avaliações Agendadas', roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
   { href: '/ama',               icon: Waves,            label: 'Fase AMA',               roles: ['ADMIN', 'INSTRUCTOR'] },
   { href: '/intermediario',     icon: Waves,            label: 'Fase Intermédio',        roles: ['ADMIN', 'INSTRUCTOR'] },
   { href: '/avancado',          icon: Zap,              label: 'Fase Avançado',          roles: ['ADMIN', 'INSTRUCTOR'] },
   { href: '/certificados',      icon: Award,            label: 'Certificados',           roles: ['ADMIN', 'MANAGER'] },
-  { href: '/protocolos',        icon: Shield,           label: 'Protocolos Segurança',   roles: ['ADMIN', 'INSTRUCTOR'] },
+  { href: '/protocolos',        icon: Shield,           label: 'Protocolos Segurança',   roles: ['ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN'] },
   { href: '/seguranca',         icon: Zap,              label: 'Dashboard Segurança',    roles: ['ADMIN'] },
   { href: '/incidentes',        icon: AlertTriangle,    label: 'Incidentes',             roles: ['ADMIN', 'INSTRUCTOR'] },
-  { href: '/eventos',           icon: Calendar,         label: 'Eventos / Open Days',    roles: ['ADMIN', 'MANAGER'] },
+  { href: '/eventos',           icon: Calendar,         label: 'Eventos / Open Days',    roles: ['ADMIN', 'MANAGER', 'ASSISTENTE_ADMIN'] },
   { href: '/competicoes',       icon: Trophy,           label: 'Competições',            roles: ['ADMIN', 'MANAGER'] },
-  { href: '/comunicacao',       icon: Megaphone,        label: 'Comunicação',            roles: ['ADMIN', 'MANAGER'] },
+  { href: '/comunicacao',       icon: Megaphone,        label: 'Comunicação',            roles: ['ADMIN', 'MANAGER', 'ASSISTENTE_ADMIN'] },
   { href: '/admin/users',       icon: ShieldCheck,      label: 'Gestão de Utilizadores', roles: ['ADMIN'] },
   { href: '/admin/audit',       icon: ScrollText,       label: 'Audit Log',               roles: ['ADMIN'] },
-  { href: '/notifications',     icon: Bell,             label: 'Notificações',             roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER', 'STUDENT', 'PARENT'] },
+  { href: '/notifications',     icon: Bell,             label: 'Notificações',             roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER', 'STUDENT', 'PARENT', 'ASSISTENTE_ADMIN'] },
+  // Assistente Administrativo
+  { href: '/assistente',          icon: ClipboardList, label: 'Assistente — Painel',    roles: ['ASSISTENTE_ADMIN', 'ADMIN'] },
+  { href: '/assistente/whatsapp', icon: MessageSquare, label: 'WhatsApp — Envios',      roles: ['ASSISTENTE_ADMIN'] },
+  { href: '/assistente/partilha', icon: Globe,          label: 'Central de Partilha',    roles: ['ASSISTENTE_ADMIN'] },
+  { href: '/atendimento',         icon: Users2,         label: 'Atendimento e Receção',  roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'] },
+  { href: '/inventario',          icon: Boxes,          label: 'Inventário',             roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'] },
+  { href: '/entrada-saida',       icon: DoorOpen,       label: 'Entrada e Saída',        roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'INSTRUCTOR'] },
+  { href: '/reclamacoes',         icon: MessageSquareWarning, label: 'Reclamações e Sugestões', roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'] },
+  { href: '/relatorios-mensais',  icon: FileBarChart,   label: 'Relatórios Mensais',     roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'] },
+  { href: '/rotina-diaria',       icon: CalendarCheck,  label: 'Rotina Diária',          roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'] },
   // Recursos Humanos — Gestor de RH + Super Admin
   { href: '/rh',                icon: Briefcase,        label: 'RH — Painel',            roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/funcionarios',   icon: Users,            label: 'Funcionários',           roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh/funcionarios',   icon: Users,            label: 'Funcionários',           roles: ['GESTOR_RH', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN'] },
   { href: '/rh/contratos',      icon: FileSignature,    label: 'Contratos',               roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
   { href: '/rh/certificacoes',  icon: IdCard,           label: 'Certificações',           roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
   { href: '/rh/escalas',        icon: CalendarClock,    label: 'Escalas',                 roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
@@ -217,6 +229,12 @@ export function Sidebar() {
       {user?.role === 'VISITOR' && (
         <div className="mx-4 mb-3 bg-white/10 rounded-xl px-3 py-2 text-center">
           <div className="text-white/60 text-[10px] uppercase tracking-wider mb-0.5">Modo Visitante</div>
+          <div className="text-white font-semibold text-sm">{firstName}</div>
+        </div>
+      )}
+      {user?.role === 'ASSISTENTE_ADMIN' && (
+        <div className="mx-4 mb-3 bg-white/10 rounded-xl px-3 py-2 text-center">
+          <div className="text-white/60 text-[10px] uppercase tracking-wider mb-0.5">Portal do Assistente Administrativo</div>
           <div className="text-white font-semibold text-sm">{firstName}</div>
         </div>
       )}
