@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth.store';
 import { Plus, Banknote } from 'lucide-react';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 const ESTADOS_CORES: Record<string, string> = {
   RASCUNHO: 'bg-gray-100 text-gray-600',
@@ -66,7 +67,7 @@ export default function FolhaPagamentoPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <ResponsiveTable>
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
                 <th className="text-left px-4 py-3">Funcionário</th>
@@ -79,10 +80,10 @@ export default function FolhaPagamentoPage() {
             <tbody className="divide-y divide-gray-100">
               {folhas.map((f: any) => (
                 <tr key={f.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{f.funcionario?.firstName} {f.funcionario?.lastName}</td>
-                  <td className="px-4 py-3 text-gray-500">{f.mes}/{f.ano}</td>
-                  <td className="px-4 py-3 text-gray-600">MT {f.valorLiquido}</td>
-                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${ESTADOS_CORES[f.estado] || 'bg-gray-100 text-gray-600'}`}>{f.estado.replace(/_/g, ' ')}</span></td>
+                  <td className="px-4 py-3 font-medium whitespace-nowrap">{f.funcionario?.firstName} {f.funcionario?.lastName}</td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{f.mes}/{f.ano}</td>
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">MT {f.valorLiquido}</td>
+                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${ESTADOS_CORES[f.estado] || 'bg-gray-100 text-gray-600'}`}>{f.estado.replace(/_/g, ' ')}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       {f.estado === 'PENDENTE_APROVACAO' && isSuperAdmin && (
@@ -99,7 +100,7 @@ export default function FolhaPagamentoPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ResponsiveTable>
         </div>
       )}
 
@@ -128,7 +129,7 @@ export default function FolhaPagamentoPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Salário base (MT)*</label>
               <input type="number" value={form.salarioBase} onChange={(e) => setForm(f => ({ ...f, salarioBase: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Prémios</label>
                 <input type="number" value={form.premios} onChange={(e) => setForm(f => ({ ...f, premios: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />

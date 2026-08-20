@@ -8,6 +8,7 @@ import {
   ClipboardList, Search, ChevronLeft, ChevronRight,
   User, Database, Edit2, Trash2, Plus, LogIn, Shield, RefreshCw,
 } from 'lucide-react';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 const ACTION_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
   CREATE:     { label: 'Criação',    color: 'bg-green-100 text-green-700',  icon: Plus },
@@ -76,7 +77,10 @@ export default function AuditLogPage() {
     setPage(1);
   }
 
-  const ENTITIES = ['Student', 'Instructor', 'Class', 'User', 'Attendance', 'Feedback', 'Payment', 'TrainingPlan'];
+  const ENTITIES = [
+    'Student', 'Instructor', 'Class', 'User', 'Attendance', 'Feedback', 'Payment', 'TrainingPlan',
+    'PedidoComunicacao', 'AtendimentoEncarregado', 'TransferenciaTurma', 'ContactoFalta', 'ConferenciaCaixa', 'Document', 'Enrollment',
+  ];
 
   return (
     <div className="space-y-5">
@@ -141,7 +145,7 @@ export default function AuditLogPage() {
           </div>
         ) : (
           <>
-            <table className="w-full">
+            <ResponsiveTable>
               <thead>
                 <tr className="border-b border-gray-100">
                   {['Quando', 'Utilizador', 'Acção', 'Entidade', 'Alterações', 'IP'].map(h => (
@@ -170,7 +174,7 @@ export default function AuditLogPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={cn('flex items-center gap-1.5 text-xs px-2 py-1 rounded-full font-medium w-fit', cfg.color)}>
+                        <span className={cn('flex items-center gap-1.5 text-xs px-2 py-1 rounded-full font-medium w-fit whitespace-nowrap', cfg.color)}>
                           <Icon className="w-3 h-3" />
                           {log.action}
                         </span>
@@ -186,12 +190,12 @@ export default function AuditLogPage() {
                         {!newVals && oldVals && <JsonPill data={oldVals} />}
                         {!newVals && !oldVals && <span className="text-xs text-gray-300">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-[10px] text-gray-400 font-mono">{log.ipAddress ?? '—'}</td>
+                      <td className="px-4 py-3 text-[10px] text-gray-400 font-mono whitespace-nowrap">{log.ipAddress ?? '—'}</td>
                     </tr>
                   );
                 })}
               </tbody>
-            </table>
+            </ResponsiveTable>
 
             {/* Pagination */}
             {meta.totalPages > 1 && (

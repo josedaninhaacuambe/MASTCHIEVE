@@ -9,7 +9,7 @@ import {
   ArrowLeft, User, Brain, Activity, BookOpen, CreditCard,
   CheckCircle, XCircle, Clock, AlertCircle, Dumbbell, Send, TrendingUp,
   Upload, FileText, Trash2, Waves, History, FileDown, Printer,
-  Mail, AlertTriangle, X,
+  Mail, AlertTriangle, X, ClipboardCheck, PhoneCall, DoorOpen,
 } from 'lucide-react';
 
 function printProgressReport(student: any, fasesProgresso: any[]) {
@@ -51,6 +51,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import AvaliacaoModal from '@/components/avaliacoes/AvaliacaoModal';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import Link from 'next/link';
 
 // ─── Tab definition ────────────────────────────────────────────────────────────
@@ -78,6 +80,22 @@ const moduleStatusColor: Record<string, string> = {
 const moduleStatusLabel: Record<string, string> = {
   COMPLETED: 'Concluído', IN_PROGRESS: 'Em Progresso',
   NOT_STARTED: 'Não Iniciado', NEEDS_REVIEW: 'A Rever',
+};
+
+const CHECKLIST_LABELS: Record<string, string> = {
+  BI_CERTIDAO_NASCIMENTO: 'BI / Certidão de Nascimento',
+  ATESTADO_MEDICO: 'Atestado Médico',
+};
+
+const ESTADO_INSCRICAO_LABEL: Record<string, string> = {
+  COMPLETA: 'Completa', DOCUMENTOS_PENDENTES: 'Documentos pendentes', CANCELADA: 'Cancelada',
+};
+const ESTADO_INSCRICAO_COLOR: Record<string, string> = {
+  COMPLETA: 'bg-green-100 text-green-700', DOCUMENTOS_PENDENTES: 'bg-amber-100 text-amber-700', CANCELADA: 'bg-gray-100 text-gray-500',
+};
+
+const MEIO_CONTACTO_LABEL: Record<string, string> = {
+  TELEFONE: 'Telefone', WHATSAPP: 'WhatsApp', EMAIL: 'Email', PRESENCIAL: 'Presencial',
 };
 
 const levelColors: Record<string, string> = {
@@ -138,6 +156,11 @@ export default function StudentDetailPage() {
   const [generatingFeedback, setGeneratingFeedback] = useState(false);
   const [showChamada, setShowChamada] = useState(false);
   const [chamadaMsg, setChamadaMsg] = useState('');
+  const [showPessoaForm, setShowPessoaForm] = useState(false);
+  const [pessoaForm, setPessoaForm] = useState({ nome: '', parentesco: '', telefone: '' });
+  const [showRegistoForm, setShowRegistoForm] = useState(false);
+  const [registoForm, setRegistoForm] = useState({ tipo: 'ENTRADA' as 'ENTRADA' | 'SAIDA', pessoaAutorizadaId: '', justificativa: '' });
+  const [showConfirmMonthly, setShowConfirmMonthly] = useState(false);
 
   // ── Queries ────────────────────────────────────────────────────────────────
   const { data: student, isLoading: loadingStudent } = useQuery({
@@ -161,6 +184,76 @@ export default function StudentDetailPage() {
     queryKey: ['student-docs', id],
     queryFn: async () => { const { data } = await api.get(`/documents/students/${id}`); return data.data ?? []; },
     enabled: activeTab === 'Documentos',
+  });
+
+  const { data: checklist } = useQuery({
+    queryKey: ['student-checklist', id],
+    queryFn: async () => { const { data } = await api.get(`/students/${id}/checklist`); return data.data; },
+    enabled: activeTab === 'Documentos',
+  });
+
+  const { data: contactosFalta } = useQuery({
+    queryKey: ['student-contactos-falta', id],
+    queryFn: async () => { const { data } = await api.get('/attendance/contactos-falta', { params: { studentId: id } }); return (data?.data ?? data ?? []) as any[]; },
+    enabled: activeTab === 'Histórico',
+  });
+
+  const { data: pessoasAutorizadas } = useQuery({
+    queryKey: ['student-pessoas-autorizadas', id],
+    queryFn: async () => { const { data } = await api.get(`/entrada-saida/pessoas-autorizadas/${id}`); return (data?.data ?? data ?? []) as any[]; },
+    enabled: activeTab === 'Histórico',
+  });
+
+  const { data: registosEntradaSaida } = useQuery({
+    queryKey: ['student-registos-entrada-saida', id],
+    queryFn: async () => { const { data } = await api.get('/entrada-saida/registos', { params: { studentId: id } }); return (data?.data ?? data ?? []) as any[]; },
+    enabled: activeTab === 'Histórico',
+  });
+
+  const addPessoaMutation = useMutation({
+    mutationFn: () => api.post('/entrada-saida/pessoas-autorizadas', { studentId: id, ...pessoaForm }),
+    onSuccess: () => {
+      toast.success('Pessoa autorizada registada');
+      qc.invalidateQueries({ queryKey: ['student-pessoas-autorizadas', id] });
+      setShowPessoaForm(false);
+      setPessoaForm({ nome: '', parentesco: '', telefone: '' });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Erro ao registar pessoa autorizada'),
+  });
+
+  const removePessoaMutation = useMutation({
+    mutationFn: (pessoaId: string) => api.delete(`/entrada-saida/pessoas-autorizadas/${pessoaId}`),
+    onSuccess: () => {
+      toast.success('Pessoa autorizada removida');
+      qc.invalidateQueries({ queryKey: ['student-pessoas-autorizadas', id] });
+    },
+    onError: () => toast.error('Erro ao remover pessoa autorizada'),
+  });
+
+  const registoEntradaSaidaMutation = useMutation({
+    mutationFn: () => api.post('/entrada-saida/registos', {
+      studentId: id,
+      tipo: registoForm.tipo,
+      pessoaAutorizadaId: registoForm.tipo === 'SAIDA' ? (registoForm.pessoaAutorizadaId || undefined) : undefined,
+      justificativa: registoForm.tipo === 'SAIDA' ? (registoForm.justificativa || undefined) : undefined,
+    }),
+    onSuccess: () => {
+      toast.success('Registo criado');
+      qc.invalidateQueries({ queryKey: ['student-registos-entrada-saida', id] });
+      setShowRegistoForm(false);
+      setRegistoForm({ tipo: 'ENTRADA', pessoaAutorizadaId: '', justificativa: '' });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Erro ao registar'),
+  });
+
+  const validarDocMutation = useMutation({
+    mutationFn: (docId: string) => api.put(`/documents/${docId}/validar`),
+    onSuccess: () => {
+      toast.success('Documento validado');
+      qc.invalidateQueries({ queryKey: ['student-checklist', id] });
+      qc.invalidateQueries({ queryKey: ['student-docs', id] });
+    },
+    onError: () => toast.error('Erro ao validar documento'),
   });
 
   const { data: fasesProgresso } = useQuery({
@@ -303,6 +396,17 @@ export default function StudentDetailPage() {
         />
       )}
 
+      {showConfirmMonthly && (
+        <ConfirmDialog
+          title="Enviar Relatório Mensal"
+          message="Enviar o relatório mensal detalhado ao atleta/encarregado por email?"
+          confirmLabel="Enviar"
+          isPending={sendMonthlyMutation.isPending}
+          onConfirm={() => { sendMonthlyMutation.mutate(); setShowConfirmMonthly(false); }}
+          onCancel={() => setShowConfirmMonthly(false)}
+        />
+      )}
+
       {showChamada && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-md p-6 space-y-4">
@@ -336,6 +440,91 @@ export default function StudentDetailPage() {
               >
                 <Send className="w-4 h-4" /> {chamadaMutation.isPending ? 'A enviar...' : 'Enviar'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPessoaForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <DoorOpen className="w-4 h-4 text-mastchieve-500" /> Nova Pessoa Autorizada
+              </h3>
+              <button onClick={() => setShowPessoaForm(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nome*</label>
+              <input value={pessoaForm.nome} onChange={(e) => setPessoaForm((f) => ({ ...f, nome: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Parentesco*</label>
+                <input value={pessoaForm.parentesco} onChange={(e) => setPessoaForm((f) => ({ ...f, parentesco: e.target.value }))}
+                  placeholder="Ex: Tio, Avó" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                <input value={pessoaForm.telefone} onChange={(e) => setPessoaForm((f) => ({ ...f, telefone: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setShowPessoaForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
+              <button onClick={() => addPessoaMutation.mutate()} disabled={!pessoaForm.nome.trim() || !pessoaForm.parentesco.trim() || addPessoaMutation.isPending}
+                className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">Registar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRegistoForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <DoorOpen className="w-4 h-4 text-mastchieve-500" /> Registar Entrada/Saída
+              </h3>
+              <button onClick={() => setShowRegistoForm(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex gap-2">
+              {(['ENTRADA', 'SAIDA'] as const).map((t) => (
+                <button key={t} onClick={() => setRegistoForm((f) => ({ ...f, tipo: t }))}
+                  className={cn('flex-1 py-2 rounded-lg text-sm font-medium border',
+                    registoForm.tipo === t ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200')}>
+                  {t === 'ENTRADA' ? 'Entrada' : 'Saída'}
+                </button>
+              ))}
+            </div>
+            {registoForm.tipo === 'SAIDA' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Pessoa Autorizada</label>
+                  <select value={registoForm.pessoaAutorizadaId} onChange={(e) => setRegistoForm((f) => ({ ...f, pessoaAutorizadaId: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <option value="">— Nenhuma —</option>
+                    {(pessoasAutorizadas ?? []).map((p: any) => <option key={p.id} value={p.id}>{p.nome} ({p.parentesco})</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Justificação {!registoForm.pessoaAutorizadaId && '*'}</label>
+                  <textarea value={registoForm.justificativa} onChange={(e) => setRegistoForm((f) => ({ ...f, justificativa: e.target.value }))}
+                    rows={2} placeholder="Obrigatória se não houver pessoa autorizada selecionada" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </>
+            )}
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setShowRegistoForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
+              <button
+                onClick={() => registoEntradaSaidaMutation.mutate()}
+                disabled={(registoForm.tipo === 'SAIDA' && !registoForm.pessoaAutorizadaId && !registoForm.justificativa.trim()) || registoEntradaSaidaMutation.isPending}
+                className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">Registar</button>
             </div>
           </div>
         </div>
@@ -409,11 +598,7 @@ export default function StudentDetailPage() {
             </button>
 
             <button
-              onClick={() => {
-                if (confirm('Enviar o relatório mensal detalhado ao atleta/encarregado por email?')) {
-                  sendMonthlyMutation.mutate();
-                }
-              }}
+              onClick={() => setShowConfirmMonthly(true)}
               disabled={sendMonthlyMutation.isPending}
               className="flex items-center gap-1.5 border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-60 px-3 py-2 rounded-lg text-sm font-medium transition"
             >
@@ -799,7 +984,7 @@ export default function StudentDetailPage() {
         {activeTab === 'Financeiro' && (
           <div className="space-y-4">
             {/* Financial summary row */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-green-50 border border-green-100 rounded-xl p-4">
                 <div className="text-xs text-green-600 font-medium mb-1">Total pago</div>
                 <div className="text-xl font-bold text-green-700">{formatCurrency(totalPago)}</div>
@@ -816,7 +1001,7 @@ export default function StudentDetailPage() {
 
             {/* Payments table */}
             <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-              <table className="w-full">
+              <ResponsiveTable>
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
                     <th className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3">Mês</th>
@@ -841,7 +1026,7 @@ export default function StudentDetailPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </ResponsiveTable>
               {payments.length === 0 && (
                 <div className="text-center py-12 text-gray-400">
                   <CreditCard className="w-10 h-10 mx-auto mb-2 opacity-30" />
@@ -855,6 +1040,49 @@ export default function StudentDetailPage() {
         {/* DOCUMENTOS */}
         {activeTab === 'Documentos' && (
           <div className="space-y-4">
+            {checklist && (
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <ClipboardCheck className="w-4 h-4 text-mastchieve-500" /> Checklist de Inscrição
+                  </h3>
+                  <span className={cn('text-xs px-2.5 py-1 rounded-full font-medium',
+                    ESTADO_INSCRICAO_COLOR[checklist.estadoInscricao] ?? 'bg-gray-100 text-gray-500')}>
+                    {ESTADO_INSCRICAO_LABEL[checklist.estadoInscricao] ?? checklist.estadoInscricao}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {(checklist.items ?? []).map((item: any) => (
+                    <div key={item.type} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                      {item.validado ? (
+                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      ) : item.presente ? (
+                        <Clock className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                      )}
+                      <span className="flex-1 text-sm text-gray-700">{CHECKLIST_LABELS[item.type] ?? item.type}</span>
+                      <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0',
+                        item.validado ? 'bg-green-100 text-green-700'
+                        : item.presente ? 'bg-amber-100 text-amber-700'
+                        : 'bg-red-50 text-red-500')}>
+                        {item.validado ? 'Validado' : item.presente ? 'Por validar' : 'Em falta'}
+                      </span>
+                      {item.presente && !item.validado && (
+                        <button
+                          onClick={() => validarDocMutation.mutate(item.documentId)}
+                          disabled={validarDocMutation.isPending}
+                          className="text-xs text-mastchieve-600 hover:bg-mastchieve-50 px-2.5 py-1 rounded-lg transition font-medium flex-shrink-0"
+                        >
+                          Validar
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="bg-white border border-gray-200 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-900">Documentos do Atleta</h3>
@@ -900,6 +1128,34 @@ export default function StudentDetailPage() {
         {/* HISTÓRICO */}
         {activeTab === 'Histórico' && (
           <div className="space-y-4">
+            {(contactosFalta ?? []).length > 0 && (
+              <div className="bg-white border border-gray-100 rounded-xl p-6">
+                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <PhoneCall className="w-4 h-4 text-amber-500" /> Contactos sobre Faltas
+                </h3>
+                <div className="space-y-2">
+                  {(contactosFalta ?? []).map((c: any) => (
+                    <div key={c.id} className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-500">
+                          {formatDate(c.createdAt)} · {MEIO_CONTACTO_LABEL[c.meioContacto] ?? c.meioContacto}
+                          {c.contactadoPor?.email && ` · ${c.contactadoPor.email}`}
+                        </span>
+                        <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium',
+                          c.resolvido ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700')}>
+                          {c.resolvido ? 'Resolvido' : 'Em aberto'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700">
+                        {c.motivo} <span className="text-gray-400">— {c.faltasConsecutivas} faltas consecutivas</span>
+                      </p>
+                      {c.resultado && <p className="text-xs text-gray-500 mt-1 italic">"{c.resultado}"</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {chamadasHistory.length > 0 && (
               <div className="bg-white border border-gray-100 rounded-xl p-6">
                 <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -920,6 +1176,57 @@ export default function StudentDetailPage() {
                 </div>
               </div>
             )}
+
+            <div className="bg-white border border-gray-100 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <DoorOpen className="w-4 h-4 text-mastchieve-500" /> Entrada e Saída
+                </h3>
+                <div className="flex gap-3">
+                  <button onClick={() => setShowPessoaForm(true)} className="text-xs text-mastchieve-600 hover:underline">+ Pessoa autorizada</button>
+                  <button onClick={() => setShowRegistoForm(true)} className="text-xs text-mastchieve-600 hover:underline">+ Registar</button>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-xs font-medium text-gray-500 uppercase mb-2">Pessoas autorizadas a buscar o atleta</p>
+                {(pessoasAutorizadas ?? []).length === 0 ? (
+                  <p className="text-sm text-gray-400">Nenhuma pessoa autorizada registada</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {(pessoasAutorizadas ?? []).map((p: any) => (
+                      <div key={p.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm">
+                        <span className="text-gray-700">
+                          {p.nome} <span className="text-gray-400">({p.parentesco}{p.telefone ? ` · ${p.telefone}` : ''})</span>
+                        </span>
+                        <button onClick={() => removePessoaMutation.mutate(p.id)} className="text-gray-300 hover:text-red-500 transition">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase mb-2">Últimos registos</p>
+                {(registosEntradaSaida ?? []).length === 0 ? (
+                  <p className="text-sm text-gray-400">Nenhum registo de entrada/saída</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {(registosEntradaSaida ?? []).slice(0, 10).map((r: any) => (
+                      <div key={r.id} className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-between text-sm bg-gray-50 rounded-lg px-3 py-2">
+                        <span className={cn('flex items-center gap-1.5 font-medium flex-shrink-0', r.tipo === 'ENTRADA' ? 'text-green-600' : 'text-amber-600')}>
+                          {r.tipo === 'ENTRADA' ? 'Entrada' : 'Saída'}
+                        </span>
+                        <span className="text-gray-500 text-xs truncate min-w-0 flex-1">{r.pessoaAutorizada ? r.pessoaAutorizada.nome : (r.justificativa ?? '—')}</span>
+                        <span className="text-gray-400 text-xs flex-shrink-0">{formatDate(r.dataHora, 'dd/MM/yyyy HH:mm')}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
 
             <div className="bg-white border border-gray-100 rounded-xl p-6">
               <h3 className="font-semibold text-gray-900 mb-5 flex items-center gap-2">

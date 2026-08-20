@@ -140,6 +140,14 @@ export class AvaliacoesService {
     return { aprovado: resultado.aprovado, motivoReprovacao, notaGlobal, avaliacao };
   }
 
+  async getAvaliadosNaSessao(classSessionId: string) {
+    const avaliacoes = await this.prisma.avaliacao.findMany({
+      where: { classSessionId },
+      select: { studentId: true },
+    });
+    return { studentIds: [...new Set(avaliacoes.map(a => a.studentId))] };
+  }
+
   async findMineAsStudent(userId: string, tipo?: string) {
     const student = await this.prisma.student.findUnique({ where: { userId } });
     if (!student) throw new NotFoundException('Perfil de atleta não encontrado');

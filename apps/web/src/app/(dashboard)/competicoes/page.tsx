@@ -48,7 +48,7 @@ export default function CompeticoesPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl p-5 border border-gray-200">
           <div className="text-3xl font-bold text-gray-800">{totais.total}</div>
           <div className="text-sm text-gray-500 mt-1">Total de competições</div>

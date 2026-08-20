@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { formatDate, cn } from '@/lib/utils';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   FileText, Upload, Trash2, Download, Eye, Search,
   Plus, X, AlertCircle, RefreshCw, FileCheck, FolderOpen,
@@ -67,7 +68,7 @@ function UploadModal({ studentId, studentName, onClose, onSuccess }: {
         <div className="p-6 space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Tipo de documento</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {DOC_TYPES.map(({ value, label, color }) => (
                 <button key={value} onClick={() => setType(value)}
                   className={cn('px-2 py-2 rounded-xl text-xs font-medium border-2 transition',
@@ -126,6 +127,7 @@ export default function DocumentsPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [showUpload, setShowUpload] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const { data: studentsData, isLoading: loadingStudents } = useQuery({
     queryKey: ['students-doc-list'],
@@ -148,6 +150,7 @@ export default function DocumentsPage() {
     onSuccess: () => {
       toast.success('Documento eliminado');
       qc.invalidateQueries({ queryKey: ['documents', selectedStudentId] });
+      setDocToDelete(null);
     },
     onError: () => toast.error('Erro ao eliminar documento'),
   });
@@ -168,6 +171,18 @@ export default function DocumentsPage() {
           studentName={selectedStudentName}
           onClose={() => setShowUpload(false)}
           onSuccess={() => qc.invalidateQueries({ queryKey: ['documents', selectedStudentId] })}
+        />
+      )}
+
+      {docToDelete && (
+        <ConfirmDialog
+          title="Eliminar Documento"
+          message={`Eliminar "${docToDelete.name}"? Esta ação não pode ser revertida.`}
+          confirmLabel="Eliminar"
+          danger
+          isPending={deleteMutation.isPending}
+          onConfirm={() => deleteMutation.mutate(docToDelete.id)}
+          onCancel={() => setDocToDelete(null)}
         />
       )}
 
@@ -304,9 +319,7 @@ export default function DocumentsPage() {
                             <Download className="w-4 h-4" />
                           </a>
                           <button
-                            onClick={() => {
-                              if (confirm(`Eliminar "${doc.name}"?`)) deleteMutation.mutate(doc.id);
-                            }}
+                            onClick={() => setDocToDelete({ id: doc.id, name: doc.name })}
                             className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                             title="Eliminar">
                             <Trash2 className="w-4 h-4" />

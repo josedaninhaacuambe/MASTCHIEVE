@@ -503,7 +503,7 @@ export default function StudentProgressPage() {
       </div>
 
       {/* Hero KPI bar */}
-      <div className="grid grid-cols-3 gap-2 md:gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3">
         {/* Attendance circle */}
         <div className="col-span-1 bg-white rounded-2xl border border-gray-100 p-3 flex flex-col items-center justify-center gap-1">
           <div className="relative w-16 h-16">
@@ -771,7 +771,7 @@ export default function StudentProgressPage() {
               ) : (
                 <>
                   {/* Score trend summary */}
-                  <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center">
                     <div className="bg-gray-50 rounded-xl p-3">
                       <div className="text-lg font-bold text-gray-900">{performanceRecords.length}</div>
                       <div className="text-[10px] text-gray-500">Sessões</div>

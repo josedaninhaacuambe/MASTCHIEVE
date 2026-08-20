@@ -103,7 +103,7 @@ export default function FuncionarioDetalhePage() {
       {tab === 'Contratos' && (
         <ListaSimples items={f.contratos} render={(c: any) => (
           <>
-            <span className="font-medium">{c.tipo}</span> · MT {c.salarioBase} · {new Date(c.dataInicio).toLocaleDateString('pt-PT')}
+            <span className="font-medium">{c.tipo}</span>{c.salarioBase != null && <> · MT {c.salarioBase}</>} · {new Date(c.dataInicio).toLocaleDateString('pt-PT')}
             <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{c.estado}</span>
           </>
         )} vazio="Sem contratos" />

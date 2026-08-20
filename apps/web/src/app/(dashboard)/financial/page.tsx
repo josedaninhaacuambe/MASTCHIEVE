@@ -8,10 +8,12 @@ import {
 import api from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
+import { useAuthStore } from '@/stores/auth.store';
 import {
   CreditCard, AlertCircle, CheckCircle, Clock, TrendingUp, Plus,
-  X, FileDown, Bell, ChevronDown,
+  X, FileDown, Bell, ChevronDown, ShieldOff, Wallet, ClipboardList, Briefcase,
 } from 'lucide-react';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 /* ─────────────────── Constants ─────────────────── */
 
@@ -159,17 +161,215 @@ function GenerateModal({ onClose, onConfirm, isPending }: GenerateModalProps) {
   );
 }
 
+/* ─────────────────── Isenção Modal (ADMIN-only) ─────────────────── */
+
+interface IsencaoModalProps {
+  payment: any;
+  onClose: () => void;
+  onConfirm: (motivo: string) => void;
+  isPending: boolean;
+}
+
+function IsencaoModal({ payment, onClose, onConfirm, isPending }: IsencaoModalProps) {
+  const [motivo, setMotivo] = useState('');
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            <ShieldOff className="w-4 h-4 text-red-500" /> Conceder Isenção
+          </h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 transition">
+            <X className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-sm text-gray-600">
+            {payment.student?.firstName} {payment.student?.lastName} · {formatCurrency(payment.amount)} · vencimento {formatDate(payment.dueDate)}
+          </p>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Motivo da isenção</label>
+            <textarea
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              rows={3}
+              placeholder="Descreve o motivo da isenção..."
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mastchieve-500"
+            />
+          </div>
+        </div>
+        <div className="px-6 pb-5 flex gap-3 justify-end">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition">
+            Cancelar
+          </button>
+          <button
+            onClick={() => onConfirm(motivo)}
+            disabled={!motivo.trim() || isPending}
+            className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg transition disabled:opacity-60"
+          >
+            {isPending ? 'A conceder...' : 'Conceder Isenção'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────── Conferência de Caixa Tab ─────────────────── */
+
+function CaixaTab() {
+  const qc = useQueryClient();
+  const [unidadeId, setUnidadeId] = useState('');
+  const [dataRef, setDataRef] = useState(new Date().toISOString().split('T')[0]);
+  const [valorContado, setValorContado] = useState<number | ''>('');
+  const [observacoes, setObservacoes] = useState('');
+
+  const { data: unidades } = useQuery({
+    queryKey: ['unidades-caixa'],
+    queryFn: async () => { const { data } = await api.get('/unidades'); return data.data ?? data ?? []; },
+  });
+
+  const { data: conferencias, isLoading } = useQuery({
+    queryKey: ['caixa', unidadeId],
+    queryFn: async () => {
+      const { data } = await api.get('/financial/caixa', { params: unidadeId ? { unidadeId } : {} });
+      return (data?.data ?? data ?? []) as any[];
+    },
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: () =>
+      api.post('/financial/caixa', {
+        unidadeId: unidadeId || undefined,
+        data: dataRef,
+        valorContado: Number(valorContado),
+        observacoes: observacoes || undefined,
+      }),
+    onSuccess: () => {
+      toast.success('Conferência de caixa registada');
+      qc.invalidateQueries({ queryKey: ['caixa'] });
+      setValorContado('');
+      setObservacoes('');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Erro ao registar conferência de caixa'),
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">Registar Conferência de Caixa</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Unidade</label>
+            <select
+              value={unidadeId}
+              onChange={(e) => setUnidadeId(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mastchieve-500"
+            >
+              <option value="">— Todas —</option>
+              {(unidades ?? []).map((u: any) => (
+                <option key={u.id} value={u.id}>{u.nome}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Data</label>
+            <input
+              type="date"
+              value={dataRef}
+              onChange={(e) => setDataRef(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mastchieve-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Valor Contado (MT)</label>
+            <input
+              type="number"
+              value={valorContado}
+              onChange={(e) => setValorContado(e.target.value === '' ? '' : Number(e.target.value))}
+              min={0}
+              step={0.5}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mastchieve-500"
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={() => registerMutation.mutate()}
+              disabled={valorContado === '' || registerMutation.isPending}
+              className="w-full bg-mastchieve-600 hover:bg-mastchieve-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-60"
+            >
+              {registerMutation.isPending ? 'A registar...' : 'Registar'}
+            </button>
+          </div>
+        </div>
+        <div className="mt-3">
+          <label className="block text-xs font-medium text-gray-700 mb-1.5">Observações</label>
+          <input
+            type="text"
+            value={observacoes}
+            onChange={(e) => setObservacoes(e.target.value)}
+            placeholder="Opcional"
+            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mastchieve-500"
+          />
+        </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <ResponsiveTable>
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-6 py-3">Data</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-6 py-3">Esperado</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-6 py-3">Contado</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-6 py-3">Diferença</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-6 py-3">Responsável</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-6 py-3">Observações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {isLoading ? (
+              <tr><td colSpan={6} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+            ) : (conferencias ?? []).map((c: any) => (
+              <tr key={c.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{formatDate(c.data)}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(c.valorEsperado)}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(c.valorContado)}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={cn('text-sm font-semibold',
+                    c.diferenca === 0 ? 'text-gray-500' : c.diferenca > 0 ? 'text-blue-600' : 'text-red-600')}>
+                    {c.diferenca > 0 ? '+' : ''}{formatCurrency(c.diferenca)}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-xs text-gray-400 whitespace-nowrap">{c.responsavel?.email ?? '—'}</td>
+                <td className="px-6 py-4 text-xs text-gray-500">{c.observacoes || '—'}</td>
+              </tr>
+            ))}
+            {!isLoading && (conferencias ?? []).length === 0 && (
+              <tr><td colSpan={6} className="text-center py-10 text-gray-400 text-sm">Sem conferências registadas</td></tr>
+            )}
+          </tbody>
+        </ResponsiveTable>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────── Main Page ─────────────────── */
 
 export default function FinancialPage() {
   const qc = useQueryClient();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'ADMIN';
   const currentYear = new Date().getFullYear();
 
+  const [tab, setTab] = useState<'pagamentos' | 'caixa'>('pagamentos');
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [year, setYear] = useState(currentYear);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<Record<string, string>>({});
+  const [isencaoTarget, setIsencaoTarget] = useState<any | null>(null);
 
   /* ── Queries ── */
   const { data: payments, isLoading } = useQuery({
@@ -215,6 +415,17 @@ export default function FinancialPage() {
     mutationFn: () => api.post('/financial/send-reminders', {}),
     onSuccess: () => toast.success('Lembretes enviados com sucesso'),
     onError: () => toast.info('Funcionalidade em desenvolvimento'),
+  });
+
+  const isencaoMutation = useMutation({
+    mutationFn: ({ id, motivo }: { id: string; motivo: string }) =>
+      api.patch(`/financial/payments/${id}/isencao`, { motivo }),
+    onSuccess: () => {
+      toast.success('Isenção concedida');
+      qc.invalidateQueries({ queryKey: ['payments'] });
+      setIsencaoTarget(null);
+    },
+    onError: () => toast.error('Erro ao conceder isenção'),
   });
 
   /* ── Derived data ── */
@@ -288,12 +499,40 @@ export default function FinancialPage() {
         </div>
       </div>
 
+      {/* ── Tab toggle ── */}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+        <button onClick={() => setTab('pagamentos')}
+          className={cn('px-4 py-2 rounded-lg text-sm font-medium transition',
+            tab === 'pagamentos' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}>
+          <span className="flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> Pagamentos</span>
+        </button>
+        <button onClick={() => setTab('caixa')}
+          className={cn('px-4 py-2 rounded-lg text-sm font-medium transition',
+            tab === 'caixa' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}>
+          <span className="flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5" /> Conferência de Caixa</span>
+        </button>
+      </div>
+
+      {tab === 'caixa' && <CaixaTab />}
+
+      {tab === 'pagamentos' && (<>
+
       {/* ── Generate Modal ── */}
       {showGenerateModal && (
         <GenerateModal
           onClose={() => setShowGenerateModal(false)}
           onConfirm={(opts) => generateMutation.mutate(opts)}
           isPending={generateMutation.isPending}
+        />
+      )}
+
+      {/* ── Isenção Modal ── */}
+      {isencaoTarget && (
+        <IsencaoModal
+          payment={isencaoTarget}
+          onClose={() => setIsencaoTarget(null)}
+          onConfirm={(motivo) => isencaoMutation.mutate({ id: isencaoTarget.id, motivo })}
+          isPending={isencaoMutation.isPending}
         />
       )}
 
@@ -315,8 +554,8 @@ export default function FinancialPage() {
         </div>
       )}
 
-      {/* ── Summary Cards (4 gradient) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      {/* ── Summary Cards (gradient) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         <GradientCard
           title={`Receita Total ${year}`}
           value={formatCurrency(summary?.totalRevenue ?? 0)}
@@ -350,6 +589,15 @@ export default function FinancialPage() {
           gradientFrom="from-blue-500"
           gradientTo="to-indigo-600"
           icon={CreditCard}
+          iconBg="bg-white/20"
+        />
+        <GradientCard
+          title={`Custos de Pessoal ${year}`}
+          value={formatCurrency(summary?.custosPessoal ?? 0)}
+          sub="folhas de pagamento pagas"
+          gradientFrom="from-slate-600"
+          gradientTo="to-slate-800"
+          icon={Briefcase}
           iconBg="bg-white/20"
         />
       </div>
@@ -422,7 +670,7 @@ export default function FinancialPage() {
 
       {/* ── Payments Table ── */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <table className="w-full">
+        <ResponsiveTable>
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-6 py-3">Atleta</th>
@@ -448,25 +696,34 @@ export default function FinancialPage() {
                   const selectedMethod = paymentMethods[p.id] ?? 'CASH';
                   return (
                     <tr key={p.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">
                         {p.student?.firstName} {p.student?.lastName}
                       </td>
-                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-900 whitespace-nowrap">
                         {formatCurrency(p.amount)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{formatDate(p.dueDate)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(p.dueDate)}</td>
                       <td className="px-6 py-4">
-                        <span className={cn('inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium', cfg?.color)}>
-                          {Icon && <Icon className="w-3 h-3" />}
-                          {cfg?.label}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={cn('inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap', cfg?.color)}>
+                            {Icon && <Icon className="w-3 h-3" />}
+                            {cfg?.label}
+                          </span>
+                          {p.isento && (
+                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700 whitespace-nowrap">
+                              <ShieldOff className="w-3 h-3" /> Isento
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 text-xs text-gray-400">{p.receiptNumber || '—'}</td>
+                      <td className="px-6 py-4 text-xs text-gray-400 whitespace-nowrap">{p.receiptNumber || '—'}</td>
                       <td className="px-6 py-4">
                         {p.status === 'PAID' ? (
                           <span className="text-xs text-gray-500 font-medium">{METHOD_LABEL[p.method] ?? p.method ?? '—'}</span>
+                        ) : p.isento ? (
+                          <span className="text-xs text-gray-400 italic">Isento de pagamento</span>
                         ) : (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <select
                               value={selectedMethod}
                               onChange={(e) =>
@@ -485,6 +742,14 @@ export default function FinancialPage() {
                             >
                               Marcar Pago
                             </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => setIsencaoTarget(p)}
+                                className="text-xs text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition font-medium"
+                              >
+                                Isenção
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>
@@ -492,7 +757,7 @@ export default function FinancialPage() {
                   );
                 })}
           </tbody>
-        </table>
+        </ResponsiveTable>
 
         {/* Pagination */}
         {payments?.meta && payments.meta.totalPages > 1 && (
@@ -517,6 +782,8 @@ export default function FinancialPage() {
           </div>
         )}
       </div>
+
+      </>)}
     </div>
   );
 }

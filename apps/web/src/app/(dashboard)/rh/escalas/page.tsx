@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Plus, CalendarClock } from 'lucide-react';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 const TURNOS = ['MANHA', 'TARDE', 'NOITE'];
 const TIPOS = ['AULA', 'SALVAMENTO', 'ADMINISTRATIVO', 'FORMACAO', 'FOLGA'];
@@ -64,7 +65,7 @@ export default function EscalasPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <ResponsiveTable>
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
                 <th className="text-left px-4 py-3">Funcionário</th>
@@ -79,12 +80,12 @@ export default function EscalasPage() {
             <tbody className="divide-y divide-gray-100">
               {escalas.map((e: any) => (
                 <tr key={e.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{e.funcionario?.firstName} {e.funcionario?.lastName}</td>
-                  <td className="px-4 py-3 text-gray-500">{new Date(e.data).toLocaleDateString('pt-PT')}</td>
-                  <td className="px-4 py-3 text-gray-600">{e.turno}</td>
-                  <td className="px-4 py-3 text-gray-500">{e.horaInicio}-{e.horaFim}</td>
-                  <td className="px-4 py-3 text-gray-600">{e.tipo?.replace(/_/g, ' ') || '—'}</td>
-                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${ESTADOS_CORES[e.estado] || 'bg-gray-100 text-gray-600'}`}>{e.estado}</span></td>
+                  <td className="px-4 py-3 font-medium whitespace-nowrap">{e.funcionario?.firstName} {e.funcionario?.lastName}</td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{new Date(e.data).toLocaleDateString('pt-PT')}</td>
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{e.turno}</td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{e.horaInicio}-{e.horaFim}</td>
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{e.tipo?.replace(/_/g, ' ') || '—'}</td>
+                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${ESTADOS_CORES[e.estado] || 'bg-gray-100 text-gray-600'}`}>{e.estado}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       {e.estado === 'PLANEADA' && (
@@ -98,7 +99,7 @@ export default function EscalasPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ResponsiveTable>
         </div>
       )}
 

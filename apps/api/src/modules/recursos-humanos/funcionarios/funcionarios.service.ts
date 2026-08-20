@@ -9,6 +9,22 @@ import { ConfigurarPermissoesDto } from './dto/configurar-permissoes.dto';
 export class FuncionariosService {
   constructor(private prisma: PrismaService, private audit: AuditService) {}
 
+  private static readonly CLEARED_FOR_SALARIO = ['GESTOR_RH', 'SUPER_ADMIN'];
+
+  private maskSalario<T extends { salarioBase?: any; contratos?: { salarioBase?: any }[] }>(
+    funcionario: T,
+    requesterRole?: string,
+  ): T {
+    if (requesterRole && FuncionariosService.CLEARED_FOR_SALARIO.includes(requesterRole)) {
+      return funcionario;
+    }
+    const { salarioBase, ...rest } = funcionario as any;
+    return {
+      ...rest,
+      contratos: funcionario.contratos?.map(({ salarioBase: _s, ...c }: any) => c),
+    };
+  }
+
   private async gerarNumeroFuncionario() {
     const year = new Date().getFullYear();
     const count = await this.prisma.funcionario.count({
@@ -17,7 +33,7 @@ export class FuncionariosService {
     return `FUNC-${year}-${String(count + 1).padStart(4, '0')}`;
   }
 
-  async findAll(query: any) {
+  async findAll(query: any, requesterRole?: string) {
     const page = Math.max(1, parseInt(query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(query.limit) || 20));
     const where: any = {};
@@ -43,10 +59,13 @@ export class FuncionariosService {
       this.prisma.funcionario.count({ where }),
     ]);
 
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return {
+      data: data.map((f) => this.maskSalario(f, requesterRole)),
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, requesterRole?: string) {
     const funcionario = await this.prisma.funcionario.findUnique({
       where: { id },
       include: {
@@ -63,7 +82,7 @@ export class FuncionariosService {
       },
     });
     if (!funcionario) throw new NotFoundException('Funcionário não encontrado');
-    return funcionario;
+    return this.maskSalario(funcionario, requesterRole);
   }
 
   async create(dto: CreateFuncionarioDto, actorUserId: string) {

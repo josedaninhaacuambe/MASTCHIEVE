@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth.store';
 import { Plus, CalendarX } from 'lucide-react';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 const TIPOS = ['FERIAS', 'FALTA_JUSTIFICADA', 'FALTA_INJUSTIFICADA', 'LICENCA_MEDICA', 'LICENCA_MATERNIDADE', 'OUTRO'];
 const ESTADOS_CORES: Record<string, string> = {
@@ -69,7 +70,7 @@ export default function FeriasFaltasPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <ResponsiveTable>
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
                 <th className="text-left px-4 py-3">Funcionário</th>
@@ -83,11 +84,11 @@ export default function FeriasFaltasPage() {
             <tbody className="divide-y divide-gray-100">
               {registos.map((r: any) => (
                 <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{r.funcionario?.firstName} {r.funcionario?.lastName}</td>
-                  <td className="px-4 py-3 text-gray-600">{r.tipo.replace(/_/g, ' ')} {r.excepcional && <span className="ml-1 text-xs text-amber-600">(excecional)</span>}</td>
-                  <td className="px-4 py-3 text-gray-500">{new Date(r.dataInicio).toLocaleDateString('pt-PT')} - {new Date(r.dataFim).toLocaleDateString('pt-PT')}</td>
+                  <td className="px-4 py-3 font-medium whitespace-nowrap">{r.funcionario?.firstName} {r.funcionario?.lastName}</td>
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.tipo.replace(/_/g, ' ')} {r.excepcional && <span className="ml-1 text-xs text-amber-600">(excecional)</span>}</td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{new Date(r.dataInicio).toLocaleDateString('pt-PT')} - {new Date(r.dataFim).toLocaleDateString('pt-PT')}</td>
                   <td className="px-4 py-3 text-gray-600">{r.diasSolicitados}</td>
-                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${ESTADOS_CORES[r.estado] || 'bg-gray-100 text-gray-600'}`}>{r.estado.replace(/_/g, ' ')}</span></td>
+                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${ESTADOS_CORES[r.estado] || 'bg-gray-100 text-gray-600'}`}>{r.estado.replace(/_/g, ' ')}</span></td>
                   <td className="px-4 py-3">
                     {['PENDENTE', 'ENCAMINHADA_SUPER_ADMIN'].includes(r.estado) && podeDecidir(r) && (
                       <div className="flex gap-2">
@@ -99,7 +100,7 @@ export default function FeriasFaltasPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ResponsiveTable>
         </div>
       )}
 
@@ -120,7 +121,7 @@ export default function FeriasFaltasPage() {
                 {TIPOS.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
               </select>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Início*</label>
                 <input type="date" value={form.dataInicio} onChange={(e) => setForm(f => ({ ...f, dataInicio: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />

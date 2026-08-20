@@ -90,7 +90,7 @@ export default function SegurancaPage() {
           </div>
 
           {/* Stats por tipo */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div className="bg-white rounded-xl p-4 border border-gray-200">
               <div className="text-3xl font-bold text-gray-800">{mensal.totais.incidentes}</div>
               <div className="text-sm text-gray-500 mt-1">Incidentes confirmados</div>

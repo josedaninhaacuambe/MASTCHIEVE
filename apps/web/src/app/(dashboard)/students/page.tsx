@@ -9,6 +9,7 @@ import {
   List, ChevronDown, MoreVertical, Activity, CreditCard, TrendingDown,
 } from 'lucide-react';
 import Link from 'next/link';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 // ─── Avatar gradient by first character ───────────────────────────────────────
 function avatarGradient(name: string) {
@@ -141,6 +142,50 @@ function LevelDropdown({ value, onChange }: { value: string; onChange: (v: strin
   );
 }
 
+// ─── Campanha dropdown ────────────────────────────────────────────────────────
+function CampanhaDropdown({ value, options, onChange }: { value: string; options: string[]; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  if (options.length === 0) return null;
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition',
+          value
+            ? 'bg-indigo-600 text-white border-indigo-600'
+            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300',
+        )}
+      >
+        {value || 'Campanha'}
+        <ChevronDown className="w-3.5 h-3.5" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-9 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-48 max-h-64 overflow-y-auto">
+            {value && (
+              <button
+                onClick={() => { onChange(''); setOpen(false); }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50 transition"
+              >
+                Todas as campanhas
+              </button>
+            )}
+            {options.map((c) => (
+              <button key={c} onClick={() => { onChange(c); setOpen(false); }}
+                className={cn('w-full text-left px-4 py-2 text-sm transition hover:bg-gray-50 truncate',
+                  value === c ? 'font-semibold text-indigo-600' : 'text-gray-700')}>
+                {c}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Empty state ──────────────────────────────────────────────────────────────
 function EmptyState({ onReset }: { onReset: () => void }) {
   return (
@@ -169,6 +214,8 @@ export default function StudentsPage() {
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [levelFilter, setLevelFilter] = useState('');
+  const [irregularOnly, setIrregularOnly] = useState(false);
+  const [campanhaFilter, setCampanhaFilter] = useState('');
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['students', page, search],
@@ -184,9 +231,10 @@ export default function StudentsPage() {
   // ── KPI derivations ──────────────────────────────────────────────────────
   const totalStudents = data?.meta?.total ?? allStudents.length;
   const activeCount = allStudents.filter((s) => s.isActive).length;
-  const overdueCount = allStudents.filter((s) =>
-    s.payments?.some((p: any) => p.status === 'OVERDUE'),
-  ).length;
+  const overdueCount = allStudents.filter((s) => s.categoria?.irregular).length;
+  const campanhas = Array.from(
+    new Set(allStudents.map((s) => s.categoria?.campanha).filter(Boolean)),
+  ) as string[];
 
   // Attendance: use perf data if present, otherwise fall back to placeholder
   const attendanceRates = allStudents
@@ -204,6 +252,8 @@ export default function StudentsPage() {
       const level = s.enrollments?.[0]?.class?.level ?? s.level;
       if (level !== levelFilter) return false;
     }
+    if (irregularOnly && !s.categoria?.irregular) return false;
+    if (campanhaFilter && s.categoria?.campanha !== campanhaFilter) return false;
     return true;
   });
 
@@ -211,6 +261,8 @@ export default function StudentsPage() {
     setSearch('');
     setStatusFilter('all');
     setLevelFilter('');
+    setIrregularOnly(false);
+    setCampanhaFilter('');
     setPage(1);
   };
 
@@ -272,6 +324,17 @@ export default function StudentsPage() {
             </button>
           ))}
           <LevelDropdown value={levelFilter} onChange={(v) => { setLevelFilter(v); setPage(1); }} />
+          <button
+            onClick={() => { setIrregularOnly((v) => !v); setPage(1); }}
+            className={cn(
+              'px-3 py-1.5 rounded-full text-sm font-medium border transition',
+              irregularOnly
+                ? 'bg-red-600 text-white border-red-600'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300',
+            )}>
+            Irregular
+          </button>
+          <CampanhaDropdown value={campanhaFilter} options={campanhas} onChange={(v) => { setCampanhaFilter(v); setPage(1); }} />
         </div>
 
         {/* Spacer */}
@@ -359,13 +422,25 @@ export default function StudentsPage() {
                       <div className="text-xs text-gray-400 truncate mt-0.5">{student.user?.email ?? '—'}</div>
                     </div>
 
-                    {/* Level badge */}
-                    {level && (
-                      <span className={cn('self-start text-xs px-2.5 py-0.5 rounded-full font-medium mb-3',
-                        levelColors[level] ?? 'bg-gray-100 text-gray-600')}>
-                        {levelLabel(level)}
-                      </span>
-                    )}
+                    {/* Level + categoria badges */}
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {level && (
+                        <span className={cn('text-xs px-2.5 py-0.5 rounded-full font-medium',
+                          levelColors[level] ?? 'bg-gray-100 text-gray-600')}>
+                          {levelLabel(level)}
+                        </span>
+                      )}
+                      {student.categoria?.irregular && (
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-red-100 text-red-700">
+                          Irregular
+                        </span>
+                      )}
+                      {student.categoria?.campanha && (
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-indigo-100 text-indigo-700 truncate max-w-[10rem]">
+                          {student.categoria.campanha}
+                        </span>
+                      )}
+                    </div>
 
                     {/* Attendance ring + Ver perfil */}
                     <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100">
@@ -428,6 +503,11 @@ export default function StudentsPage() {
                             {levelLabel(level)}
                           </span>
                         )}
+                        {student.categoria?.irregular && (
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">
+                            Irregular
+                          </span>
+                        )}
                         <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium',
                           student.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600')}>
                           {student.isActive ? 'Ativo' : 'Inativo'}
@@ -440,7 +520,7 @@ export default function StudentsPage() {
           </div>
 
           {/* Desktop table */}
-          <table className="hidden sm:table w-full">
+          <ResponsiveTable className="hidden sm:block">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-6 py-3">Atleta</th>
@@ -489,7 +569,7 @@ export default function StudentsPage() {
                       </td>
                       <td className="px-6 py-4">
                         {level ? (
-                          <span className={cn('text-xs px-2.5 py-1 rounded-full font-medium', levelColors[level] ?? 'bg-gray-100 text-gray-600')}>
+                          <span className={cn('text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap', levelColors[level] ?? 'bg-gray-100 text-gray-600')}>
                             {levelLabel(level)}
                           </span>
                         ) : <span className="text-gray-300 text-sm">—</span>}
@@ -506,14 +586,26 @@ export default function StudentsPage() {
                           </div>
                         ) : <span className="text-gray-300 text-sm">—</span>}
                       </td>
-                      <td className="hidden lg:table-cell px-6 py-4 text-sm text-gray-500">
+                      <td className="hidden lg:table-cell px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                         {lastSession ? formatDate(lastSession) : '—'}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={cn('text-xs px-2.5 py-1 rounded-full font-medium',
-                          student.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600')}>
-                          {student.isActive ? 'Ativo' : 'Inativo'}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={cn('text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap',
+                            student.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600')}>
+                            {student.isActive ? 'Ativo' : 'Inativo'}
+                          </span>
+                          {student.categoria?.irregular && (
+                            <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-red-100 text-red-700 whitespace-nowrap">
+                              Irregular
+                            </span>
+                          )}
+                          {student.categoria?.campanha && (
+                            <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-indigo-100 text-indigo-700 truncate max-w-[8rem]">
+                              {student.categoria.campanha}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <Link href={`/students/${student.id}`}
@@ -526,7 +618,7 @@ export default function StudentsPage() {
                 })
               )}
             </tbody>
-          </table>
+          </ResponsiveTable>
 
           {/* Pagination */}
           {data?.meta && (

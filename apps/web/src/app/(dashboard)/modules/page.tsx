@@ -789,7 +789,7 @@ export default function ModulesPage() {
           <Award className="w-4 h-4 text-gray-500" />
           <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Fases Pedagógicas Mastchieve (9 módulos)</p>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
             { href: '/ama',           label: 'Fase AMA',        sub: 'Estrela-do-Mar · Cavalo-Marinho · Polvo',     grad: 'from-blue-500 to-cyan-500',     icon: Fish  },
             { href: '/intermediario', label: 'Fase Intermédio', sub: 'Tartaruga · Dugongo · Crocodilo',             grad: 'from-purple-500 to-violet-500', icon: Waves },

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import Link from 'next/link';
 import { Award, Plus, Search, ChevronRight, Loader2, Printer, Download } from 'lucide-react';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 function printCertificate(c: any) {
   const nivel = c.fase?.certificacao ?? '—';
@@ -150,7 +151,7 @@ export default function CertificadosPage() {
       </div>
 
       {/* Stats por nível — cada tile linka ao módulo correspondente */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {[['BRONZE','bg-amber-50','text-amber-700'],['PRATA','bg-gray-50','text-gray-600'],['OURO','bg-yellow-50','text-yellow-700']].map(([n,bg,tc]) => (
           <Link key={n} href={NIVEL_ROUTE[n]} className={`${bg} rounded-2xl p-5 border border-gray-200 hover:shadow-md transition-shadow group`}>
             <div className="flex items-center justify-between mb-2">
@@ -221,7 +222,7 @@ export default function CertificadosPage() {
       {/* Lista */}
       {loading ? <div className="text-center py-12 text-gray-400">A carregar...</div> : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <ResponsiveTable>
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 {['Nº Série','Aluno','Módulo','Nível','Data Emissão','Evento'].map(h => (
@@ -233,13 +234,13 @@ export default function CertificadosPage() {
               {certs.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-gray-400">Nenhum certificado encontrado</td></tr>}
               {certs.map((c: any) => (
                 <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-600">{c.numeroSerie}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{c.student ? `${c.student.firstName} ${c.student.lastName}` : '—'}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-600 whitespace-nowrap">{c.numeroSerie}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{c.student ? `${c.student.firstName} ${c.student.lastName}` : '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{c.fase?.nome}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${NIVEL_CORES[c.fase?.certificacao]}`}>{c.fase?.certificacao}</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${NIVEL_CORES[c.fase?.certificacao]}`}>{c.fase?.certificacao}</span>
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{c.dataEmissao ? new Date(c.dataEmissao).toLocaleDateString('pt-PT') : '—'}</td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{c.dataEmissao ? new Date(c.dataEmissao).toLocaleDateString('pt-PT') : '—'}</td>
                   <td className="px-4 py-3 text-gray-500">{c.evento?.nome || '—'}</td>
                   <td className="px-4 py-3">
                     <button onClick={() => printCertificate(c)} title="Imprimir certificado" className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition">
@@ -249,7 +250,7 @@ export default function CertificadosPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ResponsiveTable>
         </div>
       )}
 

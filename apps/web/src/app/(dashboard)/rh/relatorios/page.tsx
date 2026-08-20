@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { PieChart, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 export default function RelatoriosRhPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -44,7 +45,7 @@ export default function RelatoriosRhPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <ResponsiveTable>
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
                 <th className="text-left px-4 py-3">Data</th>
@@ -57,13 +58,13 @@ export default function RelatoriosRhPage() {
               {filtrados.map((l: any) => (
                 <tr key={l.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{new Date(l.createdAt).toLocaleString('pt-PT')}</td>
-                  <td className="px-4 py-3 font-medium">{l.action.replace(/_/g, ' ')}</td>
-                  <td className="px-4 py-3 text-gray-600">{l.entity}</td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{l.entityId || '—'}</td>
+                  <td className="px-4 py-3 font-medium whitespace-nowrap">{l.action.replace(/_/g, ' ')}</td>
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{l.entity}</td>
+                  <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{l.entityId || '—'}</td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ResponsiveTable>
         </div>
       )}
 

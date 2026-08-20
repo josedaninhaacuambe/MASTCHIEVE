@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Fingerprint, MonitorSmartphone, Plus, Filter } from 'lucide-react';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 const METODOS = ['WEBAUTHN', 'USB_TEMPLATE', 'MANUAL'];
 
@@ -96,7 +97,7 @@ export default function PresencaBiometricaPage() {
         <div className="text-center py-12 bg-white rounded-xl border border-gray-200 text-gray-400">Nenhum registo encontrado</div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <ResponsiveTable>
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
                 <th className="text-left px-4 py-3">Funcionário</th>
@@ -109,17 +110,17 @@ export default function PresencaBiometricaPage() {
             <tbody className="divide-y divide-gray-100">
               {registos.map((r: any) => (
                 <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{r.funcionario?.firstName} {r.funcionario?.lastName}</td>
+                  <td className="px-4 py-3 font-medium whitespace-nowrap">{r.funcionario?.firstName} {r.funcionario?.lastName}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${r.tipo === 'ENTRADA' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{r.tipo}</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${r.tipo === 'ENTRADA' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{r.tipo}</span>
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{r.metodoVerificacao}{r.lancadoManualmente ? ' (manual)' : ''}</td>
-                  <td className="px-4 py-3 text-gray-500">{new Date(r.timestamp).toLocaleString('pt-PT')}</td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{r.metodoVerificacao}{r.lancadoManualmente ? ' (manual)' : ''}</td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{new Date(r.timestamp).toLocaleString('pt-PT')}</td>
                   <td className="px-4 py-3 text-gray-500">{r.observacao || '—'}</td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ResponsiveTable>
         </div>
       )}
 

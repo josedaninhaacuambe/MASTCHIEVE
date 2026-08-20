@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth.store';
 import { Plus, FileSignature } from 'lucide-react';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 const TIPOS = ['EFETIVO', 'TERMO_CERTO', 'TERMO_INCERTO', 'ESTAGIO', 'PRESTACAO_SERVICOS'];
 const ESTADOS_CORES: Record<string, string> = {
@@ -63,7 +64,7 @@ export default function ContratosPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <ResponsiveTable>
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
                 <th className="text-left px-4 py-3">Funcionário</th>
@@ -77,11 +78,11 @@ export default function ContratosPage() {
             <tbody className="divide-y divide-gray-100">
               {contratos.map((c: any) => (
                 <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{c.funcionario?.firstName} {c.funcionario?.lastName}</td>
-                  <td className="px-4 py-3 text-gray-600">{c.tipo.replace(/_/g, ' ')}</td>
-                  <td className="px-4 py-3 text-gray-600">MT {c.salarioBase}</td>
-                  <td className="px-4 py-3 text-gray-500">{new Date(c.dataInicio).toLocaleDateString('pt-PT')}</td>
-                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${ESTADOS_CORES[c.estado] || 'bg-gray-100 text-gray-600'}`}>{c.estado.replace(/_/g, ' ')}</span></td>
+                  <td className="px-4 py-3 font-medium whitespace-nowrap">{c.funcionario?.firstName} {c.funcionario?.lastName}</td>
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{c.tipo.replace(/_/g, ' ')}</td>
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">MT {c.salarioBase}</td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{new Date(c.dataInicio).toLocaleDateString('pt-PT')}</td>
+                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${ESTADOS_CORES[c.estado] || 'bg-gray-100 text-gray-600'}`}>{c.estado.replace(/_/g, ' ')}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       {isSuperAdmin && ['RASCUNHO', 'AGUARDA_ASSINATURA'].includes(c.estado) && (
@@ -95,7 +96,7 @@ export default function ContratosPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ResponsiveTable>
         </div>
       )}
 

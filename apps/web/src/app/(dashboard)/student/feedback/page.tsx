@@ -503,7 +503,7 @@ export default function StudentFeedbackPage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-4 gap-2 md:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
         {[
           { label: 'Total',      value: total,       color: 'text-gray-900 bg-white',         border: 'border-gray-100' },
           { label: 'Recebidos',  value: sent,         color: 'text-green-700 bg-green-50',     border: 'border-green-100' },

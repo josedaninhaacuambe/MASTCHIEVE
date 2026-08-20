@@ -4,7 +4,11 @@ import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentsReportService } from './students-report.service';
 import { EmailService } from '../email/email.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { AuditService } from '../../common/audit/audit.service';
+import { DOCUMENTOS_INSCRICAO_OBRIGATORIOS } from '../../common/constants/documentos';
 import { mesclarRegistosDesempenho } from '../avaliacoes/normalizar-desempenho.util';
+import { resolveContactoAtleta } from '../../common/utils/contacto-atleta.util';
 
 @Injectable()
 export class StudentsService {
@@ -12,6 +16,8 @@ export class StudentsService {
     private prisma: PrismaService,
     private reportService: StudentsReportService,
     private email: EmailService,
+    private whatsapp: WhatsappService,
+    private audit: AuditService,
   ) {}
 
   private async getContactEmail(studentId: string): Promise<{ email: string | null; name: string }> {
@@ -124,13 +130,24 @@ export class StudentsService {
               parent: { select: { firstName: true, lastName: true, phone: true } },
             },
           },
+          lead: { select: { campanha: true, origem: true } },
+          payments: { where: { status: 'OVERDUE' }, select: { id: true }, take: 1 },
         },
       }),
       this.prisma.student.count({ where }),
     ]);
 
+    const dataComCategorias = data.map(({ payments, ...student }) => ({
+      ...student,
+      categoria: {
+        ativo: student.isActive,
+        irregular: payments.length > 0,
+        campanha: student.lead?.campanha ?? null,
+      },
+    }));
+
     return {
-      data,
+      data: dataComCategorias,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -254,41 +271,177 @@ export class StudentsService {
     return student;
   }
 
-  async create(dto: CreateStudentDto & { email?: string; password?: string }) {
+  async create(dto: CreateStudentDto & { email?: string; password?: string }, actorUserId?: string) {
     const email = dto.email || `atleta_${Date.now()}@mastchieve.com`;
     const bcrypt = await import('bcryptjs');
     const password = await bcrypt.hash(dto.password || 'student123', 10);
 
-    return this.prisma.user.create({
-      data: {
-        email,
-        password,
-        role: 'STUDENT',
-        student: {
-          create: {
-            firstName: dto.firstName,
-            lastName: dto.lastName,
-            dateOfBirth: new Date(dto.dateOfBirth),
-            gender: dto.gender || 'OTHER',
-            phone: dto.phone,
-            medicalNotes: dto.medicalNotes,
-            emergencyContact: dto.emergencyContact,
-            emergencyPhone: dto.emergencyPhone,
+    const user = await this.prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          email,
+          password,
+          role: 'STUDENT',
+          student: {
+            create: {
+              firstName: dto.firstName,
+              lastName: dto.lastName,
+              dateOfBirth: new Date(dto.dateOfBirth),
+              gender: dto.gender || 'OTHER',
+              phone: dto.phone,
+              medicalNotes: dto.medicalNotes,
+              emergencyContact: dto.emergencyContact,
+              emergencyPhone: dto.emergencyPhone,
+              autorizacaoImagem: dto.autorizacaoImagem ?? false,
+              autorizacaoImagemData: dto.autorizacaoImagem ? new Date() : undefined,
+              autorizacaoImagemDoc: dto.autorizacaoImagemDoc,
+              estadoInscricao: 'DOCUMENTOS_PENDENTES',
+            },
           },
         },
-      },
-      include: { student: true },
+        include: { student: true },
+      });
+
+      if (dto.guardians?.length && createdUser.student) {
+        const guardianPassword = await bcrypt.hash('parent123', 10);
+        for (const [index, guardian] of dto.guardians.entries()) {
+          const guardianUser = await tx.user.create({
+            data: {
+              email: `encarregado_${Date.now()}_${index}@mastchieve.com`,
+              password: guardianPassword,
+              role: 'PARENT',
+              parent: {
+                create: {
+                  firstName: guardian.firstName,
+                  lastName: guardian.lastName,
+                  phone: guardian.phone,
+                  relationship: guardian.relationship || 'Parent',
+                },
+              },
+            },
+            include: { parent: true },
+          });
+          if (guardianUser.parent) {
+            await tx.studentParent.create({
+              data: {
+                studentId: createdUser.student.id,
+                parentId: guardianUser.parent.id,
+                isPrimary: guardian.isPrimary ?? index === 0,
+              },
+            });
+          }
+        }
+      }
+
+      return createdUser;
     });
+
+    if (actorUserId && user.student) {
+      await this.audit.log({
+        userId: actorUserId,
+        action: 'STUDENT_CRIADO',
+        entity: 'Student',
+        entityId: user.student.id,
+        newValues: { firstName: dto.firstName, lastName: dto.lastName, guardians: dto.guardians?.length ?? 0 },
+      });
+    }
+
+    if (user.student) {
+      const studentComContacto = await this.prisma.student.findUnique({
+        where: { id: user.student.id },
+        include: {
+          parents: { include: { parent: true } },
+          unidade: { select: { contacto: true, email: true } },
+        },
+      });
+      const contacto = studentComContacto ? resolveContactoAtleta(studentComContacto) : { telefone: null, viaEncarregado: false };
+
+      if (contacto.telefone) {
+        const videoInducao = await this.prisma.linkPartilha.findUnique({ where: { chave: 'VIDEO_INDUCAO' } });
+        const nomeCompleto = `${dto.firstName} ${dto.lastName}`.trim();
+        const suporte = studentComContacto?.unidade?.contacto || studentComContacto?.unidade?.email;
+        const appUrl = process.env.APP_URL ?? 'http://localhost:4300';
+        const saudacao = contacto.viaEncarregado
+          ? `Olá${contacto.nomeEncarregado ? `, ${contacto.nomeEncarregado}` : ''}! Em nome de ${nomeCompleto}, bem-vindo(a) à Mastchieve! 🏊`
+          : `Olá! Bem-vindo(a) à Mastchieve, ${nomeCompleto}! 🏊`;
+
+        const mensagem = [
+          saudacao,
+          'Aqui tens o vídeo de indução com tudo sobre como funciona a nossa academia:',
+          videoInducao?.url,
+          '',
+          'Horário de funcionamento: Segunda a Sábado, 06h00–20h00.',
+          `Acede à tua área de atleta em: ${appUrl}/login`,
+          suporte ? `Qualquer dúvida, contacta-nos: ${suporte}` : undefined,
+        ].filter(Boolean).join('\n');
+
+        await this.whatsapp.enqueue({
+          tipo: 'BOAS_VINDAS',
+          telefone: contacto.telefone,
+          mensagem,
+          studentId: user.student.id,
+        });
+      }
+    }
+
+    return user;
   }
 
-  async update(id: string, dto: UpdateStudentDto) {
-    await this.findOne(id);
-    return this.prisma.student.update({ where: { id }, data: dto as any });
+  async update(id: string, dto: UpdateStudentDto, actorUserId?: string) {
+    const before = await this.findOne(id);
+    const updated = await this.prisma.student.update({ where: { id }, data: dto as any });
+    if (actorUserId) {
+      await this.audit.log({
+        userId: actorUserId,
+        action: 'STUDENT_ATUALIZADO',
+        entity: 'Student',
+        entityId: id,
+        oldValues: dto ? Object.fromEntries(Object.keys(dto as any).map((k) => [k, (before as any)[k]])) : undefined,
+        newValues: dto as any,
+      });
+    }
+    return updated;
   }
 
-  async deactivate(id: string) {
+  async deactivate(id: string, actorUserId?: string) {
     await this.findOne(id);
-    return this.prisma.student.update({ where: { id }, data: { isActive: false } });
+    const updated = await this.prisma.student.update({ where: { id }, data: { isActive: false, estadoInscricao: 'CANCELADA' } });
+    if (actorUserId) {
+      await this.audit.log({ userId: actorUserId, action: 'STUDENT_DESATIVADO', entity: 'Student', entityId: id });
+    }
+    return updated;
+  }
+
+  async checkDuplicate(firstName: string, lastName: string, dateOfBirth: string) {
+    if (!firstName?.trim() || !lastName?.trim() || !dateOfBirth) {
+      throw new BadRequestException('firstName, lastName e dateOfBirth são obrigatórios');
+    }
+    const matches = await this.prisma.student.findMany({
+      where: {
+        firstName: { equals: firstName.trim() },
+        lastName: { equals: lastName.trim() },
+        dateOfBirth: new Date(dateOfBirth),
+      },
+      select: { id: true, firstName: true, lastName: true, dateOfBirth: true, isActive: true, enrollmentDate: true },
+    });
+    return { duplicado: matches.length > 0, matches };
+  }
+
+  async getChecklist(id: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { id },
+      select: { id: true, estadoInscricao: true },
+    });
+    if (!student) throw new NotFoundException('Atleta não encontrado');
+
+    const docs = await this.prisma.document.findMany({ where: { studentId: id } });
+    const items = DOCUMENTOS_INSCRICAO_OBRIGATORIOS.map((type) => {
+      const doc = docs.find((d) => d.type === type);
+      return { type, presente: !!doc, validado: doc?.validado ?? false, documentId: doc?.id ?? null };
+    });
+    const completo = items.every((i) => i.validado);
+
+    return { estadoInscricao: student.estadoInscricao, items, completo };
   }
 
   async getPerformanceSummary(studentId: string) {

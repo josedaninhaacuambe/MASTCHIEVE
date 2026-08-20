@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 import { FuncionariosService } from './funcionarios.service';
@@ -23,35 +23,35 @@ export class FuncionariosController {
   constructor(private funcionariosService: FuncionariosService) {}
 
   @Get()
-  @Roles('GESTOR_RH', 'SUPER_ADMIN')
+  @Roles('ADMIN', 'GESTOR_RH', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Listar funcionários' })
-  findAll(@Query() query: FuncionarioQueryDto) {
-    return this.funcionariosService.findAll(query);
+  findAll(@Query() query: FuncionarioQueryDto, @Request() req: any) {
+    return this.funcionariosService.findAll(query, req.user.role);
   }
 
   @Get(':id')
-  @Roles('GESTOR_RH', 'SUPER_ADMIN')
+  @Roles('ADMIN', 'GESTOR_RH', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Obter funcionário por ID' })
-  findOne(@Param('id') id: string) {
-    return this.funcionariosService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req: any) {
+    return this.funcionariosService.findOne(id, req.user.role);
   }
 
   @Post()
-  @Roles('GESTOR_RH', 'SUPER_ADMIN')
+  @Roles('ADMIN', 'GESTOR_RH', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Criar funcionário (admissão)' })
   create(@Body() dto: CreateFuncionarioDto, @CurrentUser('id') userId: string) {
     return this.funcionariosService.create(dto, userId);
   }
 
   @Put(':id')
-  @Roles('GESTOR_RH', 'SUPER_ADMIN')
+  @Roles('ADMIN', 'GESTOR_RH', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Atualizar dados do funcionário' })
   update(@Param('id') id: string, @Body() dto: UpdateFuncionarioDto) {
     return this.funcionariosService.update(id, dto);
   }
 
   @Put(':id/estado')
-  @Roles('GESTOR_RH', 'SUPER_ADMIN')
+  @Roles('ADMIN', 'GESTOR_RH', 'SUPER_ADMIN')
   @ApiOperation({ summary: 'Alterar estado do funcionário (ex: FERIAS, SUSPENSO, ATIVO)' })
   toggleEstado(@Param('id') id: string, @Body() dto: ToggleEstadoDto, @CurrentUser('id') userId: string) {
     return this.funcionariosService.toggleEstado(id, dto.estado, userId);

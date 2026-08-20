@@ -63,7 +63,7 @@ export default function UnidadesPage() {
                   {u.telefone && <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-gray-400" />{u.telefone}</div>}
                   {u.capacidade && <div className="flex items-center gap-2"><Users className="w-4 h-4 text-gray-400" />Capacidade: {u.capacidade} alunos</div>}
                 </div>
-                <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-3 gap-3 text-center">
+                <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-3 gap-3 text-center">
                   <div>
                     <div className="text-xl font-bold text-gray-800">{u._count?.students || 0}</div>
                     <div className="text-xs text-gray-400">Alunos</div>

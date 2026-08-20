@@ -6,9 +6,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { formatDate, getInitials, cn } from '@/lib/utils';
+import AvaliacaoModal from '@/components/avaliacoes/AvaliacaoModal';
 import {
   ArrowLeft, ChevronRight, CheckCircle, XCircle, Clock,
-  AlertCircle, Save, ClipboardList, Users, BarChart3, RefreshCw,
+  AlertCircle, Save, ClipboardList, Users, BarChart3, RefreshCw, Brain,
 } from 'lucide-react';
 
 type Status = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
@@ -28,6 +29,16 @@ export default function SessionAttendancePage() {
   const [attendance, setAttendance] = useState<Record<string, Status>>({});
   const [notes, setNotes]           = useState<Record<string, string>>({});
   const [saved, setSaved]           = useState(false);
+  const [avaliarStudent, setAvaliarStudent] = useState<{ id: string; name: string } | null>(null);
+
+  const { data: avaliadosData, refetch: refetchAvaliados } = useQuery({
+    queryKey: ['avaliados-sessao', sessionId],
+    queryFn: async () => {
+      const { data } = await api.get(`/avaliacoes/sessao/${sessionId}`);
+      return data.data ?? data;
+    },
+  });
+  const avaliadosIds: string[] = avaliadosData?.studentIds ?? [];
 
   // Fetch session info + existing attendance
   const { data: sessionData, isLoading } = useQuery({
@@ -132,7 +143,7 @@ export default function SessionAttendancePage() {
             )}
           </div>
         </div>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Presentes',   value: presentCount,  color: 'bg-green-400/30 text-white' },
             { label: 'Ausentes',    value: absentCount,   color: 'bg-red-400/30 text-white' },
@@ -184,10 +195,11 @@ export default function SessionAttendancePage() {
             {enrolled.map((e: any) => {
               const student = e.student;
               const current = attendance[student.id];
+              const avaliado = avaliadosIds.includes(student.id);
               return (
                 <div key={student.id} className="px-5 py-3">
                   {/* Top row: avatar + name + status buttons */}
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
                     <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                       {getInitials(student.firstName, student.lastName)}
                     </div>
@@ -196,6 +208,18 @@ export default function SessionAttendancePage() {
                         {student.firstName} {student.lastName}
                       </p>
                     </div>
+                    <button
+                      onClick={() => setAvaliarStudent({ id: student.id, name: `${student.firstName} ${student.lastName}` })}
+                      title="Avaliar aluno nesta sessão"
+                      className={cn(
+                        'flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg font-medium border transition flex-shrink-0',
+                        avaliado
+                          ? 'bg-violet-50 text-violet-600 border-violet-200 hover:bg-violet-100'
+                          : 'bg-white text-gray-500 border-gray-200 hover:border-violet-300 hover:text-violet-600',
+                      )}>
+                      <Brain className="w-3.5 h-3.5" />
+                      {avaliado ? 'Avaliado' : 'Avaliar'}
+                    </button>
                     {/* Status selector */}
                     <div className="flex items-center gap-1.5">
                       {STATUS_OPTIONS.map(({ value, label, color, icon: Icon }) => (
@@ -257,6 +281,17 @@ export default function SessionAttendancePage() {
           {saved ? 'Guardado!' : saveMutation.isPending ? 'A guardar...' : 'Guardar Presenças'}
         </button>
       </div>
+
+      {avaliarStudent && (
+        <AvaliacaoModal
+          tipo="DIARIA"
+          studentId={avaliarStudent.id}
+          studentName={avaliarStudent.name}
+          classSessionId={sessionId}
+          onClose={() => setAvaliarStudent(null)}
+          onSuccess={() => refetchAvaliados()}
+        />
+      )}
     </div>
   );
 }

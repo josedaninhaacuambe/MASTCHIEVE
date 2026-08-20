@@ -135,7 +135,7 @@ export default function FormacaoPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
               <textarea value={form.descricao} onChange={(e) => setForm(f => ({ ...f, descricao: e.target.value }))} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Custo estimado (MT)</label>
                 <input type="number" value={form.custoEstimado} onChange={(e) => setForm(f => ({ ...f, custoEstimado: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />

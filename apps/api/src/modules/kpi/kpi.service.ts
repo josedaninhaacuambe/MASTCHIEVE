@@ -14,6 +14,7 @@ export class KpiService {
     const [
       totalStudents, activeStudents, totalInstructors, totalClasses,
       overduePayments, recentFeedbacks, attendanceStats,
+      totalFuncionarios, funcionariosPorEstado, folhasPendentes, reclamacoesAbertas, leadsPorEstado,
     ] = await Promise.all([
       this.prisma.student.count(),
       this.prisma.student.count({ where: { isActive: true } }),
@@ -29,6 +30,11 @@ export class KpiService {
         },
       }),
       this.getAttendanceStats(),
+      this.prisma.funcionario.count(),
+      this.prisma.funcionario.groupBy({ by: ['estado'], _count: true }),
+      this.prisma.folhaPagamento.count({ where: { estado: 'PENDENTE_APROVACAO' } }),
+      this.prisma.reclamacao.count({ where: { estado: { notIn: ['RESPONDIDA', 'FECHADA'] } } }),
+      this.prisma.lead.groupBy({ by: ['estado'], _count: true }),
     ]);
 
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -57,6 +63,15 @@ export class KpiService {
       recentFeedbacks,
       moduleProgress,
       aiConcordanceRate,
+      rh: {
+        totalFuncionarios,
+        porEstado: funcionariosPorEstado.map((e) => ({ estado: e.estado, total: e._count })),
+        folhasPendentes,
+      },
+      administrativo: {
+        reclamacoesAbertas,
+        leadsPorEstado: leadsPorEstado.map((l) => ({ estado: l.estado, total: l._count })),
+      },
     };
   }
 

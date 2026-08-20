@@ -166,7 +166,7 @@ export default function FeedbackPage() {
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Total',     value: counts.total,     color: 'bg-white border-gray-100 text-gray-900' },
           { label: 'Pendentes', value: counts.pending,   color: 'bg-amber-50 border-amber-100 text-amber-700' },

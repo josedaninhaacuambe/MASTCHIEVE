@@ -59,7 +59,7 @@ export default function StudentAttendancePage() {
         </div>
 
         {/* Breakdown */}
-        <div className="mt-4 grid grid-cols-4 gap-2">
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
           {Object.entries(statusCfg).map(([key, cfg]) => (
             <div key={key} className="bg-white/15 rounded-xl p-2 text-center">
               <div className="text-lg font-bold">{counts[key] ?? 0}</div>

@@ -410,7 +410,7 @@ function AvaliacaoCard({ a }: { a: any }) {
               )}
             </>
           ) : (
-            <div className="grid grid-cols-4 gap-2 text-xs text-gray-500 mt-1">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-gray-500 mt-1">
               {[['Exp. Aquática', a.experienciaAquatica], ['Segurança', a.segurancaAdaptacao], ['Conforto', a.confortoAgua], ['Resistência', a.resistenciaBasica]].map(([l, v]) => (
                 <div key={l as string} className="text-center">
                   <div className="text-gray-400">{l}</div>

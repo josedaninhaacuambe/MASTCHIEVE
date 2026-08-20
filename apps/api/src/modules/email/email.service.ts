@@ -189,4 +189,29 @@ export class EmailService {
     });
     this.logger.log(`Welcome email sent to ${to}`);
   }
+
+  async sendComunicacao(to: string, titulo: string, descricao: string, link?: string | null) {
+    if (!process.env.SMTP_USER || process.env.SMTP_USER === 'noreply@mastchieve.com') {
+      this.logger.warn(`[EMAIL SKIPPED] Comunicação to ${to} — SMTP not configured`);
+      return;
+    }
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
+      to,
+      subject: `📣 ${titulo} — Mastchieve`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #1A3A9C 0%, #1A56DB 100%); padding: 32px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">Mastchieve</h1>
+          </div>
+          <div style="padding: 32px; background: #f9fafb; border-radius: 0 0 12px 12px;">
+            <h2 style="color: #111827; margin-top: 0;">${escapeHtml(titulo)}</h2>
+            <p style="color: #6b7280; white-space: pre-line;">${escapeHtml(descricao)}</p>
+            ${link ? `<a href="${escapeHtml(link)}" style="display: inline-block; background: #1A56DB; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px;">Saber mais</a>` : ''}
+          </div>
+        </div>
+      `,
+    });
+    this.logger.log(`Comunicação email sent to ${to}`);
+  }
 }

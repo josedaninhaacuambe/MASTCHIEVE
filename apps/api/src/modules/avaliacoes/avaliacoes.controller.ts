@@ -39,4 +39,11 @@ export class AvaliacoesController {
   findMine(@CurrentUser('id') userId: string, @Query('tipo') tipo?: string) {
     return this.service.findMineAsStudent(userId, tipo);
   }
+
+  @Get('sessao/:classSessionId')
+  @Roles('ADMIN', 'INSTRUCTOR')
+  @ApiOperation({ summary: 'Alunos já avaliados numa sessão de aula específica' })
+  getAvaliadosNaSessao(@Param('classSessionId') classSessionId: string) {
+    return this.service.getAvaliadosNaSessao(classSessionId);
+  }
 }

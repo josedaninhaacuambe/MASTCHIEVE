@@ -11,6 +11,7 @@ import {
   TrendingUp, Activity, Brain, Flame, Trophy,
   ArrowUpRight, ArrowDownRight, Zap, Target,
   CheckCircle, Clock, CreditCard, Waves, ChevronRight, Star, Award, Bell,
+  Briefcase, UserPlus, MessageSquareWarning, Banknote,
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -594,8 +595,8 @@ function StudentDashboard({ user }: { user: any }) {
                 </div>
               </div>
 
-              <div className="p-5">
-                <div className="grid grid-cols-5 gap-3">
+              <div className="p-3 sm:p-5">
+                <div className="grid grid-cols-5 gap-1.5 sm:gap-3">
                   {perfMetrics.map((m, i) => {
                     const pct = (m.value / m.max) * 100;
                     const prevVal = prevPerf?.criterios?.find((c: any) => c.nome === m.key)?.valor ?? m.value;
@@ -976,6 +977,22 @@ export default function DashboardPage() {
               sub="recentes" color="purple" />
             <KpiCard icon={Flame} label="Adoção Instrutores" rawValue={adoption?.rate ?? 0}
               suffix="%" sub={`meta: 70%`} color={adoption?.rate >= 70 ? 'green' : 'amber'} />
+          </div>
+
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-1">RH &amp; Administrativo</p>
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+            <KpiCard icon={Briefcase} label="Funcionários" rawValue={kpis?.rh?.totalFuncionarios ?? 0}
+              sub="ao serviço" color="blue" />
+            <KpiCard icon={Banknote} label="Folhas Pendentes" rawValue={kpis?.rh?.folhasPendentes ?? 0}
+              sub="aguardam aprovação" color={kpis?.rh?.folhasPendentes > 0 ? 'amber' : 'green'} />
+            <KpiCard icon={MessageSquareWarning} label="Reclamações Abertas" rawValue={kpis?.administrativo?.reclamacoesAbertas ?? 0}
+              sub="por resolver" color={kpis?.administrativo?.reclamacoesAbertas > 0 ? 'red' : 'green'}
+              urgent={kpis?.administrativo?.reclamacoesAbertas > 0} />
+            <KpiCard icon={UserPlus} label="Leads em Pipeline" rawValue={
+              (kpis?.administrativo?.leadsPorEstado ?? [])
+                .filter((l: any) => !['CONVERTIDO', 'PERDIDO'].includes(l.estado))
+                .reduce((sum: number, l: any) => sum + l.total, 0)
+            } sub="por converter" color="purple" />
           </div>
         </>
       )}

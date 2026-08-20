@@ -104,7 +104,7 @@ export default function ChildDetailPage() {
         </div>
 
         {/* Quick stats */}
-        <div className="grid grid-cols-3 gap-4 mt-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-5">
           {[
             { label: 'Assiduidade', value: `${stats.rate}%`, sub: `${stats.present}/${stats.total} presenças` },
             { label: 'A regularizar', value: pendingPayments.length > 0 ? formatCurrency(totalDue) : 'Em dia', sub: pendingPayments.length > 0 ? `${pendingPayments.length} pagamento(s)` : 'Sem pendências' },

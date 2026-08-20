@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Plus, ClipboardCheck } from 'lucide-react';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 const ESTADOS_CORES: Record<string, string> = {
   PENDENTE: 'bg-amber-100 text-amber-700',
@@ -73,7 +74,7 @@ export default function AvaliacoesDesempenhoPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <ResponsiveTable>
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
                 <th className="text-left px-4 py-3">Funcionário</th>
@@ -87,20 +88,20 @@ export default function AvaliacoesDesempenhoPage() {
             <tbody className="divide-y divide-gray-100">
               {avaliacoes.map((a: any) => (
                 <tr key={a.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{a.funcionario?.firstName} {a.funcionario?.lastName}</td>
-                  <td className="px-4 py-3 text-gray-600">{a.periodo}</td>
-                  <td className="px-4 py-3 text-gray-500">{a.dataLimite ? new Date(a.dataLimite).toLocaleDateString('pt-PT') : '—'}</td>
-                  <td className="px-4 py-3 text-gray-600">{a.pontuacaoGeral != null ? Number(a.pontuacaoGeral).toFixed(1) : '—'}</td>
-                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${ESTADOS_CORES[a.estado] || 'bg-gray-100 text-gray-600'}`}>{a.estado}</span></td>
+                  <td className="px-4 py-3 font-medium whitespace-nowrap">{a.funcionario?.firstName} {a.funcionario?.lastName}</td>
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{a.periodo}</td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{a.dataLimite ? new Date(a.dataLimite).toLocaleDateString('pt-PT') : '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{a.pontuacaoGeral != null ? Number(a.pontuacaoGeral).toFixed(1) : '—'}</td>
+                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${ESTADOS_CORES[a.estado] || 'bg-gray-100 text-gray-600'}`}>{a.estado}</span></td>
                   <td className="px-4 py-3">
                     {a.estado === 'PENDENTE' && (
-                      <button onClick={() => abrirRealizar(a)} className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200">Registar resultado</button>
+                      <button onClick={() => abrirRealizar(a)} className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200 whitespace-nowrap">Registar resultado</button>
                     )}
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ResponsiveTable>
         </div>
       )}
 

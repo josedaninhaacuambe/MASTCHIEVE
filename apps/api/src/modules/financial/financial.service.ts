@@ -4,6 +4,11 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Logger } from '@nestjs/common';
 import { EmailService } from '../email/email.service';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { AuditService } from '../../common/audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
+
+const CASH_DISCREPANCY_THRESHOLD = 50;
 
 @Injectable()
 export class FinancialService {
@@ -12,6 +17,9 @@ export class FinancialService {
   constructor(
     private prisma: PrismaService,
     private email: EmailService,
+    private audit: AuditService,
+    private notifService: NotificationsService,
+    private gateway: NotificationsGateway,
   ) {}
 
   async getPayments(query: any) {
@@ -79,21 +87,143 @@ export class FinancialService {
     };
   }
 
-  async createPayment(dto: any) {
+  async createPayment(dto: any, actorUserId?: string) {
     const receiptNumber = `REC-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    return this.prisma.payment.create({
+    const payment = await this.prisma.payment.create({
       data: { ...dto, receiptNumber },
       include: { student: { select: { firstName: true, lastName: true } } },
     });
+
+    if (actorUserId) {
+      await this.audit.log({
+        userId: actorUserId,
+        action: 'PAYMENT_CRIADO',
+        entity: 'Payment',
+        entityId: payment.id,
+        newValues: { studentId: payment.studentId, amount: payment.amount, dueDate: payment.dueDate },
+      });
+    }
+
+    return payment;
   }
 
-  async markAsPaid(id: string, method: string) {
+  async markAsPaid(id: string, method: string, actorUserId?: string) {
     const payment = await this.prisma.payment.findUnique({ where: { id } });
     if (!payment) throw new NotFoundException('Pagamento não encontrado');
     const receiptNumber = payment.receiptNumber || `REC-${Date.now()}-${id.slice(0, 6).toUpperCase()}`;
-    return this.prisma.payment.update({
+    const updated = await this.prisma.payment.update({
       where: { id },
       data: { status: 'PAID', method: method || 'CASH', paidAt: new Date(), receiptNumber },
+    });
+
+    if (actorUserId) {
+      await this.audit.log({
+        userId: actorUserId,
+        action: 'PAYMENT_PAGO',
+        entity: 'Payment',
+        entityId: id,
+        oldValues: { status: payment.status },
+        newValues: { status: 'PAID', method: updated.method },
+      });
+    }
+
+    return updated;
+  }
+
+  async grantIsencao(id: string, motivo: string, actorUserId: string) {
+    const payment = await this.prisma.payment.findUnique({ where: { id } });
+    if (!payment) throw new NotFoundException('Pagamento não encontrado');
+
+    const updated = await this.prisma.payment.update({
+      where: { id },
+      data: { isento: true, isencaoMotivo: motivo, isencaoAutorizadoPorId: actorUserId, isencaoAutorizadoEm: new Date() },
+    });
+
+    await this.audit.log({
+      userId: actorUserId,
+      action: 'PAYMENT_ISENCAO_CONCEDIDA',
+      entity: 'Payment',
+      entityId: id,
+      newValues: { isento: true, isencaoMotivo: motivo },
+    });
+
+    return updated;
+  }
+
+  async createMonthlyFeeForStudent(studentId: string, month: number, year: number, amount: number) {
+    const student = await this.prisma.student.findUnique({ where: { id: studentId } });
+    if (!student) throw new NotFoundException('Atleta não encontrado');
+
+    const existing = await this.prisma.monthlyFee.findUnique({
+      where: { studentId_month_year: { studentId, month, year } },
+    });
+    if (existing) throw new NotFoundException('Mensalidade já existe para este atleta neste mês');
+
+    const dueDate = new Date(year, month - 1, 10);
+    const fee = await this.prisma.monthlyFee.create({ data: { studentId, month, year, amount, dueDate } });
+    const payment = await this.prisma.payment.create({
+      data: { studentId, monthlyFeeId: fee.id, amount, status: 'PENDING', dueDate },
+    });
+    return { fee, payment };
+  }
+
+  async registerCashCount(
+    data: { unidadeId?: string; data?: string | Date; valorContado: number; observacoes?: string },
+    actorUserId: string,
+  ) {
+    const dataRef = data.data ? new Date(data.data) : new Date();
+    const dayStart = new Date(dataRef);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+
+    const paidCash = await this.prisma.payment.aggregate({
+      where: {
+        status: 'PAID',
+        method: 'CASH',
+        paidAt: { gte: dayStart, lt: dayEnd },
+        ...(data.unidadeId ? { student: { unidadeId: data.unidadeId } } : {}),
+      },
+      _sum: { amount: true },
+    });
+    const valorEsperado = paidCash._sum.amount || 0;
+    const diferenca = data.valorContado - valorEsperado;
+
+    const conferencia = await this.prisma.conferenciaCaixa.create({
+      data: {
+        unidadeId: data.unidadeId,
+        data: dayStart,
+        valorEsperado,
+        valorContado: data.valorContado,
+        diferenca,
+        observacoes: data.observacoes,
+        responsavelId: actorUserId,
+      },
+    });
+
+    await this.audit.log({
+      userId: actorUserId,
+      action: 'CONFERENCIA_CAIXA_REGISTADA',
+      entity: 'ConferenciaCaixa',
+      entityId: conferencia.id,
+      newValues: { valorEsperado, valorContado: data.valorContado, diferenca },
+    });
+
+    if (Math.abs(diferenca) > CASH_DISCREPANCY_THRESHOLD) {
+      const title = `⚠️ Diferença de caixa: MT ${diferenca.toFixed(2)}`;
+      const body = `Contado MT ${data.valorContado.toFixed(2)} vs. esperado MT ${valorEsperado.toFixed(2)} em ${dayStart.toLocaleDateString('pt-PT')}.`;
+      await this.notifService.createForRole('ADMIN', 'CASH_DISCREPANCY', title, body);
+      this.gateway.broadcastToRole('ADMIN', 'notification', { type: 'CASH_DISCREPANCY', title, body });
+    }
+
+    return conferencia;
+  }
+
+  async listCashCounts(unidadeId?: string) {
+    return this.prisma.conferenciaCaixa.findMany({
+      where: unidadeId ? { unidadeId } : undefined,
+      orderBy: { data: 'desc' },
+      include: { responsavel: { select: { email: true } } },
     });
   }
 
@@ -132,7 +262,7 @@ export class FinancialService {
     const yearStart = new Date(year, 0, 1);
     const yearEnd = new Date(year + 1, 0, 1);
 
-    const [totalRevenue, overduePayments, pendingPayments] = await Promise.all([
+    const [totalRevenue, overduePayments, pendingPayments, paymentsInYear, folhasPagas] = await Promise.all([
       this.prisma.payment.aggregate({
         where: { status: 'PAID', paidAt: { gte: yearStart, lt: yearEnd } },
         _sum: { amount: true },
@@ -143,13 +273,49 @@ export class FinancialService {
         _sum: { amount: true },
         _count: true,
       }),
+      this.prisma.payment.findMany({
+        where: {
+          OR: [
+            { status: 'PAID', paidAt: { gte: yearStart, lt: yearEnd } },
+            { status: { in: ['PENDING', 'OVERDUE'] }, dueDate: { gte: yearStart, lt: yearEnd } },
+          ],
+        },
+        select: { amount: true, status: true, paidAt: true, dueDate: true },
+      }),
+      this.prisma.folhaPagamento.findMany({
+        where: { estado: 'PAGA', ano: year },
+        select: { mes: true, valorLiquido: true },
+      }),
     ]);
+
+    const monthlyPayments = Array.from({ length: 12 }, () => ({ paid: 0, pending: 0 }));
+    for (const p of paymentsInYear) {
+      if (p.status === 'PAID' && p.paidAt) {
+        monthlyPayments[p.paidAt.getMonth()].paid += p.amount;
+      } else {
+        monthlyPayments[p.dueDate.getMonth()].pending += p.amount;
+      }
+    }
+
+    const monthlyCustosPessoal = Array.from({ length: 12 }, () => 0);
+    for (const f of folhasPagas) {
+      monthlyCustosPessoal[f.mes - 1] += f.valorLiquido;
+    }
+
+    const monthlyData = Array.from({ length: 12 }, (_, i) => ({
+      month: i + 1,
+      paid: monthlyPayments[i].paid,
+      pending: monthlyPayments[i].pending,
+      custosPessoal: monthlyCustosPessoal[i],
+    }));
 
     return {
       totalRevenue: totalRevenue._sum.amount || 0,
       overduePayments,
       pendingAmount: pendingPayments._sum.amount || 0,
       pendingCount: pendingPayments._count,
+      custosPessoal: monthlyCustosPessoal.reduce((sum, v) => sum + v, 0),
+      monthlyData,
     };
   }
 
@@ -262,7 +428,7 @@ export class FinancialService {
   @Cron(CronExpression.EVERY_DAY_AT_9AM)
   async markOverduePayments() {
     const updated = await this.prisma.payment.updateMany({
-      where: { status: 'PENDING', dueDate: { lt: new Date() } },
+      where: { status: 'PENDING', dueDate: { lt: new Date() }, isento: false },
       data: { status: 'OVERDUE' },
     });
     this.logger.log(`Marked ${updated.count} payments as overdue`);

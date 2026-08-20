@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Plus, IdCard } from 'lucide-react';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 const TIPOS = ['NADADOR_SALVADOR', 'INSTRUTOR_NATACAO', 'PRIMEIROS_SOCORROS', 'REGISTO_CRIMINAL', 'ATESTADO_APTIDAO_FISICA', 'OUTRO'];
 const ESTADOS_CORES: Record<string, string> = {
@@ -69,7 +70,7 @@ export default function CertificacoesPage() {
         <div className="text-center py-12 bg-white rounded-xl border border-gray-200 text-gray-400">Nenhuma certificação registada</div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <ResponsiveTable>
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
                 <th className="text-left px-4 py-3">Tipo</th>
@@ -86,21 +87,21 @@ export default function CertificacoesPage() {
                 const estadoEfetivo = c.estado === 'REVOGADA' ? 'REVOGADA' : expirada ? 'EXPIRADA' : 'ATIVA';
                 return (
                   <tr key={c.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{c.tipo.replace(/_/g, ' ')}</td>
-                    <td className="px-4 py-3 text-gray-500">{c.numeroDocumento || '—'}</td>
+                    <td className="px-4 py-3 font-medium whitespace-nowrap">{c.tipo.replace(/_/g, ' ')}</td>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{c.numeroDocumento || '—'}</td>
                     <td className="px-4 py-3 text-gray-500">{c.entidadeEmissora || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500">{c.dataValidade ? new Date(c.dataValidade).toLocaleDateString('pt-PT') : '—'}</td>
-                    <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${ESTADOS_CORES[estadoEfetivo]}`}>{estadoEfetivo}</span></td>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{c.dataValidade ? new Date(c.dataValidade).toLocaleDateString('pt-PT') : '—'}</td>
+                    <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${ESTADOS_CORES[estadoEfetivo]}`}>{estadoEfetivo}</span></td>
                     <td className="px-4 py-3">
                       {c.estado !== 'REVOGADA' && (
-                        <button onClick={() => revogar(c.id)} className="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-200">Revogar</button>
+                        <button onClick={() => revogar(c.id)} className="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-200 whitespace-nowrap">Revogar</button>
                       )}
                     </td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
+          </ResponsiveTable>
         </div>
       )}
 

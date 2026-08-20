@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth.store';
 import { Plus, Users, Search } from 'lucide-react';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 const CARGOS = ['INSTRUTOR_NATACAO', 'SALVA_VIDAS', 'RECEPCIONISTA', 'ADMINISTRATIVO', 'COORDENADOR', 'MANUTENCAO', 'OUTRO'];
 const DEPARTAMENTOS = ['OPERACOES', 'ADMINISTRATIVO', 'FINANCEIRO', 'MANUTENCAO'];
@@ -18,6 +19,7 @@ const ESTADOS_CORES: Record<string, string> = {
 
 export default function FuncionariosPage() {
   const { user } = useAuthStore();
+  const podeVerSalario = user?.role === 'GESTOR_RH' || user?.role === 'SUPER_ADMIN';
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -69,7 +71,7 @@ export default function FuncionariosPage() {
               Nenhum funcionário registado
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <ResponsiveTable>
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                 <tr>
                   <th className="text-left px-4 py-3">Nº</th>
@@ -82,21 +84,21 @@ export default function FuncionariosPage() {
               <tbody className="divide-y divide-gray-100">
                 {data.map((f: any) => (
                   <tr key={f.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-500">{f.numeroFuncionario}</td>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{f.numeroFuncionario}</td>
                     <td className="px-4 py-3">
-                      <Link href={`/rh/funcionarios/${f.id}`} className="font-medium text-blue-700 hover:underline">
+                      <Link href={`/rh/funcionarios/${f.id}`} className="font-medium text-blue-700 hover:underline whitespace-nowrap">
                         {f.firstName} {f.lastName}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{f.cargo.replace(/_/g, ' ')}</td>
-                    <td className="px-4 py-3 text-gray-500">{f.user?.email}</td>
+                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{f.cargo.replace(/_/g, ' ')}</td>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{f.user?.email}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${ESTADOS_CORES[f.estado] || 'bg-gray-100 text-gray-600'}`}>{f.estado.replace(/_/g, ' ')}</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${ESTADOS_CORES[f.estado] || 'bg-gray-100 text-gray-600'}`}>{f.estado.replace(/_/g, ' ')}</span>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </ResponsiveTable>
           )}
         </div>
       )}
@@ -147,15 +149,17 @@ export default function FuncionariosPage() {
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className={podeVerSalario ? 'grid grid-cols-2 gap-3' : ''}>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Data de admissão</label>
                 <input type="date" value={form.dataAdmissao} onChange={(e) => setForm(f => ({ ...f, dataAdmissao: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Salário base (MT)</label>
-                <input type="number" value={form.salarioBase} onChange={(e) => setForm(f => ({ ...f, salarioBase: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-              </div>
+              {podeVerSalario && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Salário base (MT)</label>
+                  <input type="number" value={form.salarioBase} onChange={(e) => setForm(f => ({ ...f, salarioBase: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+              )}
             </div>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>

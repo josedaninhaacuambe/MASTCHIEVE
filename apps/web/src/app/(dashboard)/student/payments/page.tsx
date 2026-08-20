@@ -480,7 +480,7 @@ export default function StudentPaymentsPage() {
           {showHistory && (
             <div className="px-4 pb-4 space-y-2 border-t border-gray-50 pt-4">
               {/* All-time stats bar */}
-              <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
                 {[
                   { label: 'Anos activo', value: String(years.length), color: 'text-gray-900' },
                   { label: 'Pagamentos', value: String(allPayments.filter((p) => p.status === 'PAID').length), color: 'text-green-600' },
@@ -552,7 +552,7 @@ export default function StudentPaymentsPage() {
           <Calendar className="w-4 h-4 text-mastchieve-500" />
           <span className="text-sm font-bold text-gray-900">Calendário {selectedYear}</span>
         </div>
-        <div className="grid grid-cols-6 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
           {Array.from({ length: 12 }, (_, i) => {
             const month = i + 1;
             const key = `${selectedYear}-${String(month).padStart(2, '0')}`;

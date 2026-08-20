@@ -595,7 +595,7 @@ export default function InstructorPage() {
         {/* Fases pedagógicas */}
         <div>
           <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Fases Pedagógicas</p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[
               { label: 'Fase AMA',    sub: 'Bronze · 3 módulos', icon: Fish,  href: '/ama',           color: 'from-blue-500 to-cyan-500' },
               { label: 'Intermédio',  sub: 'Prata · 3 módulos',  icon: Waves, href: '/intermediario', color: 'from-purple-500 to-violet-600' },

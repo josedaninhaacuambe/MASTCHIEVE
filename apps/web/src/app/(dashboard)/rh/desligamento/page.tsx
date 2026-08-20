@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth.store';
 import { Plus, UserPlus } from 'lucide-react';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 const TIPOS = ['DEMISSAO_VOLUNTARIA', 'DESPEDIMENTO_SEM_JUSTA_CAUSA', 'DESPEDIMENTO_JUSTA_CAUSA', 'FIM_CONTRATO', 'REFORMA'];
 const ESTADOS_CORES: Record<string, string> = {
@@ -65,7 +66,7 @@ export default function DesligamentoPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <ResponsiveTable>
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
                 <th className="text-left px-4 py-3">Funcionário</th>
@@ -78,10 +79,10 @@ export default function DesligamentoPage() {
             <tbody className="divide-y divide-gray-100">
               {processos.map((p: any) => (
                 <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{p.funcionario?.firstName} {p.funcionario?.lastName} <span className="text-gray-400 font-normal">{p.funcionario?.numeroFuncionario}</span></td>
-                  <td className="px-4 py-3 text-gray-600">{p.tipo.replace(/_/g, ' ')}</td>
-                  <td className="px-4 py-3 text-gray-500">{p.dataSaida ? new Date(p.dataSaida).toLocaleDateString('pt-PT') : '—'}</td>
-                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${ESTADOS_CORES[p.estado] || 'bg-gray-100 text-gray-600'}`}>{p.estado.replace(/_/g, ' ')}</span></td>
+                  <td className="px-4 py-3 font-medium whitespace-nowrap">{p.funcionario?.firstName} {p.funcionario?.lastName} <span className="text-gray-400 font-normal">{p.funcionario?.numeroFuncionario}</span></td>
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{p.tipo.replace(/_/g, ' ')}</td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{p.dataSaida ? new Date(p.dataSaida).toLocaleDateString('pt-PT') : '—'}</td>
+                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${ESTADOS_CORES[p.estado] || 'bg-gray-100 text-gray-600'}`}>{p.estado.replace(/_/g, ' ')}</span></td>
                   <td className="px-4 py-3">
                     {p.estado === 'AGUARDA_APROVACAO' && isSuperAdmin && (
                       <div className="flex gap-2">
@@ -93,7 +94,7 @@ export default function DesligamentoPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ResponsiveTable>
         </div>
       )}
 

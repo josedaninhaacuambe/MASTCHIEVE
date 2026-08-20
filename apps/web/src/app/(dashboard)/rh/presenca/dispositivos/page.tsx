@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Plus, MonitorSmartphone, Copy, Check, Power, KeyRound } from 'lucide-react';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 export default function DispositivosQuiosquePage() {
   const [dispositivos, setDispositivos] = useState<any[]>([]);
@@ -73,7 +74,7 @@ export default function DispositivosQuiosquePage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <ResponsiveTable>
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
                 <th className="text-left px-4 py-3">Nome</th>
@@ -86,22 +87,22 @@ export default function DispositivosQuiosquePage() {
             <tbody className="divide-y divide-gray-100">
               {dispositivos.map((d: any) => (
                 <tr key={d.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{d.nome}</td>
-                  <td className="px-4 py-3 text-gray-500">{d.unidade?.nome || '—'}</td>
-                  <td className="px-4 py-3 text-gray-500">{d.ultimoAcesso ? new Date(d.ultimoAcesso).toLocaleString('pt-PT') : 'Nunca'}</td>
+                  <td className="px-4 py-3 font-medium whitespace-nowrap">{d.nome}</td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{d.unidade?.nome || '—'}</td>
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{d.ultimoAcesso ? new Date(d.ultimoAcesso).toLocaleString('pt-PT') : 'Nunca'}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${d.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${d.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
                       {d.ativo ? 'Ativo' : 'Inativo'}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <button onClick={() => toggleAtivo(d.id, d.ativo)} title={d.ativo ? 'Desativar' : 'Ativar'}
-                        className="flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200">
+                        className="flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 whitespace-nowrap">
                         <Power className="w-3.5 h-3.5" /> {d.ativo ? 'Desativar' : 'Ativar'}
                       </button>
                       <button onClick={() => rotarChave(d.id, d.nome)} title="Rotacionar chave"
-                        className="flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-200">
+                        className="flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-200 whitespace-nowrap">
                         <KeyRound className="w-3.5 h-3.5" /> Rotar chave
                       </button>
                     </div>
@@ -109,7 +110,7 @@ export default function DispositivosQuiosquePage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ResponsiveTable>
         </div>
       )}
 

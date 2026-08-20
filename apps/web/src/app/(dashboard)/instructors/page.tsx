@@ -198,7 +198,7 @@ function DetailDrawer({
             <div className="p-5 space-y-6 flex-1">
               {/* KPI cards */}
               {stats && (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {[
                     { icon: BookOpen, label: 'Turmas', value: stats.classes, color: 'blue' },
                     { icon: Users, label: 'Atletas', value: stats.students, color: 'indigo' },
