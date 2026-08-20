@@ -6,11 +6,11 @@ import api from '@/lib/api';
 import {
   Users, Search, Filter, RefreshCw, Shield, UserCheck, UserX,
   ChevronLeft, ChevronRight, CheckCircle2, XCircle, Clock,
-  MoreVertical, ArrowUpDown, Briefcase, GraduationCap, Bell,
+  MoreVertical, ArrowUpDown, Briefcase, GraduationCap, Bell, ClipboardList,
 } from 'lucide-react';
 import { BulkNotificationsModal } from '@/components/bulk-notifications-modal';
 
-const ROLES = ['ADMIN','INSTRUCTOR','STUDENT','PARENT','FINANCIAL','MANAGER','VISITOR'] as const;
+const ROLES = ['ADMIN','INSTRUCTOR','STUDENT','PARENT','FINANCIAL','MANAGER','VISITOR','ASSISTENTE_ADMIN'] as const;
 type Role = typeof ROLES[number];
 
 const ROLE_CFG: Record<Role, { label: string; color: string; bg: string; icon: React.ElementType }> = {
@@ -21,6 +21,7 @@ const ROLE_CFG: Record<Role, { label: string; color: string; bg: string; icon: R
   FINANCIAL:  { label: 'Financeiro', color: 'text-cyan-700',    bg: 'bg-cyan-100',    icon: Briefcase },
   MANAGER:    { label: 'Gestor',     color: 'text-indigo-700',  bg: 'bg-indigo-100',  icon: Briefcase },
   VISITOR:    { label: 'Visitante',  color: 'text-gray-600',    bg: 'bg-gray-100',    icon: Users },
+  ASSISTENTE_ADMIN: { label: 'Assistente Adm.', color: 'text-pink-700', bg: 'bg-pink-100', icon: ClipboardList },
 };
 
 function RoleBadge({ role }: { role: string }) {

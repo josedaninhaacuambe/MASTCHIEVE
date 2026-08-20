@@ -1,14 +1,204 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Plus, Calendar, MapPin, Users, Award } from 'lucide-react';
+import { Plus, Calendar, MapPin, Users, Award, ClipboardList, X, Check, Trash2, Search } from 'lucide-react';
 
 const ESTADOS_CORES: Record<string, string> = { PLANEADO:'bg-blue-100 text-blue-700', REALIZADO:'bg-green-100 text-green-700', CANCELADO:'bg-red-100 text-red-700' };
+
+function parseChecklist(raw: string | null | undefined): { texto: string; checked: boolean }[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return []; }
+}
+
+function EventoManageModal({ evento, onClose, onSaved }: { evento: any; onClose: () => void; onSaved: () => void }) {
+  const [checklist, setChecklist] = useState<{ texto: string; checked: boolean }[]>(parseChecklist(evento.checklistMateriais));
+  const [novoItem, setNovoItem] = useState('');
+  const [savingChecklist, setSavingChecklist] = useState(false);
+
+  const [participantes, setParticipantes] = useState<any[]>([]);
+  const [loadingParticipantes, setLoadingParticipantes] = useState(true);
+  const [studentSearch, setStudentSearch] = useState('');
+  const [studentResults, setStudentResults] = useState<any[]>([]);
+  const [nomeManual, setNomeManual] = useState('');
+  const [contactoManual, setContactoManual] = useState('');
+
+  const loadParticipantes = async () => {
+    setLoadingParticipantes(true);
+    const r = await api.get(`/eventos/${evento.id}/participantes`);
+    setParticipantes(r.data.data || r.data);
+    setLoadingParticipantes(false);
+  };
+
+  useEffect(() => { loadParticipantes(); }, []);
+
+  useEffect(() => {
+    if (!studentSearch) { setStudentResults([]); return; }
+    const t = setTimeout(async () => {
+      const r = await api.get(`/students?search=${encodeURIComponent(studentSearch)}&limit=6`);
+      setStudentResults(r.data.data ?? []);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [studentSearch]);
+
+  const salvarChecklist = async (next: { texto: string; checked: boolean }[]) => {
+    setChecklist(next);
+    setSavingChecklist(true);
+    await api.put(`/eventos/${evento.id}`, { checklistMateriais: JSON.stringify(next) });
+    setSavingChecklist(false);
+    onSaved();
+  };
+
+  const adicionarItem = () => {
+    if (!novoItem.trim()) return;
+    salvarChecklist([...checklist, { texto: novoItem.trim(), checked: false }]);
+    setNovoItem('');
+  };
+
+  const toggleItem = (i: number) => {
+    salvarChecklist(checklist.map((it, idx) => idx === i ? { ...it, checked: !it.checked } : it));
+  };
+
+  const removerItem = (i: number) => {
+    salvarChecklist(checklist.filter((_, idx) => idx !== i));
+  };
+
+  const adicionarParticipanteStudent = async (studentId: string) => {
+    await api.post(`/eventos/${evento.id}/participantes`, { studentId });
+    setStudentSearch('');
+    setStudentResults([]);
+    loadParticipantes();
+  };
+
+  const adicionarParticipanteManual = async () => {
+    if (!nomeManual.trim()) return;
+    await api.post(`/eventos/${evento.id}/participantes`, { nome: nomeManual.trim(), contacto: contactoManual || undefined });
+    setNomeManual('');
+    setContactoManual('');
+    loadParticipantes();
+  };
+
+  const marcarPresenca = async (participanteId: string, presente: boolean) => {
+    await api.put(`/eventos/participantes/${participanteId}/presenca`, { presente });
+    loadParticipantes();
+  };
+
+  const removerParticipante = async (participanteId: string) => {
+    await api.delete(`/eventos/participantes/${participanteId}`);
+    loadParticipantes();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="p-5 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">{evento.nome}</h2>
+            <p className="text-sm text-gray-500 mt-0.5">Participantes e checklist de materiais</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="p-5 space-y-6">
+          {/* Checklist de materiais */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+              <ClipboardList className="w-4 h-4 text-blue-600" /> Checklist de Materiais
+            </h3>
+            <div className="space-y-1.5">
+              {checklist.length === 0 && <p className="text-xs text-gray-400">Nenhum item na checklist</p>}
+              {checklist.map((item, i) => (
+                <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                  <button onClick={() => toggleItem(i)}
+                    className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border ${item.checked ? 'bg-green-600 border-green-600' : 'border-gray-300 bg-white'}`}>
+                    {item.checked && <Check className="w-3.5 h-3.5 text-white" />}
+                  </button>
+                  <span className={`flex-1 text-sm ${item.checked ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{item.texto}</span>
+                  <button onClick={() => removerItem(i)} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 mt-2">
+              <input value={novoItem} onChange={e => setNovoItem(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') adicionarItem(); }}
+                placeholder="Novo item... (ex: Fitas de largada)"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
+              <button onClick={adicionarItem} disabled={!novoItem.trim() || savingChecklist}
+                className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50">Adicionar</button>
+            </div>
+          </div>
+
+          {/* Participantes */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+              <Users className="w-4 h-4 text-blue-600" /> Participantes ({participantes.length})
+            </h3>
+
+            {loadingParticipantes ? (
+              <p className="text-xs text-gray-400">A carregar...</p>
+            ) : (
+              <div className="space-y-1.5 mb-3">
+                {participantes.length === 0 && <p className="text-xs text-gray-400">Nenhum participante registado</p>}
+                {participantes.map((p: any) => (
+                  <div key={p.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-900 truncate">
+                        {p.student ? `${p.student.firstName} ${p.student.lastName}` : p.nome}
+                      </p>
+                      {p.contacto && <p className="text-xs text-gray-400">{p.contacto}</p>}
+                    </div>
+                    <button onClick={() => marcarPresenca(p.id, !p.presente)}
+                      className={`text-xs px-2 py-1 rounded-full font-medium ${p.presente ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                      {p.presente ? 'Presente' : 'Marcar presença'}
+                    </button>
+                    <button onClick={() => removerParticipante(p.id)} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-2 border-t border-gray-100 pt-3">
+              <div>
+                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2">
+                  <Search className="w-4 h-4 text-gray-400" />
+                  <input value={studentSearch} onChange={e => setStudentSearch(e.target.value)}
+                    placeholder="Pesquisar atleta para adicionar..." className="flex-1 text-sm outline-none" />
+                </div>
+                {studentResults.length > 0 && (
+                  <div className="mt-1 border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-32 overflow-y-auto">
+                    {studentResults.map((s: any) => (
+                      <button key={s.id} type="button" onClick={() => adicionarParticipanteStudent(s.id)}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
+                        {s.firstName} {s.lastName}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input value={nomeManual} onChange={e => setNomeManual(e.target.value)} placeholder="Ou nome (visitante)..."
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
+                <input value={contactoManual} onChange={e => setContactoManual(e.target.value)} placeholder="Contacto"
+                  className="w-32 border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
+                <button onClick={adicionarParticipanteManual} disabled={!nomeManual.trim()}
+                  className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50">Adicionar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function EventosPage() {
   const [eventos, setEventos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [manageEvento, setManageEvento] = useState<any | null>(null);
   const [form, setForm] = useState({ nome:'', tipo:'OPEN_DAY', data:'', programa:'', capacidade:'', notas:'' });
 
   const load = async () => {
@@ -70,6 +260,10 @@ export default function EventosPage() {
                 </div>
               </div>
               <div className="px-5 pb-4 flex gap-2">
+                <button onClick={() => setManageEvento(e)}
+                  className="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 py-1.5 px-3 rounded-lg hover:bg-blue-100 font-medium">
+                  <ClipboardList className="w-3.5 h-3.5" /> Participantes
+                </button>
                 {e.estado === 'PLANEADO' && <button onClick={() => atualizar(e.id, 'REALIZADO')} className="flex-1 text-xs bg-green-100 text-green-700 py-1.5 rounded-lg hover:bg-green-200 font-medium">Marcar Realizado</button>}
                 {e.estado === 'PLANEADO' && <button onClick={() => atualizar(e.id, 'CANCELADO')} className="text-xs bg-red-100 text-red-600 py-1.5 px-3 rounded-lg hover:bg-red-200">Cancelar</button>}
               </div>
@@ -105,6 +299,10 @@ export default function EventosPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {manageEvento && (
+        <EventoManageModal evento={manageEvento} onClose={() => setManageEvento(null)} onSaved={load} />
       )}
     </div>
   );

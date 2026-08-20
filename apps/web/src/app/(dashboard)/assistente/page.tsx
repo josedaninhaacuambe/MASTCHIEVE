@@ -38,7 +38,6 @@ export default function AssistenteDashboardPage() {
     { href: '/relatorios-mensais', icon: FileBarChart, label: 'Relatórios Mensais', desc: 'Snapshot mensal agregado', color: 'from-purple-500 to-violet-600' },
     { href: '/rotina-diaria', icon: CalendarCheck, label: 'Rotina Diária', desc: 'Checklist de abertura e fecho', color: 'from-lime-500 to-green-600' },
   ];
-  ];
 
   return (
     <div className="space-y-6">

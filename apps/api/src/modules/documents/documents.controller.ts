@@ -1,6 +1,6 @@
 import {
-  Controller, Get, Post, Delete, Param, UseGuards,
-  UseInterceptors, UploadedFile, Body,
+  Controller, Get, Post, Put, Delete, Param, UseGuards,
+  UseInterceptors, UploadedFile, Body, Request,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -27,14 +27,14 @@ export class DocumentsController {
   constructor(private service: DocumentsService) {}
 
   @Get('students/:studentId')
-  @Roles('ADMIN', 'INSTRUCTOR')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Listar documentos do atleta' })
-  findByStudent(@Param('studentId') studentId: string) {
-    return this.service.findByStudent(studentId);
+  findByStudent(@Param('studentId') studentId: string, @Request() req: any) {
+    return this.service.findByStudent(studentId, req.user.role);
   }
 
   @Post('students/:studentId')
-  @Roles('ADMIN', 'INSTRUCTOR')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Fazer upload de documento' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file', { storage, limits: { fileSize: 10 * 1024 * 1024 } }))
@@ -42,14 +42,31 @@ export class DocumentsController {
     @Param('studentId') studentId: string,
     @UploadedFile() file: Express.Multer.File,
     @Body('type') type: string,
+    @Body('categoria') categoria: string,
+    @Body('unidadeId') unidadeId: string,
+    @Body('confidencial') confidencial: string,
+    @Body('retencaoAte') retencaoAte: string,
+    @Request() req: any,
   ) {
-    return this.service.create(studentId, file, type);
+    return this.service.create(studentId, file, type, req.user.id, {
+      categoria,
+      unidadeId,
+      confidencial: confidencial === 'true' || confidencial === '1',
+      retencaoAte,
+    });
+  }
+
+  @Put(':id/validar')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
+  @ApiOperation({ summary: 'Validar documento do atleta' })
+  validar(@Param('id') id: string, @Request() req: any) {
+    return this.service.validar(id, req.user.id);
   }
 
   @Delete(':id')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Remover documento' })
-  remove(@Param('id') id: string) {
-    return this.service.remove(id);
+  remove(@Param('id') id: string, @Request() req: any) {
+    return this.service.remove(id, req.user.id);
   }
 }

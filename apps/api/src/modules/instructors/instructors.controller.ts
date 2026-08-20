@@ -19,10 +19,10 @@ class NotifyDto {
 export class InstructorsController {
   constructor(private service: InstructorsService) {}
 
-  @Get() @Roles('ADMIN') @ApiOperation({ summary: 'Listar instrutores' })
+  @Get() @Roles('ADMIN', 'ASSISTENTE_ADMIN') @ApiOperation({ summary: 'Listar instrutores' })
   findAll(@Query() query: any) { return this.service.findAll(query); }
 
-  @Get(':id') @Roles('ADMIN') @ApiOperation({ summary: 'Detalhes do instrutor' })
+  @Get(':id') @Roles('ADMIN', 'ASSISTENTE_ADMIN') @ApiOperation({ summary: 'Detalhes do instrutor' })
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
 
   @Put(':id') @Roles('ADMIN', 'INSTRUCTOR') @ApiOperation({ summary: 'Atualizar instrutor' })

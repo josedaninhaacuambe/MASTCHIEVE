@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth.store';
-import { Plus, ClipboardCheck, Calendar, Users, ChevronRight } from 'lucide-react';
+import { Plus, ClipboardCheck, Calendar, Users, ChevronRight, AlertTriangle } from 'lucide-react';
 
 const ESTADO_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
   AGENDADA:     { label: 'Agendada',     bg: 'bg-blue-50',   text: 'text-blue-700' },
@@ -94,17 +94,19 @@ function SessaoCard({ s }: { s: any }) {
   const cfg = ESTADO_CONFIG[s.estado] ?? { label: s.estado, bg: 'bg-gray-50', text: 'text-gray-700' };
   const avaliados = s._count?.resultados ?? 0;
   const total = s.class?._count?.enrollments ?? 0;
+  const atrasada = s.estado === 'AGENDADA' && s.data && new Date(s.data) < new Date();
 
   return (
     <Link href={`/avaliacoes-agendadas/${s.id}`}
-      className="bg-white rounded-xl border border-gray-200 p-5 flex items-center gap-4 hover:border-indigo-300 hover:shadow-sm transition">
-      <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center flex-shrink-0">
-        <Calendar className="w-5 h-5 text-indigo-600" />
+      className={`bg-white rounded-xl border p-5 flex items-center gap-4 hover:shadow-sm transition ${atrasada ? 'border-red-200 hover:border-red-300' : 'border-gray-200 hover:border-indigo-300'}`}>
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${atrasada ? 'bg-red-50' : 'bg-indigo-50'}`}>
+        <Calendar className={`w-5 h-5 ${atrasada ? 'text-red-600' : 'text-indigo-600'}`} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-3 flex-wrap mb-1">
           <h3 className="font-semibold text-gray-900">{s.class?.name ?? '—'}</h3>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
+          {atrasada && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Atrasada</span>}
         </div>
         <div className="flex items-center gap-4 text-xs text-gray-500">
           <span>{s.data ? new Date(s.data).toLocaleDateString('pt-PT') : '—'}</span>
@@ -142,6 +144,8 @@ export default function AvaliacoesAgendadasPage() {
     setShowForm(true);
   };
 
+  const atrasadas = sessoes.filter((s: any) => s.estado === 'AGENDADA' && s.data && new Date(s.data) < new Date());
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -154,6 +158,16 @@ export default function AvaliacoesAgendadasPage() {
           <Plus className="w-4 h-4" /> Agendar Avaliação
         </button>
       </div>
+
+      {!loading && atrasadas.length > 0 && (
+        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+          <p className="text-sm text-red-700">
+            <span className="font-semibold">{atrasadas.length} avaliaç{atrasadas.length === 1 ? 'ão' : 'ões'} atrasada{atrasadas.length === 1 ? '' : 's'}</span>
+            {' '}— a data agendada já passou e a sessão continua por realizar.
+          </p>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-gray-400">A carregar...</div>

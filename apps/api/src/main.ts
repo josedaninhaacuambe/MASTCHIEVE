@@ -34,6 +34,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       frontendUrl,
+      'https://mastchieve.co.mz',
       'http://localhost:3000',
       'http://localhost:4300',
       'http://localhost:4390',

@@ -27,6 +27,15 @@ export class CreateClassDto {
   @ApiPropertyOptional() @IsOptional() @IsString() poolLane?: string;
 
   @ApiProperty() @IsUUID() instructorId: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsUUID() unidadeId?: string;
+}
+
+export class TransferStudentDto {
+  @ApiProperty() @IsUUID() studentId: string;
+  @ApiPropertyOptional() @IsOptional() @IsUUID() turmaOrigemId?: string;
+  @ApiProperty() @IsUUID() turmaDestinoId: string;
+  @ApiProperty() @IsString() @IsNotEmpty() motivo: string;
 }
 
 export class CreateSessionDto {

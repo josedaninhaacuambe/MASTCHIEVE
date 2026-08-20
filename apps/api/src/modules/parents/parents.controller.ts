@@ -16,11 +16,11 @@ export class ParentsController {
   findAll(@Query() query: any) { return this.service.findAll(query); }
 
   @Get('me') @Roles('PARENT') @ApiOperation({ summary: 'Perfil do encarregado autenticado' })
-  findMe(@Request() req: any) { return this.service.findMe(req.user.userId); }
+  findMe(@Request() req: any) { return this.service.findMe(req.user.id); }
 
   @Get('me/children/:studentId') @Roles('PARENT') @ApiOperation({ summary: 'Detalhe de um filho' })
   getChildDetail(@Request() req: any, @Param('studentId') studentId: string) {
-    return this.service.getChildDetail(req.user.userId, studentId);
+    return this.service.getChildDetail(req.user.id, studentId);
   }
 
   @Get(':id') @Roles('ADMIN') @ApiOperation({ summary: 'Detalhe de encarregado' })

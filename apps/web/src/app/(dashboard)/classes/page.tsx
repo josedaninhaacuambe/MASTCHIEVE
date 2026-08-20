@@ -17,7 +17,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 
 function CreateClassModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [form, setForm] = useState({
-    name: '', level: 'BEGINNER', maxStudents: 12, description: '', poolLane: '', instructorId: '',
+    name: '', level: 'BEGINNER', maxStudents: 12, description: '', poolLane: '', instructorId: '', unidadeId: '',
   });
 
   const { data: instructorsData } = useQuery({
@@ -25,8 +25,13 @@ function CreateClassModal({ onClose, onSuccess }: { onClose: () => void; onSucce
     queryFn: async () => { const { data } = await api.get('/instructors?limit=50'); return data.data ?? []; },
   });
 
+  const { data: unidadesData } = useQuery({
+    queryKey: ['unidades-select'],
+    queryFn: async () => { const { data } = await api.get('/unidades'); return data.data ?? data ?? []; },
+  });
+
   const mutation = useMutation({
-    mutationFn: () => api.post('/classes', form),
+    mutationFn: () => api.post('/classes', { ...form, unidadeId: form.unidadeId || undefined }),
     onSuccess: () => { toast.success('Turma criada', form.name); onSuccess(); onClose(); },
     onError: (e: any) => toast.error('Erro ao criar turma', e?.response?.data?.message),
   });
@@ -90,6 +95,19 @@ function CreateClassModal({ onClose, onSuccess }: { onClose: () => void; onSucce
               <option value="">Selecionar instrutor...</option>
               {(instructorsData ?? []).map((i: any) => (
                 <option key={i.id} value={i.id}>{i.firstName} {i.lastName}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Unidade</label>
+            <select
+              value={form.unidadeId}
+              onChange={(e) => setForm((f) => ({ ...f, unidadeId: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mastchieve-500"
+            >
+              <option value="">Selecionar unidade...</option>
+              {(unidadesData ?? []).map((u: any) => (
+                <option key={u.id} value={u.id}>{u.nome}</option>
               ))}
             </select>
           </div>

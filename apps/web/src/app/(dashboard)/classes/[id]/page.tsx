@@ -10,6 +10,7 @@ import {
   BookOpen, Users, ArrowLeft, Edit2, Plus, X, Check,
   Calendar, Clock, ChevronRight, Search, UserMinus,
   ClipboardList, BarChart3, Waves, AlertCircle, Save,
+  ArrowRightLeft, FileDown,
 } from 'lucide-react';
 
 const LEVEL_OPTIONS = ['BEGINNER', 'ELEMENTARY', 'INTERMEDIATE', 'ADVANCED', 'COMPETITIVE'];
@@ -29,6 +30,7 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
     poolLane: cls.poolLane ?? '',
     description: cls.description ?? '',
     instructorId: cls.instructor?.id ?? '',
+    unidadeId: cls.unidadeId ?? '',
   });
   const [schedules, setSchedules] = useState<{ day: string; startTime: string; endTime: string }[]>(
     cls.schedules ?? []
@@ -40,8 +42,14 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
     staleTime: 300_000,
   });
 
+  const { data: unidadesData } = useQuery({
+    queryKey: ['unidades-select'],
+    queryFn: async () => { const { data } = await api.get('/unidades'); return data.data ?? data ?? []; },
+    staleTime: 300_000,
+  });
+
   const mutation = useMutation({
-    mutationFn: () => api.put(`/classes/${cls.id}`, { ...form, schedules }),
+    mutationFn: () => api.put(`/classes/${cls.id}`, { ...form, unidadeId: form.unidadeId || undefined, schedules }),
     onSuccess: () => { toast.success('Turma actualizada'); onSave(); },
     onError: (e: any) => toast.error('Erro ao actualizar', e?.response?.data?.message),
   });
@@ -106,6 +114,16 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
             <option value="">Selecionar instrutor...</option>
             {(instructorsData ?? []).map((i: any) => (
               <option key={i.id} value={i.id}>{i.firstName} {i.lastName}</option>
+            ))}
+          </select>
+        </div>
+        <div className="col-span-2">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Unidade</label>
+          <select value={form.unidadeId} onChange={(e) => setForm((f) => ({ ...f, unidadeId: e.target.value }))}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+            <option value="">Selecionar unidade...</option>
+            {(unidadesData ?? []).map((u: any) => (
+              <option key={u.id} value={u.id}>{u.nome}</option>
             ))}
           </select>
         </div>
@@ -213,6 +231,76 @@ function AddStudentModal({ classId, enrolled, onClose, onSuccess }: {
   );
 }
 
+// ─── Transfer Student Modal ───────────────────────────────────────────────────
+function TransferStudentModal({ classId, enrolled, onClose, onSuccess }: {
+  classId: string; enrolled: any[]; onClose: () => void; onSuccess: () => void;
+}) {
+  const [studentId, setStudentId] = useState('');
+  const [turmaDestinoId, setTurmaDestinoId] = useState('');
+  const [motivo, setMotivo] = useState('');
+
+  const { data: classesData } = useQuery({
+    queryKey: ['classes-transfer-target'],
+    queryFn: async () => { const { data } = await api.get('/classes?limit=100'); return data.data ?? []; },
+    staleTime: 30_000,
+  });
+
+  const destinos = (classesData ?? []).filter((c: any) => c.id !== classId);
+
+  const mutation = useMutation({
+    mutationFn: () => api.post('/classes/transfer', { studentId, turmaOrigemId: classId, turmaDestinoId, motivo }),
+    onSuccess: () => { toast.success('Atleta transferido'); onSuccess(); onClose(); },
+    onError: (e: any) => toast.error('Erro ao transferir', e?.response?.data?.message),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-semibold text-gray-900">Transferir atleta</h2>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Atleta</label>
+            <select value={studentId} onChange={(e) => setStudentId(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+              <option value="">Selecionar atleta...</option>
+              {enrolled.map((e: any) => (
+                <option key={e.student?.id} value={e.student?.id}>{e.student?.firstName} {e.student?.lastName}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Turma de destino</label>
+            <select value={turmaDestinoId} onChange={(e) => setTurmaDestinoId(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+              <option value="">Selecionar turma...</option>
+              {destinos.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Motivo</label>
+            <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
+              placeholder="Ex: Mudança de nível, pedido do encarregado..."
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none" />
+          </div>
+        </div>
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 border border-gray-200 py-2.5 rounded-xl text-sm hover:bg-gray-50 transition">Cancelar</button>
+          <button onClick={() => mutation.mutate()} disabled={!studentId || !turmaDestinoId || !motivo || mutation.isPending}
+            className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition">
+            {mutation.isPending ? 'A transferir...' : 'Transferir'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Create Session Modal ─────────────────────────────────────────────────────
 function CreateSessionModal({ classId, onClose, onSuccess }: {
   classId: string; onClose: () => void; onSuccess: () => void;
@@ -283,6 +371,20 @@ function CreateSessionModal({ classId, onClose, onSuccess }: {
   );
 }
 
+async function exportRosterPdf(classId: string, filenameHint: string) {
+  try {
+    const resp = await api.get(`/classes/${classId}/roster/export`, { responseType: 'blob' });
+    const url = URL.createObjectURL(new Blob([resp.data], { type: 'application/pdf' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lista-turma-${filenameHint}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    toast.error('Erro ao exportar lista');
+  }
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ClassDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -292,6 +394,7 @@ export default function ClassDetailPage() {
   const [editing, setEditing] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [showCreateSession, setShowCreateSession] = useState(false);
+  const [showTransferStudent, setShowTransferStudent] = useState(false);
 
   const { data: cls, isLoading } = useQuery({
     queryKey: ['class-detail', id],
@@ -342,6 +445,11 @@ export default function ClassDetailPage() {
       {showCreateSession && (
         <CreateSessionModal classId={id}
           onClose={() => setShowCreateSession(false)}
+          onSuccess={() => qc.invalidateQueries({ queryKey: ['class-detail', id] })} />
+      )}
+      {showTransferStudent && (
+        <TransferStudentModal classId={id} enrolled={enrolled}
+          onClose={() => setShowTransferStudent(false)}
           onSuccess={() => qc.invalidateQueries({ queryKey: ['class-detail', id] })} />
       )}
 
@@ -490,10 +598,22 @@ export default function ClassDetailPage() {
         <div className="bg-white border border-gray-200 rounded-2xl">
           <div className="flex items-center justify-between p-5 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-900">Atletas inscritos</h3>
-            <button onClick={() => setShowAddStudent(true)}
-              className="flex items-center gap-1.5 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-xl hover:bg-blue-700 transition">
-              <Plus className="w-3.5 h-3.5" /> Inscrever atleta
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => exportRosterPdf(id, cls.name)}
+                className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-xs px-3 py-1.5 rounded-xl hover:bg-gray-50 transition">
+                <FileDown className="w-3.5 h-3.5" /> Exportar Lista
+              </button>
+              {enrolled.length > 0 && (
+                <button onClick={() => setShowTransferStudent(true)}
+                  className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-xs px-3 py-1.5 rounded-xl hover:bg-gray-50 transition">
+                  <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir Aluno
+                </button>
+              )}
+              <button onClick={() => setShowAddStudent(true)}
+                className="flex items-center gap-1.5 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-xl hover:bg-blue-700 transition">
+                <Plus className="w-3.5 h-3.5" /> Inscrever atleta
+              </button>
+            </div>
           </div>
           {enrolled.length === 0 ? (
             <div className="py-12 text-center text-gray-400">

@@ -30,17 +30,31 @@ export class StudentsController {
   }
 
   @Get()
-  @Roles('ADMIN', 'INSTRUCTOR')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Listar atletas' })
   findAll(@Query() query: StudentQueryDto) {
     return this.studentsService.findAll(query);
   }
 
+  @Get('check-duplicate')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
+  @ApiOperation({ summary: 'Verificar possível duplicado por nome + data de nascimento (aviso não-bloqueante)' })
+  checkDuplicate(@Query('firstName') firstName: string, @Query('lastName') lastName: string, @Query('dateOfBirth') dateOfBirth: string) {
+    return this.studentsService.checkDuplicate(firstName, lastName, dateOfBirth);
+  }
+
   @Get(':id')
-  @Roles('ADMIN', 'INSTRUCTOR')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Obter atleta por ID' })
   findOne(@Param('id') id: string) {
     return this.studentsService.findOne(id);
+  }
+
+  @Get(':id/checklist')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
+  @ApiOperation({ summary: 'Checklist de documentos obrigatórios de inscrição' })
+  getChecklist(@Param('id') id: string) {
+    return this.studentsService.getChecklist(id);
   }
 
   @Get(':id/report')
@@ -89,23 +103,23 @@ export class StudentsController {
   }
 
   @Post()
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Criar atleta' })
-  create(@Body() dto: CreateStudentDto) {
-    return this.studentsService.create(dto);
+  create(@Body() dto: CreateStudentDto, @CurrentUser('id') userId: string) {
+    return this.studentsService.create(dto, userId);
   }
 
   @Put(':id')
-  @Roles('ADMIN', 'INSTRUCTOR')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Atualizar atleta' })
-  update(@Param('id') id: string, @Body() dto: UpdateStudentDto) {
-    return this.studentsService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateStudentDto, @CurrentUser('id') userId: string) {
+    return this.studentsService.update(id, dto, userId);
   }
 
   @Delete(':id')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Desativar atleta' })
-  deactivate(@Param('id') id: string) {
-    return this.studentsService.deactivate(id);
+  deactivate(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.studentsService.deactivate(id, userId);
   }
 }

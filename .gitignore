@@ -8,6 +8,8 @@ dist/
 .next/
 out/
 build/
+*.tsbuildinfo
+*.tar.gz
 
 # Environment (nunca commitar .env com credenciais)
 .env

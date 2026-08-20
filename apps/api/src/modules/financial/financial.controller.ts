@@ -22,20 +22,27 @@ export class FinancialController {
   }
 
   @Get('payments')
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Listar pagamentos' })
   getPayments(@Query() query: any) { return this.service.getPayments(query); }
 
   @Post('payments')
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Criar pagamento' })
-  createPayment(@Body() dto: any) { return this.service.createPayment(dto); }
+  createPayment(@Body() dto: any, @CurrentUser('id') userId: string) { return this.service.createPayment(dto, userId); }
 
   @Patch('payments/:id/pay')
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Marcar pagamento como pago' })
-  markAsPaid(@Param('id') id: string, @Body('method') method: string) {
-    return this.service.markAsPaid(id, method);
+  markAsPaid(@Param('id') id: string, @Body('method') method: string, @CurrentUser('id') userId: string) {
+    return this.service.markAsPaid(id, method, userId);
+  }
+
+  @Patch('payments/:id/isencao')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Conceder isenção de pagamento (segregação de funções — apenas ADMIN)' })
+  grantIsencao(@Param('id') id: string, @Body('motivo') motivo: string, @CurrentUser('id') userId: string) {
+    return this.service.grantIsencao(id, motivo, userId);
   }
 
   @Post('monthly-fees/generate')
@@ -43,6 +50,33 @@ export class FinancialController {
   @ApiOperation({ summary: 'Gerar mensalidades para todos os atletas ativos' })
   generateMonthlyFees(@Body() body: { month: number; year: number; amount: number }) {
     return this.service.generateMonthlyFees(body.month, body.year, body.amount);
+  }
+
+  @Post('monthly-fees/student/:studentId')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN')
+  @ApiOperation({ summary: 'Gerar mensalidade para um atleta específico' })
+  createMonthlyFeeForStudent(
+    @Param('studentId') studentId: string,
+    @Body() body: { month: number; year: number; amount: number },
+  ) {
+    return this.service.createMonthlyFeeForStudent(studentId, body.month, body.year, body.amount);
+  }
+
+  @Get('caixa')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN')
+  @ApiOperation({ summary: 'Listar conferências de caixa' })
+  listCashCounts(@Query('unidadeId') unidadeId?: string) {
+    return this.service.listCashCounts(unidadeId);
+  }
+
+  @Post('caixa')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN')
+  @ApiOperation({ summary: 'Registar conferência de caixa' })
+  registerCashCount(
+    @Body() body: { unidadeId?: string; data?: string; valorContado: number; observacoes?: string },
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.service.registerCashCount(body, userId);
   }
 
   @Get('summary')
@@ -53,7 +87,7 @@ export class FinancialController {
   }
 
   @Get('students/:studentId/balance')
-  @Roles('ADMIN', 'INSTRUCTOR')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Saldo do atleta' })
   getStudentBalance(@Param('studentId') studentId: string) {
     return this.service.getStudentBalance(studentId);

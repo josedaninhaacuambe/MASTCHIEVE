@@ -9,6 +9,7 @@ export type AppRole =
   | 'MANAGER'
   | 'VISITOR'
   | 'GESTOR_RH'
-  | 'SUPER_ADMIN';
+  | 'SUPER_ADMIN'
+  | 'ASSISTENTE_ADMIN';
 export const ROLES_KEY = 'roles';
 export const Roles = (...roles: AppRole[]) => SetMetadata(ROLES_KEY, roles);

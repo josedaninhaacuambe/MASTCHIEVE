@@ -13,5 +13,5 @@ export class CertificadosController {
   @Get() findAll(@Query() q: any) { return this.svc.findAll(q); }
   @Get(':id') findOne(@Param('id') id: string) { return this.svc.findOne(id); }
   @Get('atleta/:studentId') findByAtleta(@Param('studentId') id: string) { return this.svc.findByAtleta(id); }
-  @Post() create(@Body() body: any, @Request() req: any) { return this.svc.create(body, req.user.userId); }
+  @Post() create(@Body() body: any, @Request() req: any) { return this.svc.create(body, req.user.id); }
 }

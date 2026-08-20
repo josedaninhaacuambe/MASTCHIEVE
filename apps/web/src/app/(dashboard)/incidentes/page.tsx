@@ -5,6 +5,7 @@ import { Plus, AlertTriangle, CheckCircle, ShieldAlert, Zap } from 'lucide-react
 
 const TIPOS = ['ACIDENTE_MENOR','ACIDENTE_GRAVE','NEAR_MISS','COMPORTAMENTO','EQUIPAMENTO','INSTALACOES','OUTRO'];
 const DIMENSOES = ['FISICA','OPERACIONAL','EMOCIONAL','PEDAGOGICA'];
+const GRAVIDADES = ['BAIXA','MEDIA','ALTA','CRITICA'];
 const ESTADOS_CORES: Record<string, string> = {
   REPORTADO:'bg-red-100 text-red-700',
   EM_INVESTIGACAO:'bg-yellow-100 text-yellow-700',
@@ -17,6 +18,12 @@ const DIM_CORES: Record<string, string> = {
   EMOCIONAL:'bg-purple-100 text-purple-700',
   PEDAGOGICA:'bg-green-100 text-green-700',
 };
+const GRAVIDADE_CORES: Record<string, string> = {
+  BAIXA:'bg-green-100 text-green-700',
+  MEDIA:'bg-yellow-100 text-yellow-700',
+  ALTA:'bg-orange-100 text-orange-700',
+  CRITICA:'bg-red-100 text-red-700',
+};
 
 export default function IncidentesPage() {
   const [incidentes, setIncidentes] = useState<any[]>([]);
@@ -25,10 +32,13 @@ export default function IncidentesPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [relampagoConfirm, setRelampagoConfirm] = useState(false);
+  const [testemunhaInput, setTestemunhaInput] = useState('');
   const [form, setForm] = useState({
     tipo: 'ACIDENTE_MENOR',
     tipoOcorrencia: 'INCIDENTE_CONFIRMADO',
+    gravidade: 'BAIXA',
     dimensoes: [] as string[],
+    testemunhas: [] as string[],
     protocoloId: '',
     descricao: '',
     acaoImediata: '',
@@ -51,7 +61,8 @@ export default function IncidentesPage() {
   const salvar = async () => {
     await api.post('/incidentes', form);
     setShowForm(false);
-    setForm({ tipo:'ACIDENTE_MENOR', tipoOcorrencia:'INCIDENTE_CONFIRMADO', dimensoes:[], protocoloId:'', descricao:'', acaoImediata:'', envolvidos:'[]' });
+    setForm({ tipo:'ACIDENTE_MENOR', tipoOcorrencia:'INCIDENTE_CONFIRMADO', gravidade:'BAIXA', dimensoes:[], testemunhas:[], protocoloId:'', descricao:'', acaoImediata:'', envolvidos:'[]' });
+    setTestemunhaInput('');
     load();
   };
 
@@ -74,6 +85,17 @@ export default function IncidentesPage() {
   };
 
   const parseDims = (json: string): string[] => { try { return JSON.parse(json || '[]'); } catch { return []; } };
+
+  const addTestemunha = () => {
+    const nome = testemunhaInput.trim();
+    if (!nome) return;
+    setForm(f => ({ ...f, testemunhas: [...f.testemunhas, nome] }));
+    setTestemunhaInput('');
+  };
+
+  const removeTestemunha = (idx: number) => {
+    setForm(f => ({ ...f, testemunhas: f.testemunhas.filter((_, i) => i !== idx) }));
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -143,6 +165,7 @@ export default function IncidentesPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${GRAVIDADE_CORES[i.gravidade] ?? 'bg-gray-100 text-gray-600'}`}>{i.gravidade ?? 'BAIXA'}</span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${ESTADOS_CORES[i.estado]}`}>{i.estado}</span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${i.tipoOcorrencia === 'QUASE_INCIDENTE' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
                         {i.tipoOcorrencia === 'QUASE_INCIDENTE' ? '⚠ Quase-incidente' : i.tipo.replace(/_/g, ' ')}
@@ -160,6 +183,9 @@ export default function IncidentesPage() {
                     </div>
                     <p className="text-sm text-gray-800 font-medium mb-1">{i.descricao}</p>
                     <p className="text-sm text-gray-500"><strong>Ação imediata:</strong> {i.acaoImediata}</p>
+                    {parseDims(i.testemunhas).length > 0 && (
+                      <p className="text-sm text-gray-500 mt-1"><strong>Testemunhas:</strong> {parseDims(i.testemunhas).join(', ')}</p>
+                    )}
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
                     {i.estado === 'REPORTADO' && <button onClick={() => atualizar(i.id, 'EM_INVESTIGACAO')} className="text-xs bg-yellow-100 text-yellow-700 px-3 py-1.5 rounded-lg hover:bg-yellow-200">Investigar</button>}
@@ -220,6 +246,19 @@ export default function IncidentesPage() {
               </div>
             </div>
 
+            {/* Gravidade */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Gravidade*</label>
+              <div className="flex gap-2">
+                {GRAVIDADES.map(g => (
+                  <button key={g} onClick={() => setForm(f => ({ ...f, gravidade: g }))}
+                    className={`flex-1 py-2 px-3 rounded-lg border-2 text-xs font-bold transition-all ${form.gravidade === g ? GRAVIDADE_CORES[g] + ' border-current' : 'border-gray-200 text-gray-500'}`}>
+                    {g}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Dimensões */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Dimensão(ões) de risco* <span className="text-xs font-normal text-gray-400">(selecionar pelo menos uma)</span></label>
@@ -260,6 +299,26 @@ export default function IncidentesPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Ação imediata tomada*</label>
               <textarea value={form.acaoImediata} onChange={e => setForm(f => ({ ...f, acaoImediata: e.target.value }))} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Testemunhas</label>
+              <div className="flex gap-2">
+                <input value={testemunhaInput} onChange={e => setTestemunhaInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTestemunha(); } }}
+                  placeholder="Nome da testemunha" className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                <button onClick={addTestemunha} className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200">Adicionar</button>
+              </div>
+              {form.testemunhas.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {form.testemunhas.map((t, idx) => (
+                    <li key={idx} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-1.5 text-sm text-gray-700">
+                      {t}
+                      <button onClick={() => removeTestemunha(idx)} className="text-xs text-red-500 hover:text-red-700">Remover</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
             <div className="flex gap-3 pt-2">
               <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
               <button onClick={salvar} disabled={!form.descricao || !form.acaoImediata || form.dimensoes.length === 0}

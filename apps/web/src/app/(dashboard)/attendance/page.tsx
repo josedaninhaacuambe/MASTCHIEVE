@@ -7,7 +7,7 @@ import { toast } from '@/lib/toast';
 import { getInitials, formatDate, cn } from '@/lib/utils';
 import {
   ClipboardList, ChevronRight, CheckCircle, XCircle, Clock, AlertCircle,
-  Save, Plus, CalendarDays, ChevronLeft, Users, Activity, TrendingUp, BarChart3,
+  Save, Plus, CalendarDays, ChevronLeft, Users, Activity, TrendingUp, BarChart3, FileDown,
 } from 'lucide-react';
 
 type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
@@ -45,6 +45,20 @@ function rateTextColor(rate: number | null) {
   if (rate >= 80) return 'text-green-600';
   if (rate >= 60) return 'text-amber-600';
   return 'text-red-600';
+}
+
+async function exportSessionPdf(sessionId: string, filenameHint: string) {
+  try {
+    const resp = await api.get(`/attendance/sessions/${sessionId}/export`, { responseType: 'blob' });
+    const url = URL.createObjectURL(new Blob([resp.data], { type: 'application/pdf' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lista-presencas-${filenameHint}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    toast.error('Erro ao exportar lista');
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -211,6 +225,12 @@ function Step3({ cls, session, onBack }: { cls: any; session: any; onBack: () =>
           <p className="text-sm text-gray-500">{formatDate(session.sessionDate)} — {students.length} atletas</p>
         </div>
         {saved && <span className="flex items-center gap-1 text-sm text-green-600 font-medium"><CheckCircle className="w-4 h-4" /> Guardado</span>}
+        <button
+          onClick={() => exportSessionPdf(session.id, session.sessionDate?.split('T')[0] ?? session.id)}
+          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-mastchieve-600 hover:bg-mastchieve-50 px-2.5 py-1.5 rounded-lg transition border border-gray-200"
+        >
+          <FileDown className="w-3.5 h-3.5" /> Exportar Lista
+        </button>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
@@ -477,11 +497,18 @@ function CalendarioTab({ onMarkSession }: { onMarkSession: (cls: any, session: a
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => onMarkSession(classDetail, session)}
-                  className="flex-shrink-0 text-xs bg-mastchieve-50 text-mastchieve-700 hover:bg-mastchieve-100 px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1">
-                  <ClipboardList className="w-3.5 h-3.5" /> Marcar
-                </button>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => exportSessionPdf(session.id, session.sessionDate?.split('T')[0] ?? session.id)}
+                    className="text-xs bg-gray-50 text-gray-600 hover:bg-gray-100 px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1">
+                    <FileDown className="w-3.5 h-3.5" /> Exportar
+                  </button>
+                  <button
+                    onClick={() => onMarkSession(classDetail, session)}
+                    className="text-xs bg-mastchieve-50 text-mastchieve-700 hover:bg-mastchieve-100 px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1">
+                    <ClipboardList className="w-3.5 h-3.5" /> Marcar
+                  </button>
+                </div>
               </div>
             );
           })}

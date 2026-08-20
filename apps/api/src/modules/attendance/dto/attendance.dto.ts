@@ -1,4 +1,4 @@
-import { IsArray, IsEnum, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator';
+import { IsArray, IsEnum, IsInt, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -21,4 +21,19 @@ export class BulkAttendanceDto {
   @ValidateNested({ each: true })
   @Type(() => AttendanceRecordDto)
   records: AttendanceRecordDto[];
+}
+
+export enum MeioContacto {
+  TELEFONE = 'TELEFONE',
+  WHATSAPP = 'WHATSAPP',
+  EMAIL = 'EMAIL',
+  PRESENCIAL = 'PRESENCIAL',
+}
+
+export class CreateContactoFaltaDto {
+  @ApiProperty() @IsUUID() studentId: string;
+  @ApiProperty() @IsString() motivo: string;
+  @ApiProperty() @IsInt() @Min(1) faltasConsecutivas: number;
+  @ApiProperty({ enum: MeioContacto }) @IsEnum(MeioContacto) meioContacto: MeioContacto;
+  @ApiPropertyOptional() @IsOptional() @IsString() resultado?: string;
 }

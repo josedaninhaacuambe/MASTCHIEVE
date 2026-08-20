@@ -5,7 +5,7 @@ import api from '@/lib/api';
 interface User {
   id: string;
   email: string;
-  role: 'ADMIN' | 'INSTRUCTOR' | 'STUDENT' | 'PARENT' | 'FINANCIAL' | 'MANAGER' | 'VISITOR' | 'GESTOR_RH' | 'SUPER_ADMIN';
+  role: 'ADMIN' | 'INSTRUCTOR' | 'STUDENT' | 'PARENT' | 'FINANCIAL' | 'MANAGER' | 'VISITOR' | 'GESTOR_RH' | 'SUPER_ADMIN' | 'ASSISTENTE_ADMIN';
   profile?: any;
 }
 

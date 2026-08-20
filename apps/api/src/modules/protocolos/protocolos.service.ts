@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma/prisma.service';
+import { AuditService } from '../../common/audit/audit.service';
 
 const SEED_PROTOCOLOS = [
   {
@@ -276,7 +277,7 @@ const SEED_PROTOCOLOS = [
 
 @Injectable()
 export class ProtocolosService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private audit: AuditService) {}
 
   async findAll() {
     const count = await this.prisma.protocolo.count();
@@ -293,9 +294,16 @@ export class ProtocolosService {
     return p;
   }
 
-  async update(id: string, data: any) {
-    await this.findOne(id);
-    return this.prisma.protocolo.update({ where: { id }, data });
+  async update(id: string, data: any, actorUserId?: string) {
+    const existing = await this.findOne(id);
+    const updated = await this.prisma.protocolo.update({ where: { id }, data });
+    if (actorUserId) {
+      await this.audit.log({
+        userId: actorUserId, action: 'PROTOCOLO_ATUALIZADO', entity: 'Protocolo', entityId: id,
+        oldValues: { nome: existing.nome }, newValues: { nome: updated.nome },
+      });
+    }
+    return updated;
   }
 
   async stats() {
@@ -325,13 +333,24 @@ export class ProtocolosService {
     if (!instructor) throw new BadRequestException('Utilizador não tem perfil de instrutor');
     const protocolo = await this.findOne(data.protocoloId);
     const items = JSON.parse(protocolo.checklistItems as string).map((texto: string) => ({ texto, checked: false }));
-    return this.prisma.checklistProtocolo.create({
+    const checklist = await this.prisma.checklistProtocolo.create({
       data: { ...data, instrutorId: instructor.id, items: JSON.stringify(items) },
     });
+    await this.audit.log({
+      userId, action: 'CHECKLIST_PROTOCOLO_CRIADA', entity: 'ChecklistProtocolo', entityId: checklist.id,
+      newValues: { protocoloId: data.protocoloId },
+    });
+    return checklist;
   }
 
-  async updateChecklist(id: string, data: any) {
-    return this.prisma.checklistProtocolo.update({ where: { id }, data });
+  async updateChecklist(id: string, data: any, actorUserId?: string) {
+    const updated = await this.prisma.checklistProtocolo.update({ where: { id }, data });
+    if (actorUserId) {
+      await this.audit.log({
+        userId: actorUserId, action: 'CHECKLIST_PROTOCOLO_ATUALIZADA', entity: 'ChecklistProtocolo', entityId: id,
+      });
+    }
+    return updated;
   }
 
   async findChecklists(query: any = {}) {

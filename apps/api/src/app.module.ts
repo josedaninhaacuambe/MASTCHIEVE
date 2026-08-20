@@ -35,7 +35,10 @@ import { EmailModule } from './modules/email/email.module';
 import { ParentsModule } from './modules/parents/parents.module';
 import { TrainingPlansModule } from './modules/training-plans/training-plans.module';
 import { RecursosHumanosModule } from './modules/recursos-humanos/recursos-humanos.module';
+import { AdministrativoModule } from './modules/administrativo/administrativo.module';
 import { RedisModule } from './common/redis/redis.module';
+import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
+import { LinkPartilhaModule } from './modules/link-partilha/link-partilha.module';
 
 @Module({
   imports: [
@@ -110,6 +113,9 @@ import { RedisModule } from './common/redis/redis.module';
     ProtocolosModule,
     SegurancaModule,
     RecursosHumanosModule,
+    AdministrativoModule,
+    WhatsappModule,
+    LinkPartilhaModule,
   ],
 })
 export class AppModule {}
