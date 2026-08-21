@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../config/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { CreateFuncionarioDto } from './dto/create-funcionario.dto';
@@ -9,7 +9,7 @@ import { ConfigurarPermissoesDto } from './dto/configurar-permissoes.dto';
 export class FuncionariosService {
   constructor(private prisma: PrismaService, private audit: AuditService) {}
 
-  private static readonly CLEARED_FOR_SALARIO = ['GESTOR_RH', 'SUPER_ADMIN'];
+  private static readonly CLEARED_FOR_SALARIO = ['GESTOR_RH', 'SUPER_ADMIN', 'ADMIN'];
 
   private maskSalario<T extends { salarioBase?: any; contratos?: { salarioBase?: any }[] }>(
     funcionario: T,
@@ -145,7 +145,10 @@ export class FuncionariosService {
     });
   }
 
-  async configurarPermissoes(id: string, dto: ConfigurarPermissoesDto, actorUserId: string) {
+  async configurarPermissoes(id: string, dto: ConfigurarPermissoesDto, actorUserId: string, actorRole?: string) {
+    if (dto.role === 'SUPER_ADMIN' && actorRole !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Apenas o Super Admin pode atribuir o papel de Super Admin');
+    }
     const funcionario = await this.findOne(id);
     await this.prisma.user.update({ where: { id: funcionario.userId }, data: { role: dto.role } });
     await this.audit.log({

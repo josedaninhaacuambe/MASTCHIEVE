@@ -90,7 +90,28 @@ export class StudentsService {
     });
   }
 
-  async findAll(query: any) {
+  private async resolveUnidadeIdsDoUsuario(userId?: string, role?: string): Promise<string[] | null> {
+    if (!userId || role === 'ADMIN' || role === 'SUPER_ADMIN') return null;
+
+    const funcionario = await this.prisma.funcionario.findUnique({
+      where: { userId },
+      select: { unidadeId: true },
+    });
+    if (funcionario?.unidadeId) return [funcionario.unidadeId];
+
+    if (role === 'INSTRUCTOR') {
+      const instructor = await this.prisma.instructor.findUnique({
+        where: { userId },
+        select: { unidades: { select: { unidadeId: true } } },
+      });
+      const ids = instructor?.unidades.map((u) => u.unidadeId) ?? [];
+      if (ids.length > 0) return ids;
+    }
+
+    return null;
+  }
+
+  async findAll(query: any, userId?: string, role?: string) {
     const page = Math.max(1, parseInt(query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(query.limit) || 20));
     const skip = (page - 1) * limit;
@@ -108,6 +129,9 @@ export class StudentsService {
     if (classId) {
       where.enrollments = { some: { classId, isActive: true } };
     }
+
+    const unidadeIds = await this.resolveUnidadeIdsDoUsuario(userId, role);
+    if (unidadeIds) where.unidadeId = { in: unidadeIds };
 
     const [data, total] = await Promise.all([
       this.prisma.student.findMany({
@@ -355,20 +379,20 @@ export class StudentsService {
         },
       });
       const contacto = studentComContacto ? resolveContactoAtleta(studentComContacto) : { telefone: null, viaEncarregado: false };
+      const links = await this.prisma.linkPartilha.findMany({ orderBy: { chave: 'asc' } });
+      const nomeCompleto = `${dto.firstName} ${dto.lastName}`.trim();
+      const suporte = studentComContacto?.unidade?.contacto || studentComContacto?.unidade?.email;
+      const appUrl = process.env.APP_URL ?? 'http://localhost:4300';
 
       if (contacto.telefone) {
-        const videoInducao = await this.prisma.linkPartilha.findUnique({ where: { chave: 'VIDEO_INDUCAO' } });
-        const nomeCompleto = `${dto.firstName} ${dto.lastName}`.trim();
-        const suporte = studentComContacto?.unidade?.contacto || studentComContacto?.unidade?.email;
-        const appUrl = process.env.APP_URL ?? 'http://localhost:4300';
         const saudacao = contacto.viaEncarregado
           ? `Olá${contacto.nomeEncarregado ? `, ${contacto.nomeEncarregado}` : ''}! Em nome de ${nomeCompleto}, bem-vindo(a) à Mastchieve! 🏊`
           : `Olá! Bem-vindo(a) à Mastchieve, ${nomeCompleto}! 🏊`;
 
         const mensagem = [
           saudacao,
-          'Aqui tens o vídeo de indução com tudo sobre como funciona a nossa academia:',
-          videoInducao?.url,
+          'Aqui tens toda a informação sobre como funciona a nossa academia:',
+          ...links.map((l) => `${l.label}: ${l.url}`),
           '',
           'Horário de funcionamento: Segunda a Sábado, 06h00–20h00.',
           `Acede à tua área de atleta em: ${appUrl}/login`,
@@ -381,6 +405,11 @@ export class StudentsService {
           mensagem,
           studentId: user.student.id,
         });
+      }
+
+      const { email: contactEmail } = await this.getContactEmail(user.student.id);
+      if (contactEmail) {
+        await this.email.sendBoasVindasAtleta(contactEmail, nomeCompleto, nomeCompleto, links, suporte);
       }
     }
 

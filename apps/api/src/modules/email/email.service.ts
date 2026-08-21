@@ -190,6 +190,58 @@ export class EmailService {
     this.logger.log(`Welcome email sent to ${to}`);
   }
 
+  async sendBoasVindasAtleta(
+    to: string,
+    nomeContacto: string,
+    nomeCompleto: string,
+    links: { label: string; url: string }[],
+    suporte?: string | null,
+  ) {
+    if (!process.env.SMTP_USER || process.env.SMTP_USER === 'noreply@mastchieve.com') {
+      this.logger.warn(`[EMAIL SKIPPED] Boas-vindas atleta to ${to} — SMTP not configured`);
+      return;
+    }
+    const appUrl = process.env.APP_URL ?? 'http://localhost:4300';
+    const linksHtml = links
+      .map(
+        (l) => `
+        <a href="${escapeHtml(l.url)}"
+           style="display: block; background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 18px; margin-bottom: 10px; text-decoration: none; color: #1A3A9C; font-weight: 600; font-size: 14px;">
+          ${escapeHtml(l.label)} →
+        </a>`,
+      )
+      .join('');
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
+      to,
+      subject: `🌊 Bem-vindo(a) à Mastchieve, ${nomeCompleto}!`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #0F1F5C 0%, #1A56DB 100%); padding: 40px 32px; border-radius: 12px 12px 0 0; text-align: center;">
+            <div style="width: 64px; height: 64px; background: rgba(255,255,255,0.2); border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+              🌊
+            </div>
+            <h1 style="color: white; margin: 0; font-size: 26px;">Mastchieve</h1>
+            <p style="color: rgba(255,255,255,0.6); margin: 8px 0 0; font-size: 14px;">Plataforma de Natação com IA</p>
+          </div>
+          <div style="padding: 32px; background: #f9fafb; border-radius: 0 0 12px 12px;">
+            <h2 style="color: #111827; margin-top: 0;">Bem-vindo(a), ${escapeHtml(nomeContacto)}! 👋</h2>
+            <p style="color: #6b7280;">A inscrição de <strong>${escapeHtml(nomeCompleto)}</strong> na Mastchieve foi concluída com sucesso.</p>
+            <p style="color: #6b7280;">Reunimos aqui tudo o que precisas de saber sobre a nossa academia:</p>
+            <div style="margin: 20px 0;">${linksHtml}</div>
+            <a href="${appUrl}/login"
+               style="display: inline-block; background: linear-gradient(135deg, #1A3A9C, #1A56DB); color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 8px;">
+              Aceder à plataforma
+            </a>
+            <p style="color: #6b7280; font-size: 14px; margin-top: 24px;">Horário de funcionamento: Segunda a Sábado, 06h00–20h00.</p>
+            ${suporte ? `<p style="color: #6b7280; font-size: 14px;">Qualquer dúvida, contacta-nos: ${escapeHtml(suporte)}</p>` : ''}
+          </div>
+        </div>
+      `,
+    });
+    this.logger.log(`Boas-vindas atleta email sent to ${to}`);
+  }
+
   async sendComunicacao(to: string, titulo: string, descricao: string, link?: string | null) {
     if (!process.env.SMTP_USER || process.env.SMTP_USER === 'noreply@mastchieve.com') {
       this.logger.warn(`[EMAIL SKIPPED] Comunicação to ${to} — SMTP not configured`);

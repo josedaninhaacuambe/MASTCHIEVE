@@ -32,8 +32,8 @@ export class StudentsController {
   @Get()
   @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Listar atletas' })
-  findAll(@Query() query: StudentQueryDto) {
-    return this.studentsService.findAll(query);
+  findAll(@Query() query: StudentQueryDto, @CurrentUser('id') userId: string, @CurrentUser('role') role: string) {
+    return this.studentsService.findAll(query, userId, role);
   }
 
   @Get('check-duplicate')

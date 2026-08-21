@@ -130,6 +130,25 @@ export default function RelatoriosMensaisPage() {
                   <span className="ml-auto font-semibold text-gray-900">{r.pagamentosEmAtraso}</span>
                 </div>
               </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs font-medium text-gray-500 mb-2">Presenças por faixa etária</p>
+                {(r.presencasPorFaixaEtaria ?? []).length === 0 ? (
+                  <p className="text-xs text-gray-400">Regenerar relatório para ver dados por faixa etária</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {r.presencasPorFaixaEtaria.map((f: any) => (
+                      <div key={f.faixa} className="flex items-center gap-2 text-xs">
+                        <span className="w-16 text-gray-500 flex-shrink-0">{f.label}</span>
+                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-mastchieve-500 rounded-full" style={{ width: `${f.taxa}%` }} />
+                        </div>
+                        <span className="w-24 text-right text-gray-600">{f.presentes}/{f.total} · {f.taxa}%</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>

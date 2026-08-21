@@ -3,6 +3,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { EntradaSaidaService } from './entrada-saida.service';
 import { CreatePessoaAutorizadaDto } from './dto/create-pessoa-autorizada.dto';
 import { CreateRegistoDto } from './dto/create-registo.dto';
+import { BulkRegistoDto } from './dto/create-registo-bulk.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
@@ -48,5 +49,12 @@ export class EntradaSaidaController {
   @ApiOperation({ summary: 'Registar entrada ou saída de aluno' })
   createRegisto(@Body() dto: CreateRegistoDto, @CurrentUser('id') userId: string) {
     return this.service.createRegisto(dto, userId);
+  }
+
+  @Post('registos/bulk')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
+  @ApiOperation({ summary: 'Registar entrada ou saída em grupo (por turma)' })
+  createRegistoBulk(@Body() dto: BulkRegistoDto, @CurrentUser('id') userId: string) {
+    return this.service.createRegistoBulk(dto, userId);
   }
 }

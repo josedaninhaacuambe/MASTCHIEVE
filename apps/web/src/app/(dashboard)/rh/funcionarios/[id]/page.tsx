@@ -15,6 +15,8 @@ export default function FuncionarioDetalhePage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuthStore();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const podeConfigurarPermissoes = isSuperAdmin || user?.role === 'ADMIN';
+  const rolesDisponiveis = isSuperAdmin ? ROLES : ROLES.filter((r) => r !== 'SUPER_ADMIN');
   const [f, setF] = useState<any>(null);
   const [tab, setTab] = useState('Dados');
   const [loading, setLoading] = useState(true);
@@ -85,13 +87,13 @@ export default function FuncionarioDetalhePage() {
             <div className="flex justify-between"><span className="text-gray-500">Contacto emergência</span><span className="font-medium">{f.contactoEmergencia || '—'} {f.telefoneEmergencia ? `(${f.telefoneEmergencia})` : ''}</span></div>
           </div>
 
-          {isSuperAdmin && (
+          {podeConfigurarPermissoes && (
             <div className="bg-white rounded-xl border border-amber-200 p-5 space-y-3">
-              <h3 className="text-sm font-semibold text-gray-700">Permissões de acesso (Super Admin)</h3>
+              <h3 className="text-sm font-semibold text-gray-700">Permissões de acesso</h3>
               <p className="text-xs text-gray-500">Define o perfil (role) de sistema associado ao utilizador deste funcionário.</p>
               <div className="flex gap-2">
                 <select value={role} onChange={(e) => setRole(e.target.value)} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                  {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  {rolesDisponiveis.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
                 <button onClick={salvarPermissoes} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-900">Guardar</button>
               </div>

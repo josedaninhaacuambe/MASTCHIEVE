@@ -3,6 +3,17 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { PrismaService } from '../../../config/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { GerarRelatorioDto } from './dto/gerar-relatorio.dto';
+import { calcularIdade } from '../../../common/utils/contacto-atleta.util';
+import { calcularPresencasPorFaixaEtaria, FaixaEtariaPresenca } from '../../../common/utils/faixa-etaria.util';
+
+function parseRelatorio<T extends { presencasPorFaixaEtaria: string | null }>(relatorio: T) {
+  return {
+    ...relatorio,
+    presencasPorFaixaEtaria: relatorio.presencasPorFaixaEtaria
+      ? (JSON.parse(relatorio.presencasPorFaixaEtaria) as FaixaEtariaPresenca[])
+      : [],
+  };
+}
 
 @Injectable()
 export class RelatoriosMensaisService {
@@ -12,11 +23,12 @@ export class RelatoriosMensaisService {
     const where: any = {};
     if (query.unidadeId) where.unidadeId = query.unidadeId;
     if (query.ano) where.ano = parseInt(query.ano);
-    return this.prisma.relatorioMensal.findMany({
+    const relatorios = await this.prisma.relatorioMensal.findMany({
       where,
       orderBy: [{ ano: 'desc' }, { mes: 'desc' }],
       include: { unidade: { select: { id: true, nome: true } }, geradoPor: { select: { id: true, email: true } } },
     });
+    return relatorios.map(parseRelatorio);
   }
 
   async findOne(id: string) {
@@ -25,7 +37,7 @@ export class RelatoriosMensaisService {
       include: { unidade: { select: { id: true, nome: true } }, geradoPor: { select: { id: true, email: true } } },
     });
     if (!relatorio) throw new NotFoundException('Relatório mensal não encontrado');
-    return relatorio;
+    return parseRelatorio(relatorio);
   }
 
   async gerar(dto: GerarRelatorioDto, actorUserId: string) {
@@ -50,7 +62,7 @@ export class RelatoriosMensaisService {
       this.prisma.student.count({ where: { ...studentWhere, enrollmentDate: { gte: start, lt: end } } }),
       this.prisma.attendance.findMany({
         where: { markedAt: { gte: start, lt: end }, student: studentWhere },
-        select: { status: true },
+        select: { status: true, student: { select: { dateOfBirth: true } } },
       }),
       this.prisma.payment.findMany({
         where: { status: 'PAID', paidAt: { gte: start, lt: end }, student: studentWhere },
@@ -71,6 +83,12 @@ export class RelatoriosMensaisService {
       : 0;
     const receitaTotal = pagamentosPeriodo.reduce((sum, p) => sum + p.amount, 0);
     const itensStockBaixo = itensInventario.filter((i) => i.quantidade <= i.quantidadeMin).length;
+    const presencasPorFaixaEtaria = calcularPresencasPorFaixaEtaria(
+      attendances.map((a) => ({
+        presente: a.status === 'PRESENT',
+        idade: calcularIdade(new Date(a.student.dateOfBirth)),
+      })),
+    );
 
     const dados = {
       totalAlunos,
@@ -83,6 +101,7 @@ export class RelatoriosMensaisService {
       totalReclamacoes,
       totalEventos,
       itensStockBaixo,
+      presencasPorFaixaEtaria: JSON.stringify(presencasPorFaixaEtaria),
       geradoPorId: actorUserId,
     };
 
@@ -99,7 +118,7 @@ export class RelatoriosMensaisService {
     });
 
     await this.audit.log({ userId: actorUserId, action: 'RELATORIO_MENSAL_GERADO', entity: 'RelatorioMensal', entityId: relatorio.id, newValues: { mes: dto.mes, ano: dto.ano, unidadeId } });
-    return relatorio;
+    return parseRelatorio(relatorio);
   }
 
   async exportPdf(id: string): Promise<Buffer> {
@@ -143,6 +162,24 @@ export class RelatoriosMensaisService {
       y -= 12;
       page.drawLine({ start: { x: 40, y }, end: { x: width - 40, y }, thickness: 0.3, color: rgb(0.9, 0.9, 0.9) });
       y -= 20;
+    }
+
+    if (relatorio.presencasPorFaixaEtaria.length > 0) {
+      y -= 8;
+      page.drawText('Presenças por Faixa Etária', { x: 40, y, size: 12, font: fontBold, color: dark });
+      y -= 20;
+      page.drawText('Faixa', { x: 40, y, size: 9, font: fontBold, color: gray });
+      page.drawText('Total', { x: 260, y, size: 9, font: fontBold, color: gray });
+      page.drawText('Presentes', { x: 340, y, size: 9, font: fontBold, color: gray });
+      page.drawText('Taxa', { x: 440, y, size: 9, font: fontBold, color: gray });
+      y -= 14;
+      for (const faixa of relatorio.presencasPorFaixaEtaria) {
+        page.drawText(faixa.label, { x: 40, y, size: 10, font, color: dark });
+        page.drawText(String(faixa.total), { x: 260, y, size: 10, font, color: dark });
+        page.drawText(String(faixa.presentes), { x: 340, y, size: 10, font, color: dark });
+        page.drawText(`${faixa.taxa}%`, { x: 440, y, size: 10, font: fontBold, color: blue });
+        y -= 18;
+      }
     }
 
     page.drawText('Documento gerado automaticamente pelo sistema Mastchieve.', { x: 40, y: 40, size: 8, font, color: gray });

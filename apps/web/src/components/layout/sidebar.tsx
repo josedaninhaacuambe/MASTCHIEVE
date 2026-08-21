@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
@@ -12,9 +13,20 @@ import {
   Smartphone, Download, Sun, Moon, Dumbbell, Heart, Globe, UserCircle, FileText, ScrollText,
   AlertTriangle, Fish, Award, Calendar, Trophy, Megaphone, Building2, Shield, Zap, Bell,
   Briefcase, UserPlus, FileSignature, IdCard, CalendarClock, ClipboardCheck, CalendarX,
-  Banknote, Gavel, FolderOpen, PieChart, Fingerprint,
+  Banknote, Gavel, FolderOpen, PieChart, Fingerprint, ChevronDown,
   Users2, Boxes, DoorOpen, MessageSquareWarning, FileBarChart, CalendarCheck,
 } from 'lucide-react';
+
+type NavGroupKey = 'pedagogico' | 'seguranca' | 'crm' | 'administrativo' | 'rh' | 'sistema';
+
+const GROUPS: Record<NavGroupKey, { label: string; icon: typeof Fish }> = {
+  pedagogico: { label: 'Pedagógico', icon: Fish },
+  seguranca: { label: 'Segurança', icon: Shield },
+  crm: { label: 'CRM & Eventos', icon: Megaphone },
+  administrativo: { label: 'Administrativo', icon: ClipboardList },
+  rh: { label: 'Recursos Humanos', icon: Briefcase },
+  sistema: { label: 'Sistema', icon: ShieldCheck },
+};
 
 const navItems = [
   // Admin + Manager
@@ -31,48 +43,48 @@ const navItems = [
   { href: '/modules',           icon: Waves,            label: 'Módulos',                roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER', 'ASSISTENTE_ADMIN'] },
   { href: '/documents',         icon: FileText,         label: 'Documentos',             roles: ['ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN'] },
   { href: '/unidades',           icon: Building2,        label: 'Unidades',               roles: ['ADMIN'] },
-  { href: '/leads',             icon: TrendingUp,       label: 'CRM — Leads',            roles: ['ADMIN', 'MANAGER', 'ASSISTENTE_ADMIN'] },
-  { href: '/avaliacoes-iniciais', icon: ClipboardList,  label: 'Avaliações Iniciais',    roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER', 'ASSISTENTE_ADMIN'] },
-  { href: '/fases',             icon: Fish,             label: 'Fases Pedagógicas',      roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
-  { href: '/avaliacoes-agendadas', icon: ClipboardCheck, label: 'Avaliações Agendadas', roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'] },
-  { href: '/ama',               icon: Waves,            label: 'Fase AMA',               roles: ['ADMIN', 'INSTRUCTOR'] },
-  { href: '/intermediario',     icon: Waves,            label: 'Fase Intermédio',        roles: ['ADMIN', 'INSTRUCTOR'] },
-  { href: '/avancado',          icon: Zap,              label: 'Fase Avançado',          roles: ['ADMIN', 'INSTRUCTOR'] },
-  { href: '/certificados',      icon: Award,            label: 'Certificados',           roles: ['ADMIN', 'MANAGER'] },
-  { href: '/protocolos',        icon: Shield,           label: 'Protocolos Segurança',   roles: ['ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN'] },
-  { href: '/seguranca',         icon: Zap,              label: 'Dashboard Segurança',    roles: ['ADMIN'] },
-  { href: '/incidentes',        icon: AlertTriangle,    label: 'Incidentes',             roles: ['ADMIN', 'INSTRUCTOR'] },
-  { href: '/eventos',           icon: Calendar,         label: 'Eventos / Open Days',    roles: ['ADMIN', 'MANAGER', 'ASSISTENTE_ADMIN'] },
-  { href: '/competicoes',       icon: Trophy,           label: 'Competições',            roles: ['ADMIN', 'MANAGER'] },
-  { href: '/comunicacao',       icon: Megaphone,        label: 'Comunicação',            roles: ['ADMIN', 'MANAGER', 'ASSISTENTE_ADMIN'] },
-  { href: '/admin/users',       icon: ShieldCheck,      label: 'Gestão de Utilizadores', roles: ['ADMIN'] },
-  { href: '/admin/audit',       icon: ScrollText,       label: 'Audit Log',               roles: ['ADMIN'] },
+  { href: '/avaliacoes-iniciais', icon: ClipboardList,  label: 'Avaliações Iniciais',    roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER', 'ASSISTENTE_ADMIN'], group: 'pedagogico' },
+  { href: '/fases',             icon: Fish,             label: 'Fases Pedagógicas',      roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'], group: 'pedagogico' },
+  { href: '/avaliacoes-agendadas', icon: ClipboardCheck, label: 'Avaliações Agendadas', roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER'], group: 'pedagogico' },
+  { href: '/ama',               icon: Waves,            label: 'Fase AMA',               roles: ['ADMIN', 'INSTRUCTOR'], group: 'pedagogico' },
+  { href: '/intermediario',     icon: Waves,            label: 'Fase Intermédio',        roles: ['ADMIN', 'INSTRUCTOR'], group: 'pedagogico' },
+  { href: '/avancado',          icon: Zap,              label: 'Fase Avançado',          roles: ['ADMIN', 'INSTRUCTOR'], group: 'pedagogico' },
+  { href: '/certificados',      icon: Award,            label: 'Certificados',           roles: ['ADMIN', 'MANAGER'], group: 'pedagogico' },
+  { href: '/protocolos',        icon: Shield,           label: 'Protocolos Segurança',   roles: ['ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN'], group: 'seguranca' },
+  { href: '/seguranca',         icon: Zap,              label: 'Dashboard Segurança',    roles: ['ADMIN'], group: 'seguranca' },
+  { href: '/incidentes',        icon: AlertTriangle,    label: 'Incidentes',             roles: ['ADMIN', 'INSTRUCTOR'], group: 'seguranca' },
+  { href: '/eventos',           icon: Calendar,         label: 'Eventos / Open Days',    roles: ['ADMIN', 'MANAGER', 'ASSISTENTE_ADMIN'], group: 'crm' },
+  { href: '/competicoes',       icon: Trophy,           label: 'Competições',            roles: ['ADMIN', 'MANAGER'], group: 'crm' },
+  { href: '/comunicacao',       icon: Megaphone,        label: 'Comunicação',            roles: ['ADMIN', 'MANAGER', 'ASSISTENTE_ADMIN'], group: 'crm' },
+  { href: '/admin/users',       icon: ShieldCheck,      label: 'Gestão de Utilizadores', roles: ['ADMIN'], group: 'sistema' },
+  { href: '/admin/audit',       icon: ScrollText,       label: 'Audit Log',               roles: ['ADMIN'], group: 'sistema' },
   { href: '/notifications',     icon: Bell,             label: 'Notificações',             roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER', 'STUDENT', 'PARENT', 'ASSISTENTE_ADMIN'] },
   // Assistente Administrativo
-  { href: '/assistente',          icon: ClipboardList, label: 'Assistente — Painel',    roles: ['ASSISTENTE_ADMIN', 'ADMIN'] },
-  { href: '/assistente/whatsapp', icon: MessageSquare, label: 'WhatsApp — Envios',      roles: ['ASSISTENTE_ADMIN'] },
-  { href: '/assistente/partilha', icon: Globe,          label: 'Central de Partilha',    roles: ['ASSISTENTE_ADMIN'] },
-  { href: '/atendimento',         icon: Users2,         label: 'Atendimento e Receção',  roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'] },
-  { href: '/inventario',          icon: Boxes,          label: 'Inventário',             roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'] },
-  { href: '/entrada-saida',       icon: DoorOpen,       label: 'Entrada e Saída',        roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'INSTRUCTOR'] },
-  { href: '/reclamacoes',         icon: MessageSquareWarning, label: 'Reclamações e Sugestões', roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER', 'PARENT'] },
-  { href: '/relatorios-mensais',  icon: FileBarChart,   label: 'Relatórios Mensais',     roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'] },
-  { href: '/rotina-diaria',       icon: CalendarCheck,  label: 'Rotina Diária',          roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'] },
+  { href: '/leads',             icon: TrendingUp,       label: 'CRM — Leads',            roles: ['ADMIN', 'MANAGER', 'ASSISTENTE_ADMIN'], group: 'crm' },
+  { href: '/assistente',          icon: ClipboardList, label: 'Assistente — Painel',    roles: ['ASSISTENTE_ADMIN', 'ADMIN'], group: 'administrativo' },
+  { href: '/assistente/whatsapp', icon: MessageSquare, label: 'WhatsApp — Envios',      roles: ['ASSISTENTE_ADMIN'], group: 'administrativo' },
+  { href: '/assistente/partilha', icon: Globe,          label: 'Central de Partilha',    roles: ['ASSISTENTE_ADMIN'], group: 'administrativo' },
+  { href: '/atendimento',         icon: Users2,         label: 'Atendimento e Receção',  roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'], group: 'administrativo' },
+  { href: '/inventario',          icon: Boxes,          label: 'Inventário',             roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'], group: 'administrativo' },
+  { href: '/entrada-saida',       icon: DoorOpen,       label: 'Entrada e Saída',        roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'INSTRUCTOR'], group: 'administrativo' },
+  { href: '/reclamacoes',         icon: MessageSquareWarning, label: 'Reclamações e Sugestões', roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER', 'PARENT'], group: 'administrativo' },
+  { href: '/relatorios-mensais',  icon: FileBarChart,   label: 'Relatórios Mensais',     roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'], group: 'administrativo' },
+  { href: '/rotina-diaria',       icon: CalendarCheck,  label: 'Rotina Diária',          roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'], group: 'administrativo' },
   // Recursos Humanos — Gestor de RH + Super Admin
-  { href: '/rh',                icon: Briefcase,        label: 'RH — Painel',            roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/funcionarios',   icon: Users,            label: 'Funcionários',           roles: ['GESTOR_RH', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN'] },
-  { href: '/rh/contratos',      icon: FileSignature,    label: 'Contratos',               roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/certificacoes',  icon: IdCard,           label: 'Certificações',           roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/escalas',        icon: CalendarClock,    label: 'Escalas',                 roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/presenca',       icon: Fingerprint,      label: 'Presença Biométrica',     roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/avaliacoes-desempenho', icon: ClipboardCheck, label: 'Avaliações Desempenho', roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/ferias-faltas',  icon: CalendarX,        label: 'Férias / Faltas',        roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/folha-pagamento', icon: Banknote,        label: 'Folha de Pagamento',     roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/disciplina',     icon: Gavel,            label: 'Disciplina',              roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/formacao',       icon: GraduationCap,    label: 'Formação',                roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/desligamento',   icon: LogOut,           label: 'Desligamento',           roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/documentos',     icon: FolderOpen,       label: 'Documentos RH',          roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
-  { href: '/rh/relatorios',     icon: PieChart,         label: 'Relatórios RH',          roles: ['GESTOR_RH', 'SUPER_ADMIN'] },
+  { href: '/rh',                icon: Briefcase,        label: 'RH — Painel',            roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
+  { href: '/rh/funcionarios',   icon: Users,            label: 'Funcionários',           roles: ['ADMIN', 'GESTOR_RH', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN'], group: 'rh' },
+  { href: '/rh/contratos',      icon: FileSignature,    label: 'Contratos',               roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
+  { href: '/rh/certificacoes',  icon: IdCard,           label: 'Certificações',           roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
+  { href: '/rh/escalas',        icon: CalendarClock,    label: 'Escalas',                 roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
+  { href: '/rh/presenca',       icon: Fingerprint,      label: 'Presença Biométrica',     roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
+  { href: '/rh/avaliacoes-desempenho', icon: ClipboardCheck, label: 'Avaliações Desempenho', roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
+  { href: '/rh/ferias-faltas',  icon: CalendarX,        label: 'Férias / Faltas',        roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
+  { href: '/rh/folha-pagamento', icon: Banknote,        label: 'Folha de Pagamento',     roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
+  { href: '/rh/disciplina',     icon: Gavel,            label: 'Disciplina',              roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
+  { href: '/rh/formacao',       icon: GraduationCap,    label: 'Formação',                roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
+  { href: '/rh/desligamento',   icon: LogOut,           label: 'Desligamento',           roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
+  { href: '/rh/documentos',     icon: FolderOpen,       label: 'Documentos RH',          roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
+  { href: '/rh/relatorios',     icon: PieChart,         label: 'Relatórios RH',          roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
   // Student only
   { href: '/student/progress',   icon: TrendingUp,    label: 'O Meu Progresso',     roles: ['STUDENT'] },
   { href: '/student/feedback',   icon: Brain,          label: 'Os Meus Feedbacks',   roles: ['STUDENT'] },
@@ -156,6 +168,10 @@ function MobileDownloadCard() {
   );
 }
 
+function isActiveHref(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(href + '/');
+}
+
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -167,6 +183,59 @@ export function Sidebar() {
   const initials = firstName[0]?.toUpperCase() ?? '?';
 
   const showMobileDownload = user?.role === 'STUDENT' || user?.role === 'INSTRUCTOR';
+
+  const activeGroup = filtered.find((item) => item.group && isActiveHref(pathname, item.href))?.group as NavGroupKey | undefined;
+  const [openGroups, setOpenGroups] = useState<Set<NavGroupKey>>(new Set(activeGroup ? [activeGroup] : []));
+
+  useEffect(() => {
+    if (activeGroup) {
+      setOpenGroups((prev) => (prev.has(activeGroup) ? prev : new Set(prev).add(activeGroup)));
+    }
+  }, [activeGroup]);
+
+  const toggleGroup = (key: NavGroupKey) => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const renderedGroups = new Set<NavGroupKey>();
+
+  const renderNavLink = (item: (typeof navItems)[number]) => {
+    const Icon = item.icon;
+    const active = isActiveHref(pathname, item.href);
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={closeSidebar}
+        className={cn(
+          'group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
+          active
+            ? 'bg-white/20 text-white shadow-sm'
+            : 'text-white/60 hover:bg-white/10 hover:text-white',
+        )}
+      >
+        {active && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white rounded-r-full" />
+        )}
+        <div className={cn(
+          'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all',
+          active ? 'bg-white/20' : 'group-hover:bg-white/10',
+        )}>
+          <Icon className="w-4 h-4" />
+        </div>
+        <span className="flex-1 truncate">{item.label}</span>
+        {item.badge && (
+          <span className="text-[10px] font-semibold bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded-full leading-none">
+            {item.badge}
+          </span>
+        )}
+      </Link>
+    );
+  };
 
   return (
     <aside
@@ -242,36 +311,36 @@ export function Sidebar() {
       {/* ── NAV ── */}
       <nav className="flex-1 px-3 py-1 overflow-y-auto space-y-0.5">
         {filtered.map((item) => {
-          const Icon = item.icon;
-          const active = pathname === item.href || pathname.startsWith(item.href + '/');
+          if (!item.group) return renderNavLink(item);
+
+          const groupKey = item.group as NavGroupKey;
+          if (renderedGroups.has(groupKey)) return null;
+          renderedGroups.add(groupKey);
+
+          const groupItems = filtered.filter((i) => i.group === groupKey);
+          const meta = GROUPS[groupKey];
+          const GroupIcon = meta.icon;
+          const isOpen = openGroups.has(groupKey);
+
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={closeSidebar}
-              className={cn(
-                'group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
-                active
-                  ? 'bg-white/20 text-white shadow-sm'
-                  : 'text-white/60 hover:bg-white/10 hover:text-white',
+            <div key={groupKey}>
+              <button
+                type="button"
+                onClick={() => toggleGroup(groupKey)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/60 hover:bg-white/10 hover:text-white transition-all duration-150"
+              >
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <GroupIcon className="w-4 h-4" />
+                </div>
+                <span className="flex-1 text-left truncate">{meta.label}</span>
+                <ChevronDown className={cn('w-4 h-4 transition-transform flex-shrink-0', isOpen ? '' : '-rotate-90')} />
+              </button>
+              {isOpen && (
+                <div className="ml-4 pl-3 border-l border-white/10 space-y-0.5 mt-0.5 mb-1">
+                  {groupItems.map((groupItem) => renderNavLink(groupItem))}
+                </div>
               )}
-            >
-              {active && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white rounded-r-full" />
-              )}
-              <div className={cn(
-                'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all',
-                active ? 'bg-white/20' : 'group-hover:bg-white/10',
-              )}>
-                <Icon className="w-4 h-4" />
-              </div>
-              <span className="flex-1 truncate">{item.label}</span>
-              {item.badge && (
-                <span className="text-[10px] font-semibold bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded-full leading-none">
-                  {item.badge}
-                </span>
-              )}
-            </Link>
+            </div>
           );
         })}
       </nav>

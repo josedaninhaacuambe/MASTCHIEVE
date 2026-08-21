@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { formatDate, cn } from '@/lib/utils';
-import { Plus, LogIn, LogOut, DoorOpen } from 'lucide-react';
+import { Plus, LogIn, LogOut, DoorOpen, XCircle, Users } from 'lucide-react';
+import { BulkEntradaSaidaModal } from './bulk-modal';
 
 export default function EntradaSaidaPage() {
   const [registos, setRegistos] = useState<any[]>([]);
@@ -12,6 +13,7 @@ export default function EntradaSaidaPage() {
   const [data, setData] = useState('');
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showBulkForm, setShowBulkForm] = useState(false);
 
   const [form, setForm] = useState({ studentId: '', tipo: 'ENTRADA', pessoaAutorizadaId: '', justificativa: '' });
 
@@ -25,7 +27,11 @@ export default function EntradaSaidaPage() {
   };
 
   useEffect(() => { load(); }, [data]);
-  useEffect(() => { api.get('/students?limit=200').then((r) => setStudents(r.data.data ?? [])).catch(() => {}); }, []);
+  useEffect(() => {
+    api.get('/students?limit=100')
+      .then((r) => setStudents(r.data.data ?? []))
+      .catch(() => toast.error('Não foi possível carregar a lista de atletas'));
+  }, []);
 
   useEffect(() => {
     if (!form.studentId) { setPessoasAutorizadas([]); return; }
@@ -43,7 +49,7 @@ export default function EntradaSaidaPage() {
         studentId: form.studentId,
         tipo: form.tipo,
         pessoaAutorizadaId: form.tipo === 'SAIDA' ? (form.pessoaAutorizadaId || undefined) : undefined,
-        justificativa: form.tipo === 'SAIDA' ? (form.justificativa || undefined) : undefined,
+        justificativa: form.tipo !== 'ENTRADA' ? (form.justificativa || undefined) : undefined,
       });
       toast.success('Registo criado');
       setShowForm(false);
@@ -53,7 +59,10 @@ export default function EntradaSaidaPage() {
     }
   };
 
-  const saidaValida = form.tipo !== 'SAIDA' || !!form.pessoaAutorizadaId || !!form.justificativa.trim();
+  const saidaValida =
+    form.tipo === 'ENTRADA' ||
+    (form.tipo === 'SAIDA' && (!!form.pessoaAutorizadaId || !!form.justificativa.trim())) ||
+    (form.tipo === 'CANCELAMENTO' && !!form.justificativa.trim());
 
   return (
     <div className="p-6 space-y-6">
@@ -64,6 +73,9 @@ export default function EntradaSaidaPage() {
         </div>
         <div className="flex items-center gap-3">
           <input type="date" value={data} onChange={(e) => setData(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+          <button onClick={() => setShowBulkForm(true)} className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 text-sm font-medium">
+            <Users className="w-4 h-4" /> Registo em Grupo (Turma)
+          </button>
           <button onClick={abrirNovo} className="flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 text-sm font-medium">
             <Plus className="w-4 h-4" /> Registar
           </button>
@@ -94,9 +106,10 @@ export default function EntradaSaidaPage() {
                   <td className="px-4 py-3 text-gray-500">{formatDate(r.dataHora, 'dd/MM/yyyy HH:mm')}</td>
                   <td className="px-4 py-3 font-medium text-gray-900">{r.student?.firstName} {r.student?.lastName}</td>
                   <td className="px-4 py-3">
-                    <span className={cn('px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit', r.tipo === 'ENTRADA' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700')}>
-                      {r.tipo === 'ENTRADA' ? <LogIn className="w-3 h-3" /> : <LogOut className="w-3 h-3" />}
-                      {r.tipo === 'ENTRADA' ? 'Entrada' : 'Saída'}
+                    <span className={cn('px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit',
+                      r.tipo === 'ENTRADA' ? 'bg-green-100 text-green-700' : r.tipo === 'CANCELAMENTO' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700')}>
+                      {r.tipo === 'ENTRADA' ? <LogIn className="w-3 h-3" /> : r.tipo === 'CANCELAMENTO' ? <XCircle className="w-3 h-3" /> : <LogOut className="w-3 h-3" />}
+                      {r.tipo === 'ENTRADA' ? 'Entrada' : r.tipo === 'CANCELAMENTO' ? 'Cancelamento' : 'Saída'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{r.pessoaAutorizada ? `${r.pessoaAutorizada.nome} (${r.pessoaAutorizada.parentesco})` : (r.justificativa ?? '—')}</td>
@@ -120,35 +133,46 @@ export default function EntradaSaidaPage() {
               </select>
             </div>
             <div className="flex gap-2">
-              {(['ENTRADA', 'SAIDA'] as const).map((t) => (
+              {(['ENTRADA', 'SAIDA', 'CANCELAMENTO'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setForm((f) => ({ ...f, tipo: t }))}
                   className={cn(
                     'flex-1 py-2 rounded-lg text-sm font-medium border flex items-center justify-center gap-1.5',
-                    form.tipo === t ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200',
+                    form.tipo === t
+                      ? t === 'CANCELAMENTO' ? 'bg-red-600 text-white border-red-600' : 'bg-gray-800 text-white border-gray-800'
+                      : 'bg-white text-gray-600 border-gray-200',
                   )}
                 >
-                  {t === 'ENTRADA' ? <LogIn className="w-4 h-4" /> : <LogOut className="w-4 h-4" />}
-                  {t === 'ENTRADA' ? 'Entrada' : 'Saída'}
+                  {t === 'ENTRADA' ? <LogIn className="w-4 h-4" /> : t === 'CANCELAMENTO' ? <XCircle className="w-4 h-4" /> : <LogOut className="w-4 h-4" />}
+                  {t === 'ENTRADA' ? 'Entrada' : t === 'CANCELAMENTO' ? 'Cancelamento' : 'Saída'}
                 </button>
               ))}
             </div>
-            {form.tipo === 'SAIDA' && (
+            {form.tipo === 'CANCELAMENTO' && (
+              <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                Usa esta opção quando o atleta chegou à escola mas teve de sair antes da aula começar (ex: emergência). A justificação é obrigatória.
+              </p>
+            )}
+            {(form.tipo === 'SAIDA' || form.tipo === 'CANCELAMENTO') && (
               <>
+                {form.tipo === 'SAIDA' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Pessoa Autorizada</label>
+                    <select value={form.pessoaAutorizadaId} onChange={(e) => setForm((f) => ({ ...f, pessoaAutorizadaId: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" disabled={!form.studentId}>
+                      <option value="">— Nenhuma —</option>
+                      {pessoasAutorizadas.map((p: any) => <option key={p.id} value={p.id}>{p.nome} ({p.parentesco})</option>)}
+                    </select>
+                    {form.studentId && pessoasAutorizadas.length === 0 && (
+                      <p className="text-xs text-amber-600 mt-1">Sem pessoas autorizadas registadas — indica uma justificação.</p>
+                    )}
+                  </div>
+                )}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Pessoa Autorizada</label>
-                  <select value={form.pessoaAutorizadaId} onChange={(e) => setForm((f) => ({ ...f, pessoaAutorizadaId: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" disabled={!form.studentId}>
-                    <option value="">— Nenhuma —</option>
-                    {pessoasAutorizadas.map((p: any) => <option key={p.id} value={p.id}>{p.nome} ({p.parentesco})</option>)}
-                  </select>
-                  {form.studentId && pessoasAutorizadas.length === 0 && (
-                    <p className="text-xs text-amber-600 mt-1">Sem pessoas autorizadas registadas — indica uma justificação.</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Justificação {!form.pessoaAutorizadaId && '*'}</label>
-                  <textarea value={form.justificativa} onChange={(e) => setForm((f) => ({ ...f, justificativa: e.target.value }))} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Obrigatória se não houver pessoa autorizada selecionada" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Justificação {(form.tipo === 'CANCELAMENTO' || !form.pessoaAutorizadaId) && '*'}
+                  </label>
+                  <textarea value={form.justificativa} onChange={(e) => setForm((f) => ({ ...f, justificativa: e.target.value }))} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder={form.tipo === 'CANCELAMENTO' ? 'Ex: mal-estar súbito, emergência familiar...' : 'Obrigatória se não houver pessoa autorizada selecionada'} />
                 </div>
               </>
             )}
@@ -158,6 +182,10 @@ export default function EntradaSaidaPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showBulkForm && (
+        <BulkEntradaSaidaModal onClose={() => setShowBulkForm(false)} onSaved={() => { setShowBulkForm(false); load(); }} />
       )}
     </div>
   );

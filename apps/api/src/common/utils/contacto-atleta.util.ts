@@ -16,7 +16,7 @@ export interface ContactoAtleta {
   nomeEncarregado?: string;
 }
 
-function calcularIdade(dateOfBirth: Date): number {
+export function calcularIdade(dateOfBirth: Date): number {
   const hoje = new Date();
   let idade = hoje.getFullYear() - dateOfBirth.getFullYear();
   const aindaNaoFezAnos =

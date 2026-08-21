@@ -274,10 +274,16 @@ export default function StudentsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Atletas</h1>
           <p className="text-gray-500 text-sm mt-1">Gestão de todos os atletas inscritos</p>
         </div>
-        <Link href="/students/new"
-          className="flex items-center gap-2 bg-mastchieve-600 hover:bg-mastchieve-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition">
-          <Plus className="w-4 h-4" /> Novo Atleta
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/students/bulk"
+            className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+            <Users className="w-4 h-4" /> Registo em Massa
+          </Link>
+          <Link href="/students/new"
+            className="flex items-center gap-2 bg-mastchieve-600 hover:bg-mastchieve-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition">
+            <Plus className="w-4 h-4" /> Novo Atleta
+          </Link>
+        </div>
       </div>
 
       {/* KPI row */}

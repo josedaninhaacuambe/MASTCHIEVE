@@ -19,7 +19,7 @@ const ESTADOS_CORES: Record<string, string> = {
 
 export default function FuncionariosPage() {
   const { user } = useAuthStore();
-  const podeVerSalario = user?.role === 'GESTOR_RH' || user?.role === 'SUPER_ADMIN';
+  const podeVerSalario = user?.role === 'GESTOR_RH' || user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');

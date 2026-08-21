@@ -3,6 +3,7 @@ import { PrismaService } from '../../../config/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { CreatePessoaAutorizadaDto } from './dto/create-pessoa-autorizada.dto';
 import { CreateRegistoDto } from './dto/create-registo.dto';
+import { BulkRegistoDto } from './dto/create-registo-bulk.dto';
 
 @Injectable()
 export class EntradaSaidaService {
@@ -58,8 +59,11 @@ export class EntradaSaidaService {
     const student = await this.prisma.student.findUnique({ where: { id: dto.studentId } });
     if (!student) throw new NotFoundException('Atleta não encontrado');
 
-    if (dto.tipo === 'SAIDA') {
-      if (!dto.pessoaAutorizadaId && !dto.justificativa?.trim()) {
+    if (dto.tipo === 'SAIDA' || dto.tipo === 'CANCELAMENTO') {
+      if (dto.tipo === 'CANCELAMENTO' && !dto.justificativa?.trim()) {
+        throw new BadRequestException('Cancelamento de entrada exige uma justificação');
+      }
+      if (dto.tipo === 'SAIDA' && !dto.pessoaAutorizadaId && !dto.justificativa?.trim()) {
         throw new BadRequestException('Saída exige uma pessoa autorizada válida ou uma justificação');
       }
       if (dto.pessoaAutorizadaId) {
@@ -81,5 +85,41 @@ export class EntradaSaidaService {
     });
     await this.audit.log({ userId: actorUserId, action: 'REGISTO_ENTRADA_SAIDA_CRIADO', entity: 'RegistoEntradaSaidaAluno', entityId: registo.id, newValues: { tipo: dto.tipo, studentId: dto.studentId } });
     return registo;
+  }
+
+  async createRegistoBulk(dto: BulkRegistoDto, actorUserId: string) {
+    if (dto.tipo === 'SAIDA' && !dto.justificativa?.trim()) {
+      throw new BadRequestException('Saída em grupo exige uma justificação partilhada');
+    }
+
+    const studentIds = [...new Set(dto.studentIds)];
+    const students = await this.prisma.student.findMany({ where: { id: { in: studentIds } }, select: { id: true } });
+    if (students.length !== studentIds.length) {
+      const found = new Set(students.map((s) => s.id));
+      const missing = studentIds.filter((id) => !found.has(id));
+      throw new NotFoundException(`Atleta(s) não encontrado(s): ${missing.join(', ')}`);
+    }
+
+    const registos = await Promise.all(
+      studentIds.map((studentId) =>
+        this.prisma.registoEntradaSaidaAluno.create({
+          data: {
+            studentId,
+            tipo: dto.tipo,
+            justificativa: dto.tipo === 'SAIDA' ? dto.justificativa : undefined,
+            registadoPorId: actorUserId,
+          },
+        }),
+      ),
+    );
+
+    await this.audit.log({
+      userId: actorUserId,
+      action: 'REGISTO_ENTRADA_SAIDA_BULK_CRIADO',
+      entity: 'RegistoEntradaSaidaAluno',
+      newValues: { tipo: dto.tipo, count: registos.length, studentIds },
+    });
+
+    return { count: registos.length, tipo: dto.tipo };
   }
 }

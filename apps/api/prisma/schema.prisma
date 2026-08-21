@@ -1253,6 +1253,7 @@ model RelatorioMensal {
   totalReclamacoes   Int
   totalEventos       Int
   itensStockBaixo    Int
+  presencasPorFaixaEtaria String?  @db.Text
   geradoPorId        String
   createdAt          DateTime @default(now())
 

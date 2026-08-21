@@ -58,9 +58,14 @@ export class FuncionariosController {
   }
 
   @Put(':id/permissoes')
-  @Roles('SUPER_ADMIN')
+  @Roles('ADMIN', 'SUPER_ADMIN')
   @ApiOperation({ summary: 'Configurar permissões de acesso do funcionário (role do sistema)' })
-  configurarPermissoes(@Param('id') id: string, @Body() dto: ConfigurarPermissoesDto, @CurrentUser('id') userId: string) {
-    return this.funcionariosService.configurarPermissoes(id, dto, userId);
+  configurarPermissoes(
+    @Param('id') id: string,
+    @Body() dto: ConfigurarPermissoesDto,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') actorRole: string,
+  ) {
+    return this.funcionariosService.configurarPermissoes(id, dto, userId, actorRole);
   }
 }

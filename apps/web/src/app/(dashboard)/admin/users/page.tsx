@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import {
   Users, Search, Filter, RefreshCw, Shield, UserCheck, UserX,
   ChevronLeft, ChevronRight, CheckCircle2, XCircle, Clock,
-  MoreVertical, ArrowUpDown, Briefcase, GraduationCap, Bell, ClipboardList,
+  MoreVertical, ArrowUpDown, Briefcase, GraduationCap, Bell, ClipboardList, UserPlus,
 } from 'lucide-react';
 import { BulkNotificationsModal } from '@/components/bulk-notifications-modal';
 
@@ -125,6 +126,12 @@ export default function AdminUsersPage() {
           <p className="text-gray-500 text-sm mt-0.5">Gerir perfis, papéis e acessos da plataforma</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href="/rh/funcionarios"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-xl text-sm font-medium transition"
+          >
+            <UserPlus className="w-4 h-4" /> Adicionar Funcionário
+          </Link>
           <button
             onClick={() => setShowBulkNotif(true)}
             className="flex items-center gap-2 px-4 py-2 bg-mastchieve-600 hover:bg-mastchieve-700 text-white rounded-xl text-sm font-medium transition"
