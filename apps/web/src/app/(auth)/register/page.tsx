@@ -174,14 +174,27 @@ function RegisterForm({ role, onBack }: { role: Role; onBack: () => void }) {
         }
         res = await api.post('/auth/register', dto);
       }
-      const { user, accessToken, refreshToken } = res.data.data;
+
+      const payload = res?.data?.data ?? res?.data ?? {};
+      const user = payload.user;
+      const accessToken = payload.accessToken ?? payload.tokens?.accessToken;
+      const refreshToken = payload.refreshToken ?? payload.tokens?.refreshToken;
+
+      if (!user || !accessToken || !refreshToken) {
+        throw new Error('invalid_register_response');
+      }
+
       setSuccess(true);
       setTimeout(() => {
         storeLogin(user, accessToken, refreshToken);
         redirectForRole(role);
       }, 1200);
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Erro ao criar conta. Tenta novamente.');
+      const apiMessage = err?.response?.data?.message;
+      const message = Array.isArray(apiMessage) ? apiMessage[0] : apiMessage;
+      setError(
+        message ?? err?.response?.data?.error ?? err?.message ?? 'Erro ao criar conta. Tenta novamente.'
+      );
     } finally {
       setLoading(false);
     }
