@@ -7,12 +7,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(date: Date | string, fmt = 'dd/MM/yyyy') {
-  return format(new Date(date), fmt, { locale: ptBR });
+export function formatDate(date?: Date | string | null, fmt = 'dd/MM/yyyy') {
+  if (!date) return '—';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '—';
+  return format(d, fmt, { locale: ptBR });
 }
 
-export function timeAgo(date: Date | string) {
-  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: ptBR });
+export function timeAgo(date?: Date | string | null) {
+  if (!date) return '—';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '—';
+  return formatDistanceToNow(d, { addSuffix: true, locale: ptBR });
 }
 
 export function formatCurrency(value: number) {

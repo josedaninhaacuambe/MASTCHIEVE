@@ -49,7 +49,7 @@ function printProgressReport(student: any, fasesProgresso: any[]) {
 import { toast } from '@/lib/toast';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from 'recharts';
+} from '@/lib/recharts-dynamic';
 import AvaliacaoModal from '@/components/avaliacoes/AvaliacaoModal';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';

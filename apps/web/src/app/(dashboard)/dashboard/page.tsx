@@ -16,7 +16,7 @@ import {
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
-} from 'recharts';
+} from '@/lib/recharts-dynamic';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { BulkNotificationsModal } from '@/components/bulk-notifications-modal';

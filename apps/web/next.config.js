@@ -35,11 +35,13 @@ const nextConfig = {
   // O hosting cPanel reporta o nº de CPUs da máquina física partilhada, não o
   // limite real de RAM da conta — cada worker de build abre a sua própria
   // instância V8, multiplicando o consumo de memória até estourar o limite
-  // (OOM kill). Forçar build single-thread evita isso.
+  // (OOM kill). Forçar build single-thread evita isso — mas só no `next build`
+  // de produção: aplicado também ao `next dev`, este limite deixava a compilação
+  // sob-demanda de cada rota vários segundos mais lenta (single-thread), o que
+  // parecia o menu "congelar" ao clicar em qualquer opção.
   experimental: {
     serverActions: { allowedOrigins: ['localhost:4300', 'mastchieve.co.mz'] },
-    cpus: 1,
-    workerThreads: false,
+    ...(process.env.NODE_ENV === 'production' ? { cpus: 1, workerThreads: false } : {}),
   },
   images: {
     domains: ['localhost', 'mastchieve.co.mz', 'api.mastchieve.co.mz'],
@@ -80,4 +82,9 @@ const nextConfig = {
   },
 };
 
-module.exports = withPWA(nextConfig);
+// O service worker (next-pwa) já vem desligado em desenvolvimento (`disable` acima),
+// mas o wrapper `withPWA` injecta sempre uma função `webpack()` no config, mesmo
+// quando desligado — e essa função por si só impede o `next dev` de usar o
+// Turbopack (muito mais rápido a compilar cada rota pela primeira vez). Como o
+// wrapper não faz nada em dev de qualquer forma, só o aplicamos em produção.
+module.exports = process.env.NODE_ENV === 'production' ? withPWA(nextConfig) : nextConfig;

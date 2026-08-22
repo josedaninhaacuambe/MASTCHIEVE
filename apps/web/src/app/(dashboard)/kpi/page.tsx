@@ -11,7 +11,7 @@ import {
 import {
   AreaChart, Area, LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-} from 'recharts';
+} from '@/lib/recharts-dynamic';
 
 function KpiCard({ icon: Icon, label, value, sub, color = 'blue', target, achieved }: any) {
   const colors: Record<string, { bg: string; text: string }> = {
