@@ -65,6 +65,7 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "@types/web-push": "^3.6.4",
+    "pm2": "^7.0.3",
     "prisma": "^6.2.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
