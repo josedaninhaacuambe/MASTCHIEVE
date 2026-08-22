@@ -11,6 +11,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:prod": "prisma migrate deploy",
     "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:seed:build": "tsc prisma/seed.ts --outDir prisma --rootDir prisma --module commonjs --target ES2021 --removeComments --skipLibCheck --strictNullChecks false --noImplicitAny false",
+    "prisma:seed:prod": "node prisma/seed.js",
     "prisma:seed:rh": "ts-node prisma/seed-rh.ts",
     "prisma:studio": "prisma studio",
     "prisma:generate": "prisma generate"
