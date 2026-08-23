@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../storage/hive_storage.dart';
 
-const String _baseUrl = String.fromEnvironment('API_URL', defaultValue: 'http://localhost:3001/api');
+const String _baseUrl = String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2:4301/api/v1');
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
 

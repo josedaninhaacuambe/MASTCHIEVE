@@ -67,6 +67,7 @@ model User {
   documentosRHValidados       DocumentoRH[]
   dispositivosQuiosqueCriados DispositivoQuiosque[]   @relation("DispositivoCriado")
   presencasLancadas           RegistoPresenca[]       @relation("PresencaLancadaManualmente")
+  qrCredenciaisEmitidas       StudentQrCredential[]   @relation("StudentQrCredentialCriada")
 
   @@index([email])
   @@index([role])
@@ -140,6 +141,7 @@ model Student {
   enrollmentDate        DateTime  @default(now())
   isActive              Boolean   @default(true)
   estadoInscricao       String    @default("COMPLETA") // COMPLETA|DOCUMENTOS_PENDENTES|CANCELADA
+  camposEmFalta         String?   @db.Text // JSON: nomes dos campos preenchidos com valor provisório (import incompleto)
   unidadeId             String?
   autorizacaoImagem     Boolean   @default(false)
   autorizacaoImagemData DateTime?
@@ -174,10 +176,32 @@ model Student {
   pessoasAutorizadas  PessoaAutorizada[]
   registosEntradaSaida RegistoEntradaSaidaAluno[]
   reclamacoes         Reclamacao[]
+  qrCredentials       StudentQrCredential[]
 
   @@index([isActive])
   @@index([unidadeId])
   @@map("students")
+}
+
+// ─── QR Code de acesso (login sem password) ────────────────────────────────
+
+model StudentQrCredential {
+  id               String    @id @default(uuid())
+  studentId        String
+  tokenHash        String    @unique @db.VarChar(64) // SHA-256 hex — usado para procurar no login
+  tokenEncrypted   String    @db.Text // AES-256-GCM — permite reexibir o QR sem regenerar
+  ativo            Boolean   @default(true)
+  criadoPorId      String
+  registadoEm      DateTime  @default(now())
+  revogadoEm       DateTime?
+  ultimaUtilizacao DateTime?
+
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  criadoPor User    @relation("StudentQrCredentialCriada", fields: [criadoPorId], references: [id])
+
+  @@index([studentId])
+  @@index([studentId, ativo])
+  @@map("student_qr_credentials")
 }
 
 // ─── Athlete Report (relatório mensal + chamada de atenção) ──────────────────
@@ -532,6 +556,7 @@ model Class {
   status       String   @default("ACTIVE")
   maxStudents  Int      @default(15)
   poolLane     String?
+  moduleIds    String?  @db.Text
   schedules    String   @db.Text
   instructorId String
   unidadeId    String?

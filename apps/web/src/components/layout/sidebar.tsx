@@ -90,8 +90,8 @@ const navItems = [
   { href: '/student/feedback',   icon: Brain,          label: 'Os Meus Feedbacks',   roles: ['STUDENT'] },
   { href: '/student/attendance', icon: ClipboardList,  label: 'As Minhas Presenças', roles: ['STUDENT'] },
   { href: '/student/payments',   icon: CreditCard,     label: 'Os Meus Pagamentos',  roles: ['STUDENT'] },
-  // Parent only
-  { href: '/parent',            icon: Heart,           label: 'Os Meus Filhos',      roles: ['PARENT'] },
+  // Parent + Student (atletas podem inscrever e ver os seus próprios filhos menores)
+  { href: '/parent',            icon: Heart,           label: 'Os Meus Filhos',      roles: ['PARENT', 'STUDENT'] },
   // Visitor only
   { href: '/visitor',           icon: Globe,           label: 'Explorar Mastchieve', roles: ['VISITOR'] },
 ];

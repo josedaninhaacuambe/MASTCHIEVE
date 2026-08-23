@@ -1,9 +1,11 @@
 import { Controller, Post, Body, UseGuards, Get, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto, RegisterVisitorDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { QrLoginDto } from './dto/qr-login.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SetMetadata } from '@nestjs/common';
 
@@ -42,6 +44,16 @@ export class AuthController {
   @ApiOperation({ summary: 'Autenticar utilizador' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ short: { limit: 5, ttl: 1000 } })
+  @Post('qr-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Autenticar atleta via QR code (sem password)' })
+  qrLogin(@Body() dto: QrLoginDto) {
+    return this.authService.qrLogin(dto.token);
   }
 
   @Public()

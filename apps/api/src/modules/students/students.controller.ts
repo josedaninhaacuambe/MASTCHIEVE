@@ -1,8 +1,11 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Res, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Res, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { Response } from 'express';
 import { StudentsService } from './students.service';
 import { StudentsReportService } from './students-report.service';
+import { StudentsQrService } from './students-qr.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentQueryDto } from './dto/student-query.dto';
@@ -20,6 +23,7 @@ export class StudentsController {
   constructor(
     private studentsService: StudentsService,
     private studentsReportService: StudentsReportService,
+    private studentsQrService: StudentsQrService,
   ) {}
 
   @Get('me')
@@ -29,32 +33,83 @@ export class StudentsController {
     return this.studentsService.findByUserId(userId);
   }
 
+  @Post('me/children')
+  @Roles('STUDENT', 'PARENT')
+  @ApiOperation({ summary: 'Inscrever um filho/educando menor de idade a partir da própria conta' })
+  addChild(@Body() dto: CreateStudentDto, @CurrentUser('id') userId: string) {
+    return this.studentsService.addChild(userId, dto);
+  }
+
   @Get()
-  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({ summary: 'Listar atletas' })
   findAll(@Query() query: StudentQueryDto, @CurrentUser('id') userId: string, @CurrentUser('role') role: string) {
     return this.studentsService.findAll(query, userId, role);
   }
 
   @Get('check-duplicate')
-  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({ summary: 'Verificar possível duplicado por nome + data de nascimento (aviso não-bloqueante)' })
   checkDuplicate(@Query('firstName') firstName: string, @Query('lastName') lastName: string, @Query('dateOfBirth') dateOfBirth: string) {
     return this.studentsService.checkDuplicate(firstName, lastName, dateOfBirth);
   }
 
+  @Get('export')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Exportar atletas (ou modelo de importação) em Excel' })
+  async export(@Query('template') template: string, @Res() res: Response) {
+    const isTemplate = template === 'true';
+    const buffer = await this.studentsService.exportToFile(isTemplate);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${isTemplate ? 'modelo-atletas' : 'atletas'}.xlsx"`,
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
+  }
+
+  @Post('import')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Importar atletas em massa a partir de um ficheiro Excel/CSV' })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }))
+  importFile(@UploadedFile() file: Express.Multer.File, @CurrentUser('id') userId: string) {
+    return this.studentsService.importFromFile(file.buffer, userId);
+  }
+
   @Get(':id')
-  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({ summary: 'Obter atleta por ID' })
   findOne(@Param('id') id: string) {
     return this.studentsService.findOne(id);
   }
 
   @Get(':id/checklist')
-  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({ summary: 'Checklist de documentos obrigatórios de inscrição' })
   getChecklist(@Param('id') id: string) {
     return this.studentsService.getChecklist(id);
+  }
+
+  @Post(':id/qr-code')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Gerar/regenerar QR Code de acesso do atleta (invalida o anterior)' })
+  generateQrCode(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.studentsQrService.generate(id, userId);
+  }
+
+  @Get(':id/qr-code')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Obter o QR Code de acesso actualmente activo' })
+  getQrCode(@Param('id') id: string) {
+    return this.studentsQrService.getCurrent(id);
+  }
+
+  @Delete(':id/qr-code')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Revogar o QR Code de acesso sem gerar um novo' })
+  revokeQrCode(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.studentsQrService.revoke(id, userId);
   }
 
   @Get(':id/report')
@@ -103,14 +158,14 @@ export class StudentsController {
   }
 
   @Post()
-  @Roles('ADMIN', 'ASSISTENTE_ADMIN')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({ summary: 'Criar atleta' })
   create(@Body() dto: CreateStudentDto, @CurrentUser('id') userId: string) {
     return this.studentsService.create(dto, userId);
   }
 
   @Put(':id')
-  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({ summary: 'Atualizar atleta' })
   update(@Param('id') id: string, @Body() dto: UpdateStudentDto, @CurrentUser('id') userId: string) {
     return this.studentsService.update(id, dto, userId);

@@ -17,6 +17,21 @@ const LEVEL_OPTIONS = ['BEGINNER', 'ELEMENTARY', 'INTERMEDIATE', 'ADVANCED', 'CO
 const STATUS_OPTIONS = ['ACTIVE', 'INACTIVE', 'FULL'];
 const STATUS_LABEL: Record<string, string> = { ACTIVE: 'Ativa', INACTIVE: 'Inativa', FULL: 'Lotada' };
 const DAYS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+const NIVEL_ORDEM = ['AMA', 'INTERMEDIARIO', 'AVANCADO'];
+const NIVEL_TO_LEVEL: Record<string, string> = { AMA: 'BEGINNER', INTERMEDIARIO: 'INTERMEDIATE', AVANCADO: 'ADVANCED' };
+const NIVEL_LABEL: Record<string, string> = {
+  AMA: 'AMA — Adaptação ao Meio Aquático',
+  INTERMEDIARIO: 'Intermédio — Autonomia Aquática',
+  AVANCADO: 'Avançado — Eficiência Técnica',
+};
+
+function levelFromModuleIds(moduleIds: string[], fases: any[]): string {
+  const niveisSelecionados = fases.filter((f) => moduleIds.includes(f.id)).map((f) => f.nivel);
+  for (let i = NIVEL_ORDEM.length - 1; i >= 0; i--) {
+    if (niveisSelecionados.includes(NIVEL_ORDEM[i])) return NIVEL_TO_LEVEL[NIVEL_ORDEM[i]];
+  }
+  return 'BEGINNER';
+}
 
 type Tab = 'overview' | 'athletes' | 'sessions' | 'stats';
 
@@ -24,17 +39,19 @@ type Tab = 'overview' | 'athletes' | 'sessions' | 'stats';
 function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => void; onCancel: () => void }) {
   const [form, setForm] = useState({
     name: cls.name,
-    level: cls.level,
     status: cls.status,
     maxStudents: cls.maxStudents,
-    poolLane: cls.poolLane ?? '',
     description: cls.description ?? '',
     instructorId: cls.instructor?.id ?? '',
     unidadeId: cls.unidadeId ?? '',
   });
+  const [moduleIds, setModuleIds] = useState<string[]>(cls.moduleIds ?? []);
   const [schedules, setSchedules] = useState<{ day: string; startTime: string; endTime: string }[]>(
     cls.schedules ?? []
   );
+  const [pendingDays, setPendingDays] = useState<string[]>([]);
+  const [pendingStart, setPendingStart] = useState('09:00');
+  const [pendingEnd, setPendingEnd] = useState('10:00');
 
   const { data: instructorsData } = useQuery({
     queryKey: ['instructors-select'],
@@ -48,16 +65,40 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
     staleTime: 300_000,
   });
 
+  const { data: fasesData } = useQuery({
+    queryKey: ['fases-select'],
+    queryFn: async () => { const { data } = await api.get('/fases'); return data.data ?? data ?? []; },
+    staleTime: 300_000,
+  });
+  const fases = fasesData ?? [];
+
+  const toggleModule = (id: string) =>
+    setModuleIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]));
+  const toggleAllModules = () =>
+    setModuleIds((ids) => (ids.length === fases.length ? [] : fases.map((f: any) => f.id)));
+
   const mutation = useMutation({
-    mutationFn: () => api.put(`/classes/${cls.id}`, { ...form, unidadeId: form.unidadeId || undefined, schedules }),
+    mutationFn: () => api.put(`/classes/${cls.id}`, {
+      ...form,
+      level: levelFromModuleIds(moduleIds, fases),
+      moduleIds,
+      unidadeId: form.unidadeId || undefined,
+      schedules,
+    }),
     onSuccess: () => { toast.success('Turma actualizada'); onSave(); },
     onError: (e: any) => toast.error('Erro ao actualizar', e?.response?.data?.message),
   });
 
-  const addSchedule = () => setSchedules((s) => [...s, { day: 'Segunda', startTime: '09:00', endTime: '10:00' }]);
+  const toggleDay = (day: string) =>
+    setPendingDays((days) => (days.includes(day) ? days.filter((d) => d !== day) : [...days, day]));
+  const toggleAllDays = () =>
+    setPendingDays((days) => (days.length === DAYS.length ? [] : [...DAYS]));
+  const addSchedule = () => {
+    if (pendingDays.length === 0) return;
+    setSchedules((s) => [...s, ...pendingDays.map((day) => ({ day, startTime: pendingStart, endTime: pendingEnd }))]);
+    setPendingDays([]);
+  };
   const removeSchedule = (i: number) => setSchedules((s) => s.filter((_, idx) => idx !== i));
-  const updateSchedule = (i: number, key: string, value: string) =>
-    setSchedules((s) => s.map((sch, idx) => (idx === i ? { ...sch, [key]: value } : sch)));
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-5">
@@ -82,13 +123,6 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Nível</label>
-          <select value={form.level} onChange={(e) => setForm((f) => ({ ...f, level: e.target.value }))}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30">
-            {LEVEL_OPTIONS.map((l) => <option key={l} value={l}>{levelLabel(l)}</option>)}
-          </select>
-        </div>
-        <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">Estado</label>
           <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30">
@@ -99,12 +133,6 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
           <label className="block text-xs font-medium text-gray-700 mb-1">Capacidade máx.</label>
           <input type="number" min={1} max={50} value={form.maxStudents}
             onChange={(e) => setForm((f) => ({ ...f, maxStudents: Number(e.target.value) }))}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Pista / Local</label>
-          <input value={form.poolLane} onChange={(e) => setForm((f) => ({ ...f, poolLane: e.target.value }))}
-            placeholder="Ex: Pista 1-2"
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
         </div>
         <div className="col-span-2">
@@ -118,7 +146,7 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
           </select>
         </div>
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-700 mb-1">Unidade</label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Unidade <span className="text-red-400">*</span></label>
           <select value={form.unidadeId} onChange={(e) => setForm((f) => ({ ...f, unidadeId: e.target.value }))}
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30">
             <option value="">Selecionar unidade...</option>
@@ -134,34 +162,77 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
         </div>
       </div>
 
-      {/* Schedules */}
+      {/* Módulos */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-xs font-medium text-gray-700">Horários</label>
-          <button onClick={addSchedule} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-            <Plus className="w-3 h-3" /> Adicionar horário
-          </button>
+          <label className="text-xs font-medium text-gray-700">Módulos</label>
+          <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+            <input type="checkbox" checked={fases.length > 0 && moduleIds.length === fases.length} onChange={toggleAllModules} />
+            Todos os módulos
+          </label>
         </div>
-        <div className="space-y-2">
-          {schedules.map((sch, i) => (
-            <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl">
-              <select value={sch.day} onChange={(e) => updateSchedule(i, 'day', e.target.value)}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none flex-1">
-                {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
-              <input type="time" value={sch.startTime} onChange={(e) => updateSchedule(i, 'startTime', e.target.value)}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none w-24" />
-              <span className="text-gray-400 text-xs">–</span>
-              <input type="time" value={sch.endTime} onChange={(e) => updateSchedule(i, 'endTime', e.target.value)}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none w-24" />
-              <button onClick={() => removeSchedule(i)} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
-          {schedules.length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-2">Nenhum horário definido</p>
-          )}
+        <div className="border border-gray-200 rounded-xl p-3 space-y-3 max-h-48 overflow-y-auto">
+          {NIVEL_ORDEM.map((nivel) => {
+            const doNivel = fases.filter((f: any) => f.nivel === nivel);
+            if (doNivel.length === 0) return null;
+            return (
+              <div key={nivel}>
+                <p className="text-xs font-medium text-gray-400 mb-1">{NIVEL_LABEL[nivel]}</p>
+                <div className="grid grid-cols-1 gap-1">
+                  {doNivel.map((f: any) => (
+                    <label key={f.id} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input type="checkbox" checked={moduleIds.includes(f.id)} onChange={() => toggleModule(f.id)} />
+                      {f.nome}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Schedules */}
+      <div>
+        <label className="text-xs font-medium text-gray-700 mb-2 block">Horários</label>
+        <div className="border border-gray-200 rounded-xl p-3 space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {DAYS.map((d) => (
+              <label key={d} className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer">
+                <input type="checkbox" checked={pendingDays.includes(d)} onChange={() => toggleDay(d)} />
+                {d}
+              </label>
+            ))}
+            <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer ml-auto">
+              <input type="checkbox" checked={pendingDays.length === DAYS.length} onChange={toggleAllDays} />
+              Todos os dias
+            </label>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="time" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)}
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none flex-1" />
+            <span className="text-gray-400 text-xs">–</span>
+            <input type="time" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)}
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none flex-1" />
+            <button onClick={addSchedule} disabled={pendingDays.length === 0}
+              className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium text-gray-700 disabled:opacity-50 transition flex items-center gap-1">
+              <Plus className="w-3 h-3" /> Adicionar
+            </button>
+          </div>
+          <div className="space-y-2 pt-1">
+            {schedules.map((sch, i) => (
+              <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl">
+                <span className="text-xs font-medium text-gray-700 flex-1">{sch.day}</span>
+                <span className="text-xs text-gray-500">{sch.startTime}–{sch.endTime}</span>
+                <button onClick={() => removeSchedule(i)} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+            {schedules.length === 0 && (
+              <p className="text-xs text-gray-400 text-center py-2">Nenhum horário definido</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -477,9 +548,6 @@ export default function ClassDetailPage() {
                 <span className={cn('text-xs px-2.5 py-1 rounded-full font-medium bg-white/20 text-white')}>
                   {STATUS_LABEL[cls.status] ?? cls.status}
                 </span>
-                {cls.poolLane && (
-                  <span className="text-blue-100 text-sm">📍 {cls.poolLane}</span>
-                )}
               </div>
             </div>
           </div>
@@ -552,7 +620,6 @@ export default function ClassDetailPage() {
                 { label: 'Nível', value: levelLabel(cls.level) },
                 { label: 'Estado', value: STATUS_LABEL[cls.status] ?? cls.status },
                 { label: 'Capacidade', value: `${enrolled.length}/${cls.maxStudents} (${occupancy}%)` },
-                { label: 'Pista / Local', value: cls.poolLane ?? '—' },
                 { label: 'Criada em', value: formatDate(cls.createdAt) },
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-start justify-between text-sm gap-2">

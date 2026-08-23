@@ -9,6 +9,60 @@ import { AuditService } from '../../common/audit/audit.service';
 import { DOCUMENTOS_INSCRICAO_OBRIGATORIOS } from '../../common/constants/documentos';
 import { mesclarRegistosDesempenho } from '../avaliacoes/normalizar-desempenho.util';
 import { resolveContactoAtleta } from '../../common/utils/contacto-atleta.util';
+import * as XLSX from 'xlsx';
+import { randomUUID } from 'crypto';
+
+const CAMPOS_ALIASES: Record<string, string[]> = {
+  firstName: ['nome', 'primeironome', 'firstname'],
+  lastName: ['apelido', 'sobrenome', 'ultimonome', 'lastname'],
+  dateOfBirth: ['datanascimento', 'nascimento', 'datadenascimento', 'dob', 'dateofbirth'],
+  gender: ['genero', 'género', 'sexo', 'gender'],
+  phone: ['telefone', 'contacto', 'telemovel', 'phone'],
+  email: ['email', 'correio', 'correioeletronico'],
+  unidade: ['unidade', 'localunidade'],
+  turma: ['turma', 'classe', 'aula'],
+};
+
+function normalizarChave(k: string): string {
+  return k
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function normalizeImportRow(row: Record<string, any>): Record<string, string> {
+  const entries = Object.entries(row).map(([k, v]) => [normalizarChave(k), v] as [string, any]);
+  const normalized: Record<string, string> = {};
+  for (const [field, aliases] of Object.entries(CAMPOS_ALIASES)) {
+    const match = entries.find(([k]) => k === field.toLowerCase() || aliases.includes(k));
+    if (match && match[1] !== undefined && match[1] !== null) {
+      normalized[field] = match[1] instanceof Date ? match[1].toISOString() : String(match[1]).trim();
+    }
+  }
+  return normalized;
+}
+
+function normalizarGenero(v?: string): string | undefined {
+  if (!v) return undefined;
+  const g = v.trim().toUpperCase();
+  if (['M', 'MASCULINO', 'MALE'].includes(g)) return 'MALE';
+  if (['F', 'FEMININO', 'FEMALE'].includes(g)) return 'FEMALE';
+  return 'OTHER';
+}
+
+function parseDataNascimento(v?: string): string | undefined {
+  if (!v) return undefined;
+  const s = v.trim();
+  if (!s) return undefined;
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const br = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(s);
+  if (br) return `${br[3]}-${br[2].padStart(2, '0')}-${br[1].padStart(2, '0')}`;
+  const parsed = new Date(s);
+  return isNaN(parsed.getTime()) ? undefined : parsed.toISOString().slice(0, 10);
+}
 
 @Injectable()
 export class StudentsService {
@@ -295,10 +349,23 @@ export class StudentsService {
     return student;
   }
 
-  async create(dto: CreateStudentDto & { email?: string; password?: string }, actorUserId?: string) {
-    const email = dto.email || `atleta_${Date.now()}@mastchieve.com`;
+  async create(
+    dto: Partial<CreateStudentDto> & { email?: string; password?: string; unidadeId?: string },
+    actorUserId?: string,
+    passwordHashPrecomputado?: string,
+  ) {
+    let email = dto.email || `atleta_${Date.now()}_${randomUUID().slice(0, 8)}@mastchieve.com`;
+    if (dto.email) {
+      const existente = await this.prisma.user.findUnique({ where: { email: dto.email } });
+      if (existente) email = `atleta_${Date.now()}_${randomUUID().slice(0, 8)}@mastchieve.com`;
+    }
     const bcrypt = await import('bcryptjs');
-    const password = await bcrypt.hash(dto.password || 'student123', 10);
+    const password = passwordHashPrecomputado ?? (await bcrypt.hash(dto.password || 'student123', 10));
+
+    const camposEmFalta: string[] = [];
+    const firstName = dto.firstName?.trim() || (camposEmFalta.push('firstName'), '(Sem nome)');
+    const lastName = dto.lastName?.trim() || (camposEmFalta.push('lastName'), '(Sem apelido)');
+    const dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : (camposEmFalta.push('dateOfBirth'), new Date());
 
     const user = await this.prisma.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
@@ -308,9 +375,9 @@ export class StudentsService {
           role: 'STUDENT',
           student: {
             create: {
-              firstName: dto.firstName,
-              lastName: dto.lastName,
-              dateOfBirth: new Date(dto.dateOfBirth),
+              firstName,
+              lastName,
+              dateOfBirth,
               gender: dto.gender || 'OTHER',
               phone: dto.phone,
               medicalNotes: dto.medicalNotes,
@@ -320,6 +387,8 @@ export class StudentsService {
               autorizacaoImagemData: dto.autorizacaoImagem ? new Date() : undefined,
               autorizacaoImagemDoc: dto.autorizacaoImagemDoc,
               estadoInscricao: 'DOCUMENTOS_PENDENTES',
+              camposEmFalta: camposEmFalta.length ? JSON.stringify(camposEmFalta) : undefined,
+              unidadeId: dto.unidadeId || undefined,
             },
           },
         },
@@ -331,7 +400,7 @@ export class StudentsService {
         for (const [index, guardian] of dto.guardians.entries()) {
           const guardianUser = await tx.user.create({
             data: {
-              email: `encarregado_${Date.now()}_${index}@mastchieve.com`,
+              email: `encarregado_${Date.now()}_${index}_${randomUUID().slice(0, 8)}@mastchieve.com`,
               password: guardianPassword,
               role: 'PARENT',
               parent: {
@@ -366,7 +435,7 @@ export class StudentsService {
         action: 'STUDENT_CRIADO',
         entity: 'Student',
         entityId: user.student.id,
-        newValues: { firstName: dto.firstName, lastName: dto.lastName, guardians: dto.guardians?.length ?? 0 },
+        newValues: { firstName, lastName, guardians: dto.guardians?.length ?? 0 },
       });
     }
 
@@ -380,7 +449,7 @@ export class StudentsService {
       });
       const contacto = studentComContacto ? resolveContactoAtleta(studentComContacto) : { telefone: null, viaEncarregado: false };
       const links = await this.prisma.linkPartilha.findMany({ orderBy: { chave: 'asc' } });
-      const nomeCompleto = `${dto.firstName} ${dto.lastName}`.trim();
+      const nomeCompleto = `${firstName} ${lastName}`.trim();
       const suporte = studentComContacto?.unidade?.contacto || studentComContacto?.unidade?.email;
       const appUrl = process.env.APP_URL ?? 'http://localhost:4300';
 
@@ -416,9 +485,52 @@ export class StudentsService {
     return user;
   }
 
+  async addChild(actorUserId: string, dto: CreateStudentDto) {
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorUserId },
+      include: { student: true, parent: true },
+    });
+    if (!actor) throw new NotFoundException('Utilizador não encontrado');
+
+    let parentId = actor.parent?.id;
+    if (!parentId) {
+      if (!actor.student) {
+        throw new BadRequestException('Apenas atletas ou encarregados podem inscrever filhos');
+      }
+      const parent = await this.prisma.parent.create({
+        data: {
+          userId: actor.id,
+          firstName: actor.student.firstName,
+          lastName: actor.student.lastName,
+          phone: actor.student.phone || dto.phone || 'N/D',
+          relationship: 'Pai/Mãe',
+        },
+      });
+      parentId = parent.id;
+    }
+
+    const { guardians, ...childDto } = dto;
+    const created = await this.create(childDto, actorUserId);
+    if (created.student) {
+      await this.prisma.studentParent.create({
+        data: { studentId: created.student.id, parentId, isPrimary: true },
+      });
+    }
+    return created;
+  }
+
   async update(id: string, dto: UpdateStudentDto, actorUserId?: string) {
     const before = await this.findOne(id);
-    const updated = await this.prisma.student.update({ where: { id }, data: dto as any });
+    const data: any = { ...dto };
+
+    if ((before as any).camposEmFalta) {
+      let emFalta: string[] = [];
+      try { emFalta = JSON.parse((before as any).camposEmFalta); } catch { emFalta = []; }
+      const aindaEmFalta = emFalta.filter((campo) => (dto as any)[campo] === undefined);
+      data.camposEmFalta = aindaEmFalta.length > 0 ? JSON.stringify(aindaEmFalta) : null;
+    }
+
+    const updated = await this.prisma.student.update({ where: { id }, data });
     if (actorUserId) {
       await this.audit.log({
         userId: actorUserId,
@@ -430,6 +542,115 @@ export class StudentsService {
       });
     }
     return updated;
+  }
+
+  async importFromFile(buffer: Buffer, actorUserId?: string) {
+    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+    const [unidades, turmas] = await Promise.all([
+      this.prisma.unidade.findMany({ where: { ativo: true } }),
+      this.prisma.class.findMany(),
+    ]);
+
+    // Todas as linhas do ficheiro usam a senha por omissão — calcular o hash bcrypt
+    // uma única vez em vez de repetir o custo (CPU-bound) em cada linha.
+    const bcrypt = await import('bcryptjs');
+    const senhaPadraoHash = await bcrypt.hash('student123', 10);
+
+    const resultado = { criados: 0, incompletos: 0, erros: [] as { linha: number; motivo: string }[] };
+
+    const processarLinha = async (i: number) => {
+      const linha = i + 2;
+      try {
+        const normalizado = normalizeImportRow(rows[i]);
+        const dto: Partial<CreateStudentDto> & { email?: string; unidadeId?: string } = {
+          firstName: normalizado.firstName,
+          lastName: normalizado.lastName,
+          dateOfBirth: parseDataNascimento(normalizado.dateOfBirth),
+          gender: normalizarGenero(normalizado.gender) as any,
+          phone: normalizado.phone,
+          email: normalizado.email,
+        };
+
+        if (normalizado.unidade) {
+          const chave = normalizarChave(normalizado.unidade);
+          const unidade = unidades.find((u) => normalizarChave(u.nome) === chave || normalizarChave(u.codigo) === chave);
+          if (unidade) dto.unidadeId = unidade.id;
+        }
+
+        const created = await this.create(dto, actorUserId, senhaPadraoHash);
+
+        if (normalizado.turma && created.student) {
+          const chaveTurma = normalizarChave(normalizado.turma);
+          const turma = turmas.find((t) => normalizarChave(t.name) === chaveTurma);
+          if (turma) {
+            await this.prisma.enrollment.upsert({
+              where: { studentId_classId: { studentId: created.student.id, classId: turma.id } },
+              create: { studentId: created.student.id, classId: turma.id },
+              update: {},
+            });
+          }
+        }
+
+        resultado.criados++;
+        if (created.student?.camposEmFalta) resultado.incompletos++;
+      } catch (e: any) {
+        resultado.erros.push({ linha, motivo: e?.message || 'Erro desconhecido ao processar a linha' });
+      }
+    };
+
+    // Processar em lotes concorrentes — o trabalho por linha é sobretudo I/O
+    // (BD, auditoria), por isso paralelizar reduz o tempo total quase linearmente
+    // com o tamanho do lote, em vez de somar a latência de cada linha em série.
+    const CONCORRENCIA = 10;
+    for (let i = 0; i < rows.length; i += CONCORRENCIA) {
+      const lote = Array.from({ length: Math.min(CONCORRENCIA, rows.length - i) }, (_, j) => i + j);
+      await Promise.all(lote.map(processarLinha));
+    }
+
+    return resultado;
+  }
+
+  async exportToFile(template = false): Promise<Buffer> {
+    let rows: Record<string, string>[] = [];
+
+    if (!template) {
+      const students = await this.prisma.student.findMany({
+        include: {
+          user: { select: { email: true } },
+          unidade: { select: { nome: true } },
+          enrollments: { where: { isActive: true }, include: { class: { select: { name: true } } } },
+        },
+        orderBy: { firstName: 'asc' },
+      });
+
+      rows = students.map((s) => {
+        let camposEmFalta = '';
+        if (s.camposEmFalta) {
+          try { camposEmFalta = (JSON.parse(s.camposEmFalta) as string[]).join(', '); } catch { camposEmFalta = ''; }
+        }
+        return {
+          Nome: s.firstName,
+          Apelido: s.lastName,
+          'Data de Nascimento': s.dateOfBirth.toISOString().slice(0, 10),
+          'Género': s.gender,
+          Telefone: s.phone ?? '',
+          Email: s.user?.email ?? '',
+          Unidade: s.unidade?.nome ?? '',
+          Turma: s.enrollments.map((e) => e.class.name).join(', '),
+          'Estado Inscrição': s.estadoInscricao,
+          'Campos em Falta': camposEmFalta,
+        };
+      });
+    }
+
+    const headers = ['Nome', 'Apelido', 'Data de Nascimento', 'Género', 'Telefone', 'Email', 'Unidade', 'Turma', 'Estado Inscrição', 'Campos em Falta'];
+    const sheet = rows.length ? XLSX.utils.json_to_sheet(rows, { header: headers }) : XLSX.utils.aoa_to_sheet([headers]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, 'Atletas');
+    return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
   }
 
   async deactivate(id: string, actorUserId?: string) {

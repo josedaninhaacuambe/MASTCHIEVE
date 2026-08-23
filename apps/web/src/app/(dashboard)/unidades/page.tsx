@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Building2, MapPin, Users, Phone, Plus } from 'lucide-react';
+import { Building2, MapPin, Users, Phone, Plus, Trash2 } from 'lucide-react';
 
 const ESTADO_CORES: Record<string, string> = { ATIVA:'bg-green-100 text-green-700', INATIVA:'bg-gray-100 text-gray-500', SUSPENSO:'bg-red-100 text-red-700' };
 
@@ -19,6 +19,12 @@ export default function UnidadesPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const apagar = async (u: any) => {
+    if (!window.confirm(`Apagar a unidade "${u.nome}"? Esta ação pode ser revertida por um administrador.`)) return;
+    await api.delete(`/unidades/${u.id}`);
+    load();
+  };
 
   const salvar = async () => {
     await api.post('/unidades', { ...form, capacidade: form.capacidade ? Number(form.capacidade) : undefined });
@@ -56,7 +62,12 @@ export default function UnidadesPage() {
                     <span className="text-xs text-teal-600 font-bold tracking-wider">{u.codigo}</span>
                     <h3 className="font-bold text-gray-900 text-lg mt-0.5">{u.nome}</h3>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${ESTADO_CORES[u.estado] || 'bg-gray-100 text-gray-500'}`}>{u.estado}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${ESTADO_CORES[u.estado] || 'bg-gray-100 text-gray-500'}`}>{u.estado}</span>
+                    <button onClick={() => apagar(u)} title="Apagar unidade" className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2 text-sm text-gray-600">
                   {u.cidade && <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-gray-400" />{u.cidade}{u.endereco ? ` — ${u.endereco}` : ''}</div>}

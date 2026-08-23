@@ -7,7 +7,7 @@ import { formatDate, formatCurrency, getInitials, cn } from '@/lib/utils';
 import {
   Users, CreditCard, MessageSquare, TrendingUp,
   ChevronRight, AlertCircle, CheckCircle, Clock,
-  Calendar, Waves, Star, Activity,
+  Calendar, Waves, Star, Activity, UserPlus,
 } from 'lucide-react';
 
 function AttendanceBadge({ rate }: { rate: number }) {
@@ -63,14 +63,22 @@ export default function ParentDashboardPage() {
 
       {/* Children cards */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <Users className="w-5 h-5 text-blue-500" /> Os meus atletas
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-500" /> Os meus atletas
+          </h2>
+          <button
+            onClick={() => router.push('/parent/children/new')}
+            className="flex items-center gap-1.5 text-xs font-medium text-white bg-mastchieve-600 hover:bg-mastchieve-700 px-3 py-2 rounded-lg transition"
+          >
+            <UserPlus className="w-3.5 h-3.5" /> Inscrever Atleta
+          </button>
+        </div>
         {children.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="text-sm">Nenhum atleta associado à sua conta</p>
-            <p className="text-xs mt-1">Contacte o administrador para adicionar os seus filhos</p>
+            <p className="text-xs mt-1">Usa o botão acima para inscrever um filho/educando menor de idade</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

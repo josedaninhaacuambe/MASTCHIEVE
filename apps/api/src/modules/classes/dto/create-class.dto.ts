@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsInt, IsOptional, Min, Max, IsEnum, IsUUID } from 'class-validator';
+import { IsString, IsNotEmpty, IsInt, IsOptional, Min, Max, IsEnum, IsUUID, IsArray } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -25,6 +25,8 @@ export class CreateClassDto {
   @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
 
   @ApiPropertyOptional() @IsOptional() @IsString() poolLane?: string;
+
+  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() moduleIds?: string[];
 
   @ApiProperty() @IsUUID() instructorId: string;
 

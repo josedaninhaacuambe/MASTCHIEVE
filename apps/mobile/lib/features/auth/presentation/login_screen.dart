@@ -137,6 +137,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   : const Text('Entrar'),
                             ),
                           ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: _loading ? null : () => context.push('/qr-login'),
+                              icon: const Icon(Icons.qr_code_scanner, size: 18),
+                              label: const Text('Entrar com código QR'),
+                            ),
+                          ),
                         ],
                       ),
                     ),

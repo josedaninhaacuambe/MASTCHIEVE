@@ -21,10 +21,7 @@ echo "▶ A executar migrações da base de dados..."
 pnpm exec prisma migrate deploy
 
 echo "▶ A reiniciar API..."
-pm2 restart mastchieve-api 2>/dev/null || pm2 start dist/main.js --name mastchieve-api \
-  --instances 2 --exec-mode cluster \
-  --log /var/log/mastchieve/api-out.log \
-  --error /var/log/mastchieve/api-error.log
+sudo systemctl restart mastchieve-api
 
 # ── Web (Next.js) ─────────────────────────────────────────────────────────────
 echo ""
@@ -36,20 +33,13 @@ pnpm install --frozen-lockfile
 pnpm run build
 
 echo "▶ A reiniciar Web..."
-pm2 restart mastchieve-web 2>/dev/null || pm2 start node_modules/.bin/next \
-  --name mastchieve-web \
-  --log /var/log/mastchieve/web-out.log \
-  --error /var/log/mastchieve/web-error.log \
-  -- start -p 4300
-
-# ── Guardar configuração PM2 ──────────────────────────────────────────────────
-pm2 save
+sudo systemctl restart mastchieve-web
 
 echo ""
 echo "✅ Deploy concluído com sucesso!"
 echo ""
 echo " API:  https://api.mastchieve.co.mz/api/v1"
 echo " Web:  https://mastchieve.co.mz"
-echo " Logs: pm2 logs"
+echo " Logs: journalctl -u mastchieve-api -f   |   journalctl -u mastchieve-web -f"
 echo ""
-pm2 list
+sudo systemctl status mastchieve-api mastchieve-web --no-pager

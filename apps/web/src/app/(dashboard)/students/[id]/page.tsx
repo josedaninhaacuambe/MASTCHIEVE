@@ -9,7 +9,7 @@ import {
   ArrowLeft, User, Brain, Activity, BookOpen, CreditCard,
   CheckCircle, XCircle, Clock, AlertCircle, Dumbbell, Send, TrendingUp,
   Upload, FileText, Trash2, Waves, History, FileDown, Printer,
-  Mail, AlertTriangle, X, ClipboardCheck, PhoneCall, DoorOpen,
+  Mail, AlertTriangle, X, ClipboardCheck, PhoneCall, DoorOpen, QrCode, Pencil,
 } from 'lucide-react';
 
 function printProgressReport(student: any, fasesProgresso: any[]) {
@@ -51,8 +51,11 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from '@/lib/recharts-dynamic';
 import AvaliacaoModal from '@/components/avaliacoes/AvaliacaoModal';
+import StudentQrModal from '@/components/students/StudentQrModal';
+import StudentEditModal from '@/components/students/StudentEditModal';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useAuthStore } from '@/stores/auth.store';
 import Link from 'next/link';
 
 // ─── Tab definition ────────────────────────────────────────────────────────────
@@ -161,6 +164,11 @@ export default function StudentDetailPage() {
   const [showRegistoForm, setShowRegistoForm] = useState(false);
   const [registoForm, setRegistoForm] = useState({ tipo: 'ENTRADA' as 'ENTRADA' | 'SAIDA', pessoaAutorizadaId: '', justificativa: '' });
   const [showConfirmMonthly, setShowConfirmMonthly] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const { user } = useAuthStore();
+  const canManageQr = ['ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN'].includes(user?.role ?? '');
+  const canEditProfile = ['ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN'].includes(user?.role ?? '');
 
   // ── Queries ────────────────────────────────────────────────────────────────
   const { data: student, isLoading: loadingStudent } = useQuery({
@@ -396,6 +404,14 @@ export default function StudentDetailPage() {
         />
       )}
 
+      {showQrModal && (
+        <StudentQrModal
+          studentId={id}
+          studentName={`${student.firstName} ${student.lastName}`}
+          onClose={() => setShowQrModal(false)}
+        />
+      )}
+
       {showConfirmMonthly && (
         <ConfirmDialog
           title="Enviar Relatório Mensal"
@@ -558,6 +574,23 @@ export default function StudentDetailPage() {
                 {student.isActive ? 'Ativo' : 'Inativo'}
               </span>
 
+              {/* Perfil incompleto (import parcial) */}
+              {(() => {
+                let camposEmFalta: string[] = [];
+                if (student.camposEmFalta) {
+                  try { camposEmFalta = JSON.parse(student.camposEmFalta); } catch { camposEmFalta = []; }
+                }
+                if (camposEmFalta.length === 0) return null;
+                const label: Record<string, string> = { firstName: 'Nome', lastName: 'Apelido', dateOfBirth: 'Data de nascimento' };
+                const lista = camposEmFalta.map((c) => label[c] ?? c).join(', ');
+                return (
+                  <span title={`Por completar: ${lista}`}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium bg-amber-100 text-amber-700">
+                    <AlertTriangle className="w-3 h-3" /> Perfil incompleto
+                  </span>
+                );
+              })()}
+
               {/* Level */}
               {level && (
                 <span className={cn('flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium',
@@ -583,51 +616,69 @@ export default function StudentDetailPage() {
               )}
             </div>
           </div>
+        </div>
 
-          {/* Quick action buttons */}
-          <div className="flex flex-wrap gap-2 flex-shrink-0">
+        {/* Quick action buttons — own row, wraps freely on any screen size instead of squeezing the name column */}
+        <div className="flex flex-wrap gap-2 mt-5 pt-5 border-t border-gray-100">
+          <button
+            onClick={() => setShowPerf(true)}
+            className="flex items-center gap-1.5 bg-mastchieve-600 hover:bg-mastchieve-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition"
+          >
+            <Dumbbell className="w-4 h-4" /> Registar Desempenho
+          </button>
+
+          <button onClick={exportPdf} className="flex items-center gap-2 border border-gray-200 text-gray-700 hover:bg-gray-50 px-4 py-2.5 rounded-xl text-sm font-medium transition">
+            <FileDown className="w-4 h-4" /> Exportar PDF
+          </button>
+
+          <button
+            onClick={() => setShowConfirmMonthly(true)}
+            disabled={sendMonthlyMutation.isPending}
+            className="flex items-center gap-1.5 border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-60 px-3 py-2 rounded-lg text-sm font-medium transition"
+          >
+            <Mail className="w-4 h-4" /> {sendMonthlyMutation.isPending ? 'A enviar...' : 'Relatório Mensal'}
+          </button>
+
+          <button
+            onClick={() => setShowChamada(true)}
+            className="flex items-center gap-1.5 border border-red-200 text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg text-sm font-medium transition"
+          >
+            <AlertTriangle className="w-4 h-4" /> Chamada de Atenção
+          </button>
+
+          {canManageQr && (
             <button
-              onClick={() => setShowPerf(true)}
-              className="flex items-center gap-1.5 bg-mastchieve-600 hover:bg-mastchieve-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition"
+              onClick={() => setShowQrModal(true)}
+              className="flex items-center gap-1.5 border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-2 rounded-lg text-sm font-medium transition"
             >
-              <Dumbbell className="w-4 h-4" /> Registar Desempenho
+              <QrCode className="w-4 h-4" /> QR de Acesso
             </button>
+          )}
 
-            <button onClick={exportPdf} className="flex items-center gap-2 border border-gray-200 text-gray-700 hover:bg-gray-50 px-4 py-2.5 rounded-xl text-sm font-medium transition">
-              <FileDown className="w-4 h-4" /> Exportar PDF
-            </button>
+          {enrollment?.class?.id && (
+            <Link href={`/classes/${enrollment.class.id}`}
+              className="flex items-center gap-1.5 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium transition">
+              <User className="w-4 h-4" /> Ver Turma
+            </Link>
+          )}
 
+          <button
+            onClick={handleGenerateFeedback}
+            disabled={generatingFeedback}
+            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-wait text-white px-3 py-2 rounded-lg text-sm font-medium transition"
+          >
+            <Brain className="w-4 h-4" />
+            {generatingFeedback ? 'A gerar...' : 'Gerar Feedback IA'}
+          </button>
+
+          {canEditProfile && (
             <button
-              onClick={() => setShowConfirmMonthly(true)}
-              disabled={sendMonthlyMutation.isPending}
-              className="flex items-center gap-1.5 border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-60 px-3 py-2 rounded-lg text-sm font-medium transition"
+              onClick={() => setShowEditModal(true)}
+              className="flex items-center gap-1.5 border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-2 rounded-lg text-sm font-medium transition"
             >
-              <Mail className="w-4 h-4" /> {sendMonthlyMutation.isPending ? 'A enviar...' : 'Relatório Mensal'}
+              <Pencil className="w-4 h-4" /> Editar Perfil
             </button>
-
-            <button
-              onClick={() => setShowChamada(true)}
-              className="flex items-center gap-1.5 border border-red-200 text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg text-sm font-medium transition"
-            >
-              <AlertTriangle className="w-4 h-4" /> Chamada de Atenção
-            </button>
-
-            {enrollment?.class?.id && (
-              <Link href={`/classes/${enrollment.class.id}`}
-                className="flex items-center gap-1.5 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium transition">
-                <User className="w-4 h-4" /> Ver Turma
-              </Link>
-            )}
-
-            <button
-              onClick={handleGenerateFeedback}
-              disabled={generatingFeedback}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-wait text-white px-3 py-2 rounded-lg text-sm font-medium transition"
-            >
-              <Brain className="w-4 h-4" />
-              {generatingFeedback ? 'A gerar...' : 'Gerar Feedback IA'}
-            </button>
-          </div>
+          )}
         </div>
         {lastMonthlyReport && (
           <p className="text-xs text-gray-400 mt-3 text-right">
@@ -635,6 +686,13 @@ export default function StudentDetailPage() {
           </p>
         )}
       </div>
+
+      {showEditModal && (
+        <StudentEditModal
+          student={student}
+          onClose={() => setShowEditModal(false)}
+        />
+      )}
 
       {/* ── Quick stats ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">

@@ -119,10 +119,14 @@ export default function NewStudentPage() {
     },
     onSuccess: (data) => {
       const studentId = data?.student?.id;
-      toast.success('Atleta criado com sucesso', `${form.firstName} ${form.lastName}`);
+      if (form.email && data?.email && data.email !== form.email) {
+        toast.success('Atleta criado com sucesso', `O email "${form.email}" já estava em uso — foi gerado um email de acesso automático para ${form.firstName} ${form.lastName}.`);
+      } else {
+        toast.success('Atleta criado com sucesso', `${form.firstName} ${form.lastName}`);
+      }
       router.push(studentId ? `/students/${studentId}` : '/students');
     },
-    onError: (e: any) => toast.error('Erro ao criar atleta', e?.response?.data?.message ?? 'Verifica se o email já está em uso'),
+    onError: (e: any) => toast.error('Erro ao criar atleta', e?.response?.data?.message ?? 'Tenta novamente'),
   });
 
   const handleSubmit = () => {
@@ -146,7 +150,7 @@ export default function NewStudentPage() {
       {createMutation.isError && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          Erro ao criar atleta. Verifica se o email já está em uso.
+          Erro ao criar atleta. Tenta novamente.
         </div>
       )}
 

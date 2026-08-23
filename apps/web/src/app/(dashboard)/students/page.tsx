@@ -4,12 +4,142 @@ import { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { formatDate, getInitials, levelLabel, cn } from '@/lib/utils';
+import { toast } from '@/lib/toast';
 import {
   Search, Plus, Eye, Users, AlertCircle, RefreshCw, LayoutGrid,
   List, ChevronDown, MoreVertical, Activity, CreditCard, TrendingDown,
+  Download, Upload, X, AlertTriangle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
+
+const CAMPO_LABEL: Record<string, string> = {
+  firstName: 'Nome',
+  lastName: 'Apelido',
+  dateOfBirth: 'Data de nascimento',
+};
+
+function camposEmFaltaList(camposEmFalta: string | null | undefined): string[] {
+  if (!camposEmFalta) return [];
+  try {
+    const campos = JSON.parse(camposEmFalta) as string[];
+    return campos.map((c) => CAMPO_LABEL[c] ?? c);
+  } catch {
+    return [];
+  }
+}
+
+function IncompleteBadge({ camposEmFalta }: { camposEmFalta: string | null | undefined }) {
+  const campos = camposEmFaltaList(camposEmFalta);
+  if (campos.length === 0) return null;
+  return (
+    <span
+      title={`Por completar: ${campos.join(', ')}`}
+      className="flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700 whitespace-nowrap"
+    >
+      <AlertTriangle className="w-3 h-3" /> Perfil incompleto
+    </span>
+  );
+}
+
+// ─── Import modal ───────────────────────────────────────────────────────────
+function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [resultado, setResultado] = useState<{ criados: number; incompletos: number; erros: { linha: number; motivo: string }[] } | null>(null);
+
+  const baixarModelo = async () => {
+    try {
+      const response = await api.get('/students/export?template=true', { responseType: 'blob' });
+      const url = URL.createObjectURL(response.data as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'modelo-atletas.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Erro ao descarregar modelo');
+    }
+  };
+
+  const importar = async () => {
+    if (!file) return;
+    setLoading(true);
+    setResultado(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { data } = await api.post('/students/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setResultado(data.data);
+      if (data.data.criados > 0) onSuccess();
+    } catch (e: any) {
+      toast.error('Erro ao importar ficheiro', e?.response?.data?.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900">Importar Atletas</h2>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-gray-500">
+            Carrega um ficheiro Excel ou CSV com os atletas. Linhas com campos em falta são criadas na mesma, marcadas como &quot;Perfil incompleto&quot; para completar depois.
+          </p>
+          <button onClick={baixarModelo} type="button"
+            className="flex items-center gap-1.5 text-sm text-mastchieve-600 hover:underline">
+            <Download className="w-3.5 h-3.5" /> Descarregar modelo
+          </button>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ficheiro (Excel ou CSV)</label>
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResultado(null); }}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs"
+            />
+          </div>
+
+          {resultado && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1.5 text-sm">
+              <p className="text-green-700 font-medium">{resultado.criados} atleta(s) criado(s)</p>
+              {resultado.incompletos > 0 && (
+                <p className="text-amber-600">{resultado.incompletos} com perfil incompleto (por completar depois)</p>
+              )}
+              {resultado.erros.length > 0 && (
+                <div className="text-red-600">
+                  <p className="font-medium">{resultado.erros.length} linha(s) com erro:</p>
+                  <ul className="list-disc list-inside max-h-32 overflow-y-auto">
+                    {resultado.erros.map((e, i) => (
+                      <li key={i}>Linha {e.linha}: {e.motivo}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 p-6 border-t border-gray-100">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition">
+            Fechar
+          </button>
+          <button onClick={importar} disabled={!file || loading}
+            className="px-4 py-2 bg-mastchieve-600 hover:bg-mastchieve-700 text-white text-sm font-medium rounded-lg transition disabled:opacity-50">
+            {loading ? 'A importar...' : 'Importar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Avatar gradient by first character ───────────────────────────────────────
 function avatarGradient(name: string) {
@@ -216,6 +346,8 @@ export default function StudentsPage() {
   const [levelFilter, setLevelFilter] = useState('');
   const [irregularOnly, setIrregularOnly] = useState(false);
   const [campanhaFilter, setCampanhaFilter] = useState('');
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['students', page, search],
@@ -266,6 +398,23 @@ export default function StudentsPage() {
     setPage(1);
   };
 
+  const exportarAtletas = async () => {
+    setExporting(true);
+    try {
+      const response = await api.get('/students/export', { responseType: 'blob' });
+      const url = URL.createObjectURL(response.data as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'atletas.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Erro ao exportar atletas');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Page header */}
@@ -274,7 +423,15 @@ export default function StudentsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Atletas</h1>
           <p className="text-gray-500 text-sm mt-1">Gestão de todos os atletas inscritos</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={exportarAtletas} disabled={exporting}
+            className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50">
+            <Download className="w-4 h-4" /> {exporting ? 'A exportar...' : 'Exportar'}
+          </button>
+          <button onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+            <Upload className="w-4 h-4" /> Importar
+          </button>
           <Link href="/students/bulk"
             className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
             <Users className="w-4 h-4" /> Registo em Massa
@@ -285,6 +442,13 @@ export default function StudentsPage() {
           </Link>
         </div>
       </div>
+
+      {showImportModal && (
+        <ImportModal
+          onClose={() => setShowImportModal(false)}
+          onSuccess={() => refetch()}
+        />
+      )}
 
       {/* KPI row */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
@@ -446,6 +610,7 @@ export default function StudentsPage() {
                           {student.categoria.campanha}
                         </span>
                       )}
+                      <IncompleteBadge camposEmFalta={student.camposEmFalta} />
                     </div>
 
                     {/* Attendance ring + Ver perfil */}
@@ -611,6 +776,7 @@ export default function StudentsPage() {
                               {student.categoria.campanha}
                             </span>
                           )}
+                          <IncompleteBadge camposEmFalta={student.camposEmFalta} />
                         </div>
                       </td>
                       <td className="px-6 py-4">

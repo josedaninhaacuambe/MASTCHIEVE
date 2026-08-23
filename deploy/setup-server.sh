@@ -24,7 +24,7 @@ apt-get install -y curl git nginx certbot python3-certbot-nginx ufw \
 echo "[3/10] A instalar Node.js 20 LTS..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt-get install -y nodejs
-npm install -g pm2 pnpm
+npm install -g pnpm
 
 # ── 4. Firewall ───────────────────────────────────────────────────────────────
 echo "[4/10] A configurar firewall..."
@@ -76,10 +76,13 @@ certbot --nginx -d mastchieve.co.mz -d www.mastchieve.co.mz -d api.mastchieve.co
   --non-interactive --agree-tos --email admin@mastchieve.co.mz
 echo "✓ SSL configurado"
 
-# ── 10. PM2 (auto-start) ──────────────────────────────────────────────────────
-echo "[10/10] A configurar PM2..."
-pm2 startup systemd -u root --hp /root
-echo "✓ PM2 configurado para auto-start"
+# ── 10. Serviços systemd (auto-start + auto-restart) ───────────────────────────
+echo "[10/10] A configurar serviços systemd..."
+cp deploy/systemd/mastchieve-api.service /etc/systemd/system/
+cp deploy/systemd/mastchieve-web.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable mastchieve-api mastchieve-web
+echo "✓ Serviços systemd instalados (arrancam automaticamente e reiniciam se caírem)"
 
 echo ""
 echo "======================================================"
@@ -91,4 +94,8 @@ echo " 1. Copiar ficheiros para /var/www/mastchieve/"
 echo " 2. Configurar /var/www/mastchieve/apps/api/.env.production"
 echo " 3. Configurar /var/www/mastchieve/apps/web/.env.production"
 echo " 4. Executar: bash deploy/deploy.sh"
+echo ""
+echo " Gerir os serviços com:"
+echo "   sudo systemctl start|stop|restart|status mastchieve-api"
+echo "   sudo systemctl start|stop|restart|status mastchieve-web"
 echo ""

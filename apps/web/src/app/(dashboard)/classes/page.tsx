@@ -14,11 +14,32 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   INACTIVE: { label: 'Inativa', color: 'bg-gray-100 text-gray-500' },
   FULL: { label: 'Lotada', color: 'bg-red-100 text-red-700' },
 };
+const DAYS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+const NIVEL_ORDEM = ['AMA', 'INTERMEDIARIO', 'AVANCADO'];
+const NIVEL_TO_LEVEL: Record<string, string> = { AMA: 'BEGINNER', INTERMEDIARIO: 'INTERMEDIATE', AVANCADO: 'ADVANCED' };
+const NIVEL_LABEL: Record<string, string> = {
+  AMA: 'AMA — Adaptação ao Meio Aquático',
+  INTERMEDIARIO: 'Intermédio — Autonomia Aquática',
+  AVANCADO: 'Avançado — Eficiência Técnica',
+};
+
+function levelFromModuleIds(moduleIds: string[], fases: any[]): string {
+  const niveisSelecionados = fases.filter((f) => moduleIds.includes(f.id)).map((f) => f.nivel);
+  for (let i = NIVEL_ORDEM.length - 1; i >= 0; i--) {
+    if (niveisSelecionados.includes(NIVEL_ORDEM[i])) return NIVEL_TO_LEVEL[NIVEL_ORDEM[i]];
+  }
+  return 'BEGINNER';
+}
 
 function CreateClassModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [form, setForm] = useState({
-    name: '', level: 'BEGINNER', maxStudents: 12, description: '', poolLane: '', instructorId: '', unidadeId: '',
+    name: '', maxStudents: 12, description: '', instructorId: '', unidadeId: '',
   });
+  const [moduleIds, setModuleIds] = useState<string[]>([]);
+  const [schedules, setSchedules] = useState<{ day: string; startTime: string; endTime: string }[]>([]);
+  const [pendingDays, setPendingDays] = useState<string[]>([]);
+  const [pendingStart, setPendingStart] = useState('09:00');
+  const [pendingEnd, setPendingEnd] = useState('10:00');
 
   const { data: instructorsData } = useQuery({
     queryKey: ['instructors-select'],
@@ -30,8 +51,36 @@ function CreateClassModal({ onClose, onSuccess }: { onClose: () => void; onSucce
     queryFn: async () => { const { data } = await api.get('/unidades'); return data.data ?? data ?? []; },
   });
 
+  const { data: fasesData } = useQuery({
+    queryKey: ['fases-select'],
+    queryFn: async () => { const { data } = await api.get('/fases'); return data.data ?? data ?? []; },
+  });
+  const fases = fasesData ?? [];
+
+  const toggleModule = (id: string) =>
+    setModuleIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]));
+  const toggleAllModules = () =>
+    setModuleIds((ids) => (ids.length === fases.length ? [] : fases.map((f: any) => f.id)));
+
+  const toggleDay = (day: string) =>
+    setPendingDays((days) => (days.includes(day) ? days.filter((d) => d !== day) : [...days, day]));
+  const toggleAllDays = () =>
+    setPendingDays((days) => (days.length === DAYS.length ? [] : [...DAYS]));
+  const addSchedule = () => {
+    if (pendingDays.length === 0) return;
+    setSchedules((s) => [...s, ...pendingDays.map((day) => ({ day, startTime: pendingStart, endTime: pendingEnd }))]);
+    setPendingDays([]);
+  };
+  const removeSchedule = (i: number) => setSchedules((s) => s.filter((_, idx) => idx !== i));
+
   const mutation = useMutation({
-    mutationFn: () => api.post('/classes', { ...form, unidadeId: form.unidadeId || undefined }),
+    mutationFn: () => api.post('/classes', {
+      ...form,
+      level: levelFromModuleIds(moduleIds, fases),
+      moduleIds,
+      schedules,
+      unidadeId: form.unidadeId || undefined,
+    }),
     onSuccess: () => { toast.success('Turma criada', form.name); onSuccess(); onClose(); },
     onError: (e: any) => toast.error('Erro ao criar turma', e?.response?.data?.message),
   });
@@ -55,34 +104,13 @@ function CreateClassModal({ onClose, onSuccess }: { onClose: () => void; onSucce
               placeholder="Ex: Iniciantes A — Manhã"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nível</label>
-              <select
-                value={form.level}
-                onChange={(e) => setForm((f) => ({ ...f, level: e.target.value }))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mastchieve-500"
-              >
-                {levelOptions.map((l) => <option key={l} value={l}>{levelLabel(l)}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Cap. máxima</label>
-              <input
-                type="number" min={1} max={50}
-                value={form.maxStudents}
-                onChange={(e) => setForm((f) => ({ ...f, maxStudents: Number(e.target.value) }))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mastchieve-500"
-              />
-            </div>
-          </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Pista / Local</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Cap. máxima</label>
             <input
-              value={form.poolLane}
-              onChange={(e) => setForm((f) => ({ ...f, poolLane: e.target.value }))}
+              type="number" min={1} max={50}
+              value={form.maxStudents}
+              onChange={(e) => setForm((f) => ({ ...f, maxStudents: Number(e.target.value) }))}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mastchieve-500"
-              placeholder="Ex: Pista 1-2"
             />
           </div>
           <div>
@@ -99,7 +127,7 @@ function CreateClassModal({ onClose, onSuccess }: { onClose: () => void; onSucce
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Unidade</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Unidade <span className="text-red-400">*</span></label>
             <select
               value={form.unidadeId}
               onChange={(e) => setForm((f) => ({ ...f, unidadeId: e.target.value }))}
@@ -120,6 +148,79 @@ function CreateClassModal({ onClose, onSuccess }: { onClose: () => void; onSucce
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mastchieve-500 resize-none"
             />
           </div>
+
+          {/* Módulos */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">Módulos</label>
+              <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                <input type="checkbox" checked={fases.length > 0 && moduleIds.length === fases.length} onChange={toggleAllModules} />
+                Todos os módulos
+              </label>
+            </div>
+            <div className="border border-gray-200 rounded-lg p-3 space-y-3 max-h-48 overflow-y-auto">
+              {NIVEL_ORDEM.map((nivel) => {
+                const doNivel = fases.filter((f: any) => f.nivel === nivel);
+                if (doNivel.length === 0) return null;
+                return (
+                  <div key={nivel}>
+                    <p className="text-xs font-medium text-gray-400 mb-1">{NIVEL_LABEL[nivel]}</p>
+                    <div className="grid grid-cols-1 gap-1">
+                      {doNivel.map((f: any) => (
+                        <label key={f.id} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                          <input type="checkbox" checked={moduleIds.includes(f.id)} onChange={() => toggleModule(f.id)} />
+                          {f.nome}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Horários */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Horários</label>
+            <div className="border border-gray-200 rounded-lg p-3 space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {DAYS.map((d) => (
+                  <label key={d} className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer">
+                    <input type="checkbox" checked={pendingDays.includes(d)} onChange={() => toggleDay(d)} />
+                    {d}
+                  </label>
+                ))}
+                <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer ml-auto">
+                  <input type="checkbox" checked={pendingDays.length === DAYS.length} onChange={toggleAllDays} />
+                  Todos os dias
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="time" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 flex-1" />
+                <span className="text-gray-400 text-xs">–</span>
+                <input type="time" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 flex-1" />
+                <button type="button" onClick={addSchedule} disabled={pendingDays.length === 0}
+                  className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium text-gray-700 disabled:opacity-50 transition">
+                  Adicionar
+                </button>
+              </div>
+              {schedules.length > 0 && (
+                <div className="space-y-1 pt-1">
+                  {schedules.map((sch, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs bg-gray-50 rounded-lg px-2 py-1.5">
+                      <span className="font-medium text-gray-700 flex-1">{sch.day}</span>
+                      <span className="text-gray-500">{sch.startTime}–{sch.endTime}</span>
+                      <button type="button" onClick={() => removeSchedule(i)} className="text-red-400 hover:text-red-600">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
         <div className="p-6 pt-0 flex gap-3">
           <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
@@ -127,7 +228,7 @@ function CreateClassModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           </button>
           <button
             onClick={() => mutation.mutate()}
-            disabled={!form.name || !form.instructorId || mutation.isPending}
+            disabled={!form.name || !form.instructorId || !form.unidadeId || mutation.isPending}
             className="flex-1 bg-mastchieve-600 hover:bg-mastchieve-700 text-white py-2.5 rounded-lg text-sm font-medium transition disabled:opacity-50"
           >
             {mutation.isPending ? 'A criar...' : 'Criar Turma'}

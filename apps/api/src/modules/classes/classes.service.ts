@@ -45,6 +45,7 @@ export class ClassesService {
       data: data.map((c) => ({
         ...c,
         schedules: (() => { try { return JSON.parse(c.schedules); } catch { return []; } })(),
+        moduleIds: (() => { try { return c.moduleIds ? JSON.parse(c.moduleIds) : []; } catch { return []; } })(),
         enrolledCount: c.enrollments.length,
         enrollments: undefined,
       })),
@@ -78,6 +79,7 @@ export class ClassesService {
     return {
       ...cls,
       schedules: (() => { try { return JSON.parse(cls.schedules); } catch { return []; } })(),
+      moduleIds: (() => { try { return cls.moduleIds ? JSON.parse(cls.moduleIds) : []; } catch { return []; } })(),
       enrolledCount: cls.enrollments.length,
     };
   }
@@ -88,6 +90,7 @@ export class ClassesService {
       data: {
         ...dto,
         schedules: typeof dto.schedules === 'string' ? dto.schedules : JSON.stringify(dto.schedules || []),
+        moduleIds: dto.moduleIds ? (typeof dto.moduleIds === 'string' ? dto.moduleIds : JSON.stringify(dto.moduleIds)) : undefined,
       },
       include: { instructor: { select: { firstName: true, lastName: true } } },
     });
@@ -119,6 +122,9 @@ export class ClassesService {
     const data: any = { ...dto };
     if (dto.schedules && typeof dto.schedules !== 'string') {
       data.schedules = JSON.stringify(dto.schedules);
+    }
+    if (dto.moduleIds && typeof dto.moduleIds !== 'string') {
+      data.moduleIds = JSON.stringify(dto.moduleIds);
     }
     const updated = await this.prisma.class.update({ where: { id }, data });
 

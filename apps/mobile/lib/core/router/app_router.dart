@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/login_screen.dart';
+import '../../features/auth/presentation/qr_login_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/performance/presentation/performance_screen.dart';
 import '../../features/training/presentation/training_plan_screen.dart';
@@ -13,13 +15,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: HiveStorage.accessToken != null ? '/dashboard' : '/login',
     redirect: (context, state) {
       final isLoggedIn = HiveStorage.accessToken != null;
-      final isOnAuthPage = state.matchedLocation == '/login';
+      final isOnAuthPage = state.matchedLocation == '/login' || state.matchedLocation == '/qr-login';
       if (!isLoggedIn && !isOnAuthPage) return '/login';
       if (isLoggedIn && isOnAuthPage) return '/dashboard';
       return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(path: '/qr-login', builder: (_, __) => const QrLoginScreen()),
       ShellRoute(
         builder: (context, state, child) => MainShell(child: child),
         routes: [
@@ -35,8 +38,6 @@ final routerProvider = Provider<GoRouter>((ref) {
 });
 
 // Shell with bottom nav
-import 'package:flutter/material.dart';
-
 class MainShell extends StatelessWidget {
   final Widget child;
   const MainShell({super.key, required this.child});

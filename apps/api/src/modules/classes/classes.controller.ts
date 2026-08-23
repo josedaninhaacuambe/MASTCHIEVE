@@ -15,19 +15,19 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 export class ClassesController {
   constructor(private service: ClassesService) {}
 
-  @Get() @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN') @ApiOperation({ summary: 'Listar turmas' })
+  @Get() @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN') @ApiOperation({ summary: 'Listar turmas' })
   findAll(@Query() query: any) { return this.service.findAll(query); }
 
   @Get('my') @Roles('ADMIN', 'INSTRUCTOR') @ApiOperation({ summary: 'Listar as minhas turmas (instrutor autenticado)' })
   findMyClasses(@CurrentUser('id') userId: string) { return this.service.findMyClasses(userId); }
 
-  @Get(':id') @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN') @ApiOperation({ summary: 'Detalhes da turma' })
+  @Get(':id') @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN') @ApiOperation({ summary: 'Detalhes da turma' })
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
 
-  @Post() @Roles('ADMIN', 'ASSISTENTE_ADMIN') @ApiOperation({ summary: 'Criar turma' })
+  @Post() @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN') @ApiOperation({ summary: 'Criar turma' })
   create(@Body() dto: CreateClassDto, @CurrentUser('id') userId: string) { return this.service.create(dto, userId); }
 
-  @Put(':id') @Roles('ADMIN', 'INSTRUCTOR') @ApiOperation({ summary: 'Atualizar turma' })
+  @Put(':id') @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN') @ApiOperation({ summary: 'Atualizar turma' })
   update(
     @Param('id') id: string,
     @Body() dto: Partial<CreateClassDto>,

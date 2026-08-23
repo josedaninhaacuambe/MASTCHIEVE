@@ -3,11 +3,13 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth.store';
-import { ArrowLeft, Fingerprint, Trash2 } from 'lucide-react';
+import { ArrowLeft, Fingerprint, Trash2, Pencil } from 'lucide-react';
 import Link from 'next/link';
 
 const ROLES = ['ADMIN', 'INSTRUCTOR', 'STUDENT', 'PARENT', 'FINANCIAL', 'MANAGER', 'VISITOR', 'GESTOR_RH', 'SUPER_ADMIN'];
 const ESTADOS = ['EM_RECRUTAMENTO', 'EM_ADMISSAO', 'ATIVO', 'FERIAS', 'SUSPENSO', 'DESLIGADO'];
+const CARGOS = ['INSTRUTOR_NATACAO', 'SALVA_VIDAS', 'RECEPCIONISTA', 'ADMINISTRATIVO', 'COORDENADOR', 'MANUTENCAO', 'OUTRO'];
+const DEPARTAMENTOS = ['OPERACOES', 'ADMINISTRATIVO', 'FINANCEIRO', 'MANUTENCAO'];
 
 const TABS = ['Dados', 'Contratos', 'Certificações', 'Escalas', 'Avaliações', 'Férias/Faltas', 'Disciplina', 'Documentos', 'Biometria'];
 
@@ -16,11 +18,15 @@ export default function FuncionarioDetalhePage() {
   const { user } = useAuthStore();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const podeConfigurarPermissoes = isSuperAdmin || user?.role === 'ADMIN';
+  const podeVerSalario = user?.role === 'GESTOR_RH' || user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
   const rolesDisponiveis = isSuperAdmin ? ROLES : ROLES.filter((r) => r !== 'SUPER_ADMIN');
   const [f, setF] = useState<any>(null);
   const [tab, setTab] = useState('Dados');
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState('');
+  const [unidades, setUnidades] = useState<any[]>([]);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editForm, setEditForm] = useState<any>(null);
 
   const load = async () => {
     setLoading(true);
@@ -32,6 +38,7 @@ export default function FuncionarioDetalhePage() {
   };
 
   useEffect(() => { load(); }, [id]);
+  useEffect(() => { api.get('/unidades').then((r) => setUnidades(r.data.data || r.data)); }, []);
 
   const mudarEstado = async (estado: string) => {
     await api.put(`/rh/funcionarios/${id}/estado`, { estado });
@@ -40,6 +47,27 @@ export default function FuncionarioDetalhePage() {
 
   const salvarPermissoes = async () => {
     await api.put(`/rh/funcionarios/${id}/permissoes`, { role });
+    load();
+  };
+
+  const abrirEdicao = () => {
+    setEditForm({
+      firstName: f.firstName || '', lastName: f.lastName || '', phone: f.phone || '', biNumero: f.biNumero || '',
+      cargo: f.cargo || 'RECEPCIONISTA', departamento: f.departamento || 'OPERACOES',
+      dataAdmissao: f.dataAdmissao ? f.dataAdmissao.slice(0, 10) : '',
+      contactoEmergencia: f.contactoEmergencia || '', telefoneEmergencia: f.telefoneEmergencia || '',
+      salarioBase: f.salarioBase ?? '', unidadeId: f.unidadeId || '',
+    });
+    setShowEdit(true);
+  };
+
+  const salvarEdicao = async () => {
+    await api.put(`/rh/funcionarios/${id}`, {
+      ...editForm,
+      salarioBase: editForm.salarioBase !== '' ? Number(editForm.salarioBase) : undefined,
+      unidadeId: editForm.unidadeId || undefined,
+    });
+    setShowEdit(false);
     load();
   };
 
@@ -63,6 +91,9 @@ export default function FuncionarioDetalhePage() {
             <option value="">Alterar estado...</option>
             {ESTADOS.filter(e => e !== f.estado).map(e => <option key={e} value={e}>{e.replace(/_/g, ' ')}</option>)}
           </select>
+          <button onClick={abrirEdicao} className="flex items-center gap-1.5 border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-50">
+            <Pencil className="w-3.5 h-3.5" /> Editar
+          </button>
         </div>
       </div>
 
@@ -154,6 +185,84 @@ export default function FuncionarioDetalhePage() {
       )}
 
       {tab === 'Biometria' && <BiometriaTab funcionarioId={f.id} />}
+
+      {showEdit && editForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-gray-900">Editar Funcionário</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome*</label>
+                <input value={editForm.firstName} onChange={(e) => setEditForm((v: any) => ({ ...v, firstName: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Apelido*</label>
+                <input value={editForm.lastName} onChange={(e) => setEditForm((v: any) => ({ ...v, lastName: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                <input value={editForm.phone} onChange={(e) => setEditForm((v: any) => ({ ...v, phone: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nº BI</label>
+                <input value={editForm.biNumero} onChange={(e) => setEditForm((v: any) => ({ ...v, biNumero: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cargo*</label>
+                <select value={editForm.cargo} onChange={(e) => setEditForm((v: any) => ({ ...v, cargo: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  {CARGOS.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Departamento</label>
+                <select value={editForm.departamento} onChange={(e) => setEditForm((v: any) => ({ ...v, departamento: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  {DEPARTAMENTOS.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Unidade</label>
+              <select value={editForm.unidadeId} onChange={(e) => setEditForm((v: any) => ({ ...v, unidadeId: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="">— Nenhuma —</option>
+                {unidades.map((u: any) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+              </select>
+            </div>
+            <div className={podeVerSalario ? 'grid grid-cols-2 gap-3' : ''}>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Data de admissão</label>
+                <input type="date" value={editForm.dataAdmissao} onChange={(e) => setEditForm((v: any) => ({ ...v, dataAdmissao: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              {podeVerSalario && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Salário base (MT)</label>
+                  <input type="number" value={editForm.salarioBase} onChange={(e) => setEditForm((v: any) => ({ ...v, salarioBase: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Contacto de emergência</label>
+                <input value={editForm.contactoEmergencia} onChange={(e) => setEditForm((v: any) => ({ ...v, contactoEmergencia: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telefone de emergência</label>
+                <input value={editForm.telefoneEmergencia} onChange={(e) => setEditForm((v: any) => ({ ...v, telefoneEmergencia: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setShowEdit(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
+              <button onClick={salvarEdicao} disabled={!editForm.firstName || !editForm.lastName || !editForm.cargo}
+                className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

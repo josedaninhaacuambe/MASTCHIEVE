@@ -24,6 +24,11 @@ export class UnidadesService {
     return this.prisma.unidade.update({ where: { id }, data });
   }
 
+  async remove(id: string) {
+    await this.findOne(id);
+    return this.prisma.unidade.update({ where: { id }, data: { ativo: false } });
+  }
+
   async stats(id: string) {
     const [turmas, estudantes, leads, incidentes] = await Promise.all([
       this.prisma.class.count({ where: { unidadeId: id } }),

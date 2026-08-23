@@ -1,0 +1,29 @@
+# Mastchieve IA — Web (Next.js)
+#
+# Instalar:
+#   sudo cp deploy/systemd/mastchieve-web.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable mastchieve-web
+#   sudo systemctl start mastchieve-web
+#
+# Gerir:
+#   sudo systemctl restart mastchieve-web
+#   sudo systemctl status mastchieve-web
+#   journalctl -u mastchieve-web -f
+
+[Unit]
+Description=Mastchieve IA - Web (Next.js)
+After=network.target mastchieve-api.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/mastchieve/apps/web
+ExecStart=/usr/bin/node node_modules/.bin/next start -p 4300
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

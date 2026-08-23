@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { RegisterDto, RegisterVisitorDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -81,6 +82,31 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
 
+    const profile = await this.getUserProfile(user.id, user.role);
+    return { user: { ...this.sanitizeUser(user), profile }, ...tokens };
+  }
+
+  async qrLogin(rawPayload: string) {
+    const match = /^mastchieve:qr:v1:([a-f0-9]{64})$/.exec(rawPayload.trim());
+    if (!match) throw new UnauthorizedException('Código QR inválido');
+    const tokenHash = crypto.createHash('sha256').update(match[1]).digest('hex');
+
+    const credential = await this.prisma.studentQrCredential.findUnique({
+      where: { tokenHash },
+      include: { student: { include: { user: true } } },
+    });
+    if (!credential?.ativo) throw new UnauthorizedException('Código QR inválido ou revogado');
+
+    const user = credential.student.user;
+    if (!user.isActive) throw new UnauthorizedException('Conta desactivada. Contacta o administrador.');
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }),
+      this.prisma.studentQrCredential.update({ where: { id: credential.id }, data: { ultimaUtilizacao: new Date() } }),
+    ]);
+
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    await this.saveRefreshToken(user.id, tokens.refreshToken);
     const profile = await this.getUserProfile(user.id, user.role);
     return { user: { ...this.sanitizeUser(user), profile }, ...tokens };
   }
