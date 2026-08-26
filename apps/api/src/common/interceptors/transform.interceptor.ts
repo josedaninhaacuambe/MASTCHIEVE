@@ -16,12 +16,41 @@ export class TransformInterceptor<T> implements NestInterceptor<T, ApiResponse<T
       map((data) => {
         if (data && typeof data === 'object' && 'success' in data) return data;
         const isPreWrapped = data && typeof data === 'object' && Array.isArray(data.data);
-        return {
+        const payload = isPreWrapped ? data.data : data;
+
+        const response: any = {
           success: true,
-          data: isPreWrapped ? data.data : data,
+          data: payload,
           message: isPreWrapped ? data.message : undefined,
           meta: isPreWrapped ? data.meta : undefined,
         };
+
+        /*
+         * Compatibilidade temporária com builds antigos do frontend.
+         *
+         * Novo frontend:
+         *   response.data.data.user
+         *
+         * Frontend antigo:
+         *   response.data.user
+         *
+         * Não altera JWT, utilizador ou autenticação.
+         */
+        if (
+          payload &&
+          typeof payload === 'object' &&
+          payload.user &&
+          payload.accessToken
+        ) {
+          response.user = payload.user;
+          response.accessToken = payload.accessToken;
+
+          if (payload.refreshToken) {
+            response.refreshToken = payload.refreshToken;
+          }
+        }
+
+        return response;
       }),
     );
   }
