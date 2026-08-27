@@ -1,0 +1,33 @@
+# Mastchieve IA — Backend (NestJS, a correr em Docker)
+#
+# Instalar:
+#   sudo cp deploy/systemd/mastchieve-backend.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable mastchieve-backend
+#   sudo systemctl start mastchieve-backend
+#
+# Gerir:
+#   sudo systemctl restart mastchieve-backend
+#   sudo systemctl status mastchieve-backend
+#   docker compose -f /var/www/mastchieve/docker-compose.prod.yml logs -f backend
+#
+# Nota: mysql/redis/phpmyadmin não têm unidade systemd própria — o Docker
+# já os reinicia sozinho (restart: unless-stopped) desde que o serviço
+# "docker" arranque no boot (é o comportamento por omissão do Docker Engine).
+
+[Unit]
+Description=Mastchieve IA - Backend (Docker Compose)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/var/www/mastchieve
+ExecStart=/usr/bin/docker compose -f docker-compose.prod.yml up -d --no-deps backend
+ExecStop=/usr/bin/docker compose -f docker-compose.prod.yml stop backend
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

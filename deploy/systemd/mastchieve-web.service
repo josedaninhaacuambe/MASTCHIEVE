@@ -1,4 +1,4 @@
-# Mastchieve IA — Web (Next.js)
+# Mastchieve IA — Web (Next.js, a correr em Docker)
 #
 # Instalar:
 #   sudo cp deploy/systemd/mastchieve-web.service /etc/systemd/system/
@@ -9,21 +9,21 @@
 # Gerir:
 #   sudo systemctl restart mastchieve-web
 #   sudo systemctl status mastchieve-web
-#   journalctl -u mastchieve-web -f
+#   docker compose -f /var/www/mastchieve/docker-compose.prod.yml logs -f web
 
 [Unit]
-Description=Mastchieve IA - Web (Next.js)
-After=network.target mastchieve-api.service
+Description=Mastchieve IA - Web (Docker Compose)
+Requires=docker.service
+After=docker.service network-online.target mastchieve-backend.service
+Wants=network-online.target
 
 [Service]
-Type=simple
-User=www-data
-Group=www-data
-WorkingDirectory=/var/www/mastchieve/apps/web
-ExecStart=/usr/bin/node node_modules/.bin/next start -p 4300
-Restart=always
-RestartSec=5
-Environment=NODE_ENV=production
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/var/www/mastchieve
+ExecStart=/usr/bin/docker compose -f docker-compose.prod.yml up -d --no-deps web
+ExecStop=/usr/bin/docker compose -f docker-compose.prod.yml stop web
+TimeoutStartSec=0
 
 [Install]
 WantedBy=multi-user.target

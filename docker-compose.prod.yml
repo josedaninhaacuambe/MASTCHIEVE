@@ -1,0 +1,119 @@
+# Mastchieve IA — Stack de produção (VPS + Docker)
+#
+# backend/web usam network_mode: host — ficam a ouvir directamente em
+# localhost:4301 / localhost:4300 no VPS, exactamente como já acontece hoje
+# (Next.js faz rewrites para "http://localhost:4301", CORS já inclui
+# localhost:4300/4390, cookies e domínios assumem "mesmo servidor"). Isto
+# evita alterar código da aplicação para funcionar em Docker.
+#
+# mysql/redis/phpmyadmin ficam numa rede própria, com portas publicadas
+# apenas em 127.0.0.1 (nunca expostas à internet).
+#
+# Uso:
+#   cp .env.docker.example .env          # preencher com senhas fortes
+#   docker compose -f docker-compose.prod.yml up -d mysql redis phpmyadmin
+#   docker compose -f docker-compose.prod.yml build backend web
+#   docker compose -f docker-compose.prod.yml run --rm --no-deps backend npx prisma migrate deploy
+#   docker compose -f docker-compose.prod.yml up -d backend web
+#
+# Ou, depois de instalados os serviços systemd (ver deploy/systemd/):
+#   sudo systemctl start mastchieve-backend mastchieve-web
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mastchieve_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mastchieve_mysql_prod_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mastchieve_prod
+
+  redis:
+    image: redis:7-alpine
+    container_name: mastchieve_redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - mastchieve_redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mastchieve_prod
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: mastchieve_phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 64M
+    ports:
+      # Só acessível via túnel SSH: ssh -L 8081:127.0.0.1:8081 <user>@187.7.16.162
+      - "127.0.0.1:8081:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - mastchieve_prod
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: mastchieve_backend
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - ./apps/api/.env.production
+    volumes:
+      - mastchieve_uploads:/repo/apps/api/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+    container_name: mastchieve_web
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - ./apps/web/.env.production
+    depends_on:
+      - backend
+
+networks:
+  mastchieve_prod:
+    name: mastchieve_prod
+    driver: bridge
+
+volumes:
+  mastchieve_mysql_prod_data:
+  mastchieve_redis_prod_data:
+  mastchieve_uploads:
