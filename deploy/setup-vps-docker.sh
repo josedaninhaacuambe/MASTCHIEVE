@@ -124,7 +124,7 @@ echo "   - Testar directamente via IP: http://187.7.16.162:4300 (web) e :4301 (a
 echo "     (o nginx com SSL só fica activo depois do certbot correr com sucesso)"
 echo ""
 echo " Quando o DNS já apontar para este VPS, gerar o certificado SSL:"
-echo "   certbot --nginx -d mastchieve.co.mz -d www.mastchieve.co.mz -d api.mastchieve.co.mz \\"
+echo "   certbot --nginx --redirect -d mastchieve.co.mz -d www.mastchieve.co.mz -d api.mastchieve.co.mz \\"
 echo "     --non-interactive --agree-tos --email admin@mastchieve.co.mz"
 echo ""
 echo " phpMyAdmin (nunca exposto publicamente) — aceder via túnel SSH:"
