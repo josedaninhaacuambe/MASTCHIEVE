@@ -1,0 +1,110 @@
+name: Build Mastchieve Web
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: apps/web
+        env:
+          NODE_ENV: production
+          DISABLE_PWA: '1'
+          NEXT_TELEMETRY_DISABLED: '1'
+          NEXT_PUBLIC_API_URL: /api/v1
+          NEXT_PUBLIC_APP_URL: https://mastchieve.co.mz
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: 317743237140-llufpgtb9sjm7qrqrlv5j5k9fnfdvg0h.apps.googleusercontent.com
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: npx next build
+
+      - name: Validate build
+        run: |
+          test -f apps/web/.next/BUILD_ID
+          echo "BUILD_ID=$(cat apps/web/.next/BUILD_ID)"
+
+      - name: Create production server
+        run: |
+          cat > apps/web/server.js <<'SERVER'
+          const { createServer } = require('http');
+          const next = require('next');
+
+          const dev = false;
+          const port = parseInt(process.env.PORT || '3000', 10);
+
+          const app = next({
+            dev,
+            dir: __dirname
+          });
+
+          const handle = app.getRequestHandler();
+
+          app.prepare()
+            .then(() => {
+              createServer((req, res) => {
+                handle(req, res);
+              }).listen(port, '0.0.0.0', () => {
+                console.log(`Mastchieve Web PRODUCTION ativo na porta ${port}`);
+              });
+            })
+            .catch((err) => {
+              console.error('Erro ao iniciar Mastchieve Web:', err);
+              process.exit(1);
+            });
+          SERVER
+
+      - name: Package build
+        run: |
+          cd apps/web
+          tar -czf ../../mastchieve-web-production.tar.gz .next server.js public
+          cd ../..
+          sha256sum mastchieve-web-production.tar.gz > mastchieve-web-production.sha256
+          echo "$(git rev-parse HEAD)" > BUILD_COMMIT.txt
+          cat apps/web/.next/BUILD_ID > BUILD_ID.txt
+
+      - name: Publish deploy branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir /tmp/mastchieve-deploy
+          cp mastchieve-web-production.tar.gz /tmp/mastchieve-deploy/
+          cp mastchieve-web-production.sha256 /tmp/mastchieve-deploy/
+          cp BUILD_COMMIT.txt /tmp/mastchieve-deploy/
+          cp BUILD_ID.txt /tmp/mastchieve-deploy/
+
+          git config user.name "mastchieve-build-bot"
+          git config user.email "actions@github.com"
+
+          git checkout --orphan deploy-build
+          git rm -rf . >/dev/null 2>&1 || true
+
+          cp /tmp/mastchieve-deploy/* .
+
+          git add \
+            mastchieve-web-production.tar.gz \
+            mastchieve-web-production.sha256 \
+            BUILD_COMMIT.txt \
+            BUILD_ID.txt
+
+          git commit -m "build: frontend production ${GITHUB_SHA}"
+          git push --force origin deploy-build
