@@ -54,7 +54,10 @@ export class FuncionariosService {
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { firstName: 'asc' },
-        include: { user: { select: { email: true, role: true, isActive: true } } },
+        include: {
+          user: { select: { email: true, role: true, isActive: true } },
+          unidade: { select: { id: true, nome: true } },
+        },
       }),
       this.prisma.funcionario.count({ where }),
     ]);

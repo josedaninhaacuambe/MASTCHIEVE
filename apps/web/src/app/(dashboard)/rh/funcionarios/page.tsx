@@ -24,9 +24,10 @@ export default function FuncionariosPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [unidades, setUnidades] = useState<any[]>([]);
   const [form, setForm] = useState({
     email: '', password: '', firstName: '', lastName: '', phone: '', biNumero: '',
-    cargo: 'RECEPCIONISTA', departamento: 'OPERACOES', dataAdmissao: '', salarioBase: '',
+    cargo: 'RECEPCIONISTA', departamento: 'OPERACOES', dataAdmissao: '', salarioBase: '', unidadeId: '',
   });
 
   const load = async () => {
@@ -37,11 +38,12 @@ export default function FuncionariosPage() {
   };
 
   useEffect(() => { load(); }, [search]);
+  useEffect(() => { api.get('/unidades').then((r) => setUnidades(r.data.data || r.data || [])).catch(() => {}); }, []);
 
   const salvar = async () => {
-    await api.post('/rh/funcionarios', { ...form, salarioBase: form.salarioBase ? Number(form.salarioBase) : undefined });
+    await api.post('/rh/funcionarios', { ...form, salarioBase: form.salarioBase ? Number(form.salarioBase) : undefined, unidadeId: form.unidadeId || undefined });
     setShowForm(false);
-    setForm({ email: '', password: '', firstName: '', lastName: '', phone: '', biNumero: '', cargo: 'RECEPCIONISTA', departamento: 'OPERACOES', dataAdmissao: '', salarioBase: '' });
+    setForm({ email: '', password: '', firstName: '', lastName: '', phone: '', biNumero: '', cargo: 'RECEPCIONISTA', departamento: 'OPERACOES', dataAdmissao: '', salarioBase: '', unidadeId: '' });
     load();
   };
 
@@ -77,6 +79,7 @@ export default function FuncionariosPage() {
                   <th className="text-left px-4 py-3">Nº</th>
                   <th className="text-left px-4 py-3">Nome</th>
                   <th className="text-left px-4 py-3">Cargo</th>
+                  <th className="text-left px-4 py-3">Unidade</th>
                   <th className="text-left px-4 py-3">Email</th>
                   <th className="text-left px-4 py-3">Estado</th>
                 </tr>
@@ -91,6 +94,7 @@ export default function FuncionariosPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{f.cargo.replace(/_/g, ' ')}</td>
+                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{f.unidade?.nome || '—'}</td>
                     <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{f.user?.email}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${ESTADOS_CORES[f.estado] || 'bg-gray-100 text-gray-600'}`}>{f.estado.replace(/_/g, ' ')}</span>
@@ -149,6 +153,13 @@ export default function FuncionariosPage() {
                 </select>
               </div>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Unidade*</label>
+              <select value={form.unidadeId} onChange={(e) => setForm(f => ({ ...f, unidadeId: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="">Selecionar unidade...</option>
+                {unidades.map((u: any) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+              </select>
+            </div>
             <div className={podeVerSalario ? 'grid grid-cols-2 gap-3' : ''}>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Data de admissão</label>
@@ -163,7 +174,7 @@ export default function FuncionariosPage() {
             </div>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.email || !form.firstName || !form.lastName || !form.cargo}
+              <button onClick={salvar} disabled={!form.email || !form.firstName || !form.lastName || !form.cargo || !form.unidadeId}
                 className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
                 Admitir
               </button>
