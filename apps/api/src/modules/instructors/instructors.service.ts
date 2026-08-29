@@ -29,6 +29,7 @@ export class InstructorsService {
             where: { status: 'ACTIVE' },
             select: { id: true, name: true, level: true },
           },
+          unidades: { include: { unidade: { select: { id: true, nome: true, codigo: true } } } },
           _count: { select: { feedbacks: true } },
         },
       }),
@@ -36,12 +37,16 @@ export class InstructorsService {
     ]);
 
     return {
-      data: data.map((i) => ({
-        ...i,
-        specializations: (() => { try { return JSON.parse(i.specializations); } catch { return []; } })(),
-        classCount: i.classes.length,
-        feedbackCount: i._count.feedbacks,
-      })),
+      data: data.map((i) => {
+        const primary = i.unidades.find((u) => u.isPrimary) ?? i.unidades[0];
+        return {
+          ...i,
+          specializations: (() => { try { return JSON.parse(i.specializations); } catch { return []; } })(),
+          classCount: i.classes.length,
+          feedbackCount: i._count.feedbacks,
+          unidade: primary?.unidade ?? null,
+        };
+      }),
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -63,14 +68,17 @@ export class InstructorsService {
           orderBy: { createdAt: 'desc' },
           select: { id: true, status: true, createdAt: true },
         },
+        unidades: { include: { unidade: { select: { id: true, nome: true, codigo: true } } } },
         _count: { select: { feedbacks: true } },
       },
     });
     if (!inst) throw new NotFoundException('Instrutor não encontrado');
+    const primary = inst.unidades.find((u) => u.isPrimary) ?? inst.unidades[0];
     return {
       ...inst,
       specializations: (() => { try { return JSON.parse(inst.specializations); } catch { return []; } })(),
       feedbackCount: inst._count.feedbacks,
+      unidade: primary?.unidade ?? null,
       classes: inst.classes.map((c) => ({
         ...c,
         schedules: (() => { try { return JSON.parse(c.schedules); } catch { return []; } })(),
@@ -86,7 +94,21 @@ export class InstructorsService {
       data.specializations = JSON.stringify(dto.specializations);
     }
     delete data._count;
-    return this.prisma.instructor.update({ where: { id }, data });
+    delete data.unidades;
+    delete data.unidade;
+    const unidadeId = data.unidadeId;
+    delete data.unidadeId;
+
+    const updated = await this.prisma.instructor.update({ where: { id }, data });
+
+    if (unidadeId) {
+      await this.prisma.instructorUnidade.deleteMany({ where: { instrutorId: id } });
+      await this.prisma.instructorUnidade.create({
+        data: { instrutorId: id, unidadeId, isPrimary: true },
+      });
+    }
+
+    return updated;
   }
 
   async toggleActive(id: string) {

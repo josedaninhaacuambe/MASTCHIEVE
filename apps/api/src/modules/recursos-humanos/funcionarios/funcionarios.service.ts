@@ -134,6 +134,11 @@ export class FuncionariosService {
         where: { id: user.funcionario!.id },
         data: { instructorId: instructor.id },
       });
+      if (dto.unidadeId) {
+        await this.prisma.instructorUnidade.create({
+          data: { instrutorId: instructor.id, unidadeId: dto.unidadeId, isPrimary: true },
+        });
+      }
     }
 
     await this.audit.log({ userId: actorUserId, action: 'FUNCIONARIO_CRIADO', entity: 'Funcionario', entityId: user.funcionario!.id });

@@ -10,7 +10,7 @@ import {
   ChevronRight, X, Edit2, Bell, Power, PowerOff,
   Mail, Phone, Calendar, Star, TrendingUp, Activity,
   CheckCircle, XCircle, BarChart3, Award, Zap, Filter,
-  Plus, Eye, ArrowUpDown, Shield,
+  Plus, Eye, ArrowUpDown, Shield, Building2,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -31,6 +31,7 @@ interface Instructor {
   feedbackCount?: number;
   user: { id: string; email: string; lastLoginAt?: string; isActive: boolean };
   _count?: { feedbacks: number };
+  unidade?: { id: string; nome: string; codigo: string } | null;
 }
 
 interface InstructorStats {
@@ -156,6 +157,10 @@ function DetailDrawer({
                   </span>
                 </div>
                 <p className="text-blue-100 text-sm mt-0.5">{inst.user?.email}</p>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-blue-100" />
+                  <span className="text-blue-100 text-xs">{inst.unidade?.nome ?? 'Sem unidade atribuída'}</span>
+                </div>
                 <div className="flex items-center gap-1.5 mt-1.5">
                   <span className={cn('w-2 h-2 rounded-full', activity.dot)} />
                   <span className="text-blue-100 text-xs">{activity.label}</span>
@@ -344,11 +349,18 @@ function EditModal({
     phone: instructor.phone ?? '',
     bio: instructor.bio ?? '',
     specializations: (instructor.specializations ?? []).join(', '),
+    unidadeId: instructor.unidade?.id ?? '',
+  });
+  const { data: unidades = [] } = useQuery<{ id: string; nome: string }[]>({
+    queryKey: ['unidades'],
+    queryFn: async () => { const { data } = await api.get('/unidades'); return data.data ?? data; },
+    staleTime: 300_000,
   });
 
   const mutation = useMutation({
     mutationFn: () => api.put(`/instructors/${instructor.id}`, {
       ...form,
+      unidadeId: form.unidadeId || undefined,
       specializations: form.specializations.split(',').map((s) => s.trim()).filter(Boolean),
     }),
     onSuccess: () => {
@@ -385,6 +397,16 @@ function EditModal({
                 />
               </div>
             ))}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Unidade</label>
+            <select
+              value={form.unidadeId}
+              onChange={(e) => setForm((f) => ({ ...f, unidadeId: e.target.value }))}
+              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400">
+              <option value="">Sem unidade atribuída</option>
+              {unidades.map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+            </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Telemóvel</label>
@@ -558,6 +580,12 @@ function InstructorCard({
             </span>
           </div>
           <div className="text-xs text-gray-400 mt-0.5 truncate">{inst.user?.email}</div>
+          <div className="flex items-center gap-1.5 mt-1">
+            <Building2 className="w-3 h-3 text-gray-400 flex-shrink-0" />
+            <span className={cn('text-xs truncate', inst.unidade ? 'text-gray-500' : 'text-amber-600')}>
+              {inst.unidade?.nome ?? 'Sem unidade atribuída'}
+            </span>
+          </div>
           <div className="text-xs text-gray-400 mt-0.5">{activity.label}</div>
         </div>
       </div>
