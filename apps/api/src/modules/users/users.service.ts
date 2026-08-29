@@ -66,6 +66,49 @@ export class UsersService {
     return safe;
   }
 
+  async updateUser(id: string, dto: { email?: string; firstName?: string; lastName?: string; phone?: string }) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { role: true, instructor: true, student: true, parent: true, admin: true },
+    });
+    if (!user) throw new NotFoundException('Utilizador não encontrado');
+
+    const { email, firstName, lastName, phone } = dto;
+
+    if (email) {
+      const exists = await this.prisma.user.findFirst({ where: { email, NOT: { id } } });
+      if (exists) throw new BadRequestException('Este email já está em uso');
+      await this.prisma.user.update({ where: { id }, data: { email } });
+    }
+
+    const data = { ...(firstName && { firstName }), ...(lastName && { lastName }), ...(phone !== undefined && { phone }) };
+    if (Object.keys(data).length) {
+      if (user.role === 'INSTRUCTOR' && user.instructor) {
+        await this.prisma.instructor.update({ where: { id: user.instructor.id }, data });
+      } else if (user.role === 'STUDENT' && user.student) {
+        await this.prisma.student.update({ where: { id: user.student.id }, data });
+      } else if (user.role === 'PARENT' && user.parent) {
+        await this.prisma.parent.update({ where: { id: user.parent.id }, data });
+      } else if (user.admin) {
+        await this.prisma.admin.update({ where: { id: user.admin.id }, data });
+      }
+    }
+
+    return this.getMe(id);
+  }
+
+  async deleteUser(id: string, currentUserId: string) {
+    if (id === currentUserId) throw new BadRequestException('Não podes remover a tua própria conta');
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Utilizador não encontrado');
+    if (user.role === 'SUPER_ADMIN') {
+      const count = await this.prisma.user.count({ where: { role: 'SUPER_ADMIN' } });
+      if (count <= 1) throw new BadRequestException('Não é possível remover o último Super Admin');
+    }
+    await this.prisma.user.delete({ where: { id } });
+    return { message: 'Utilizador removido com sucesso' };
+  }
+
   async getAuditLogs(query: any) {
     const { page = 1, limit = 30, userId, entity, action, search } = query;
     const where: any = {};

@@ -48,7 +48,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Admin-only paths
-  if (ADMIN_PATHS.some((p) => pathname.startsWith(p)) && role !== 'ADMIN') {
+  if (ADMIN_PATHS.some((p) => pathname.startsWith(p)) && role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 

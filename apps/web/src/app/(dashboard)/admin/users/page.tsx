@@ -8,6 +8,7 @@ import {
   Users, Search, Filter, RefreshCw, Shield, UserCheck, UserX,
   ChevronLeft, ChevronRight, CheckCircle2, XCircle, Clock,
   MoreVertical, ArrowUpDown, Briefcase, GraduationCap, Bell, ClipboardList, UserPlus,
+  Pencil, Trash2,
 } from 'lucide-react';
 import { BulkNotificationsModal } from '@/components/bulk-notifications-modal';
 
@@ -85,12 +86,148 @@ function RoleModal({ userId, currentRole, onClose }: { userId: string; currentRo
   );
 }
 
+function EditUserModal({ userId, onClose }: { userId: string; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [error, setError] = useState('');
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-user-detail', userId],
+    queryFn: async () => {
+      const res = await api.get(`/users/${userId}`);
+      const u = res.data;
+      const profile = u.instructor ?? u.student ?? u.parent ?? u.admin ?? {};
+      setEmail(u.email ?? '');
+      setFirstName(profile.firstName ?? '');
+      setLastName(profile.lastName ?? '');
+      setPhone(profile.phone ?? '');
+      return u;
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: () => api.patch(`/users/${userId}`, { email, firstName, lastName, phone }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      onClose();
+    },
+    onError: (err: any) => setError(err?.response?.data?.message ?? 'Erro ao guardar alterações'),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <h2 className="font-bold text-gray-900 text-lg mb-1">Editar utilizador</h2>
+        <p className="text-gray-500 text-sm mb-5">Atualiza os dados deste utilizador</p>
+
+        {isLoading ? (
+          <div className="py-8 text-center text-sm text-gray-500">A carregar...</div>
+        ) : (
+          <div className="space-y-3 mb-5">
+            <div>
+              <label className="text-xs font-semibold text-gray-500">Email</label>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-500">Nome</label>
+                <input
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500">Apelido</label>
+                <input
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500">Telefone</label>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {error && <p className="text-xs text-red-600">{error}</p>}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
+            Cancelar
+          </button>
+          <button
+            onClick={() => { setError(''); mutation.mutate(); }}
+            disabled={mutation.isPending || isLoading}
+            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition"
+          >
+            {mutation.isPending ? 'A guardar...' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteUserModal({ userId, email, onClose }: { userId: string; email: string; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [error, setError] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => api.delete(`/users/${userId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      onClose();
+    },
+    onError: (err: any) => setError(err?.response?.data?.message ?? 'Erro ao remover utilizador'),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <h2 className="font-bold text-gray-900 text-lg mb-1">Remover utilizador</h2>
+        <p className="text-gray-500 text-sm mb-5">
+          Tens a certeza que queres remover <span className="font-semibold text-gray-700">{email}</span>? Esta ação é irreversível e apaga todos os dados associados.
+        </p>
+        {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
+            Cancelar
+          </button>
+          <button
+            onClick={() => { setError(''); mutation.mutate(); }}
+            disabled={mutation.isPending}
+            className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition"
+          >
+            {mutation.isPending ? 'A remover...' : 'Remover'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminUsersPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [page, setPage] = useState(1);
   const [roleModal, setRoleModal] = useState<{ id: string; role: string } | null>(null);
+  const [editModal, setEditModal] = useState<{ id: string } | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{ id: string; email: string } | null>(null);
   const [showBulkNotif, setShowBulkNotif] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -265,6 +402,18 @@ export default function AdminUsersPage() {
                         >
                           {u.isActive ? <><UserX className="w-3 h-3" /> Desativar</> : <><UserCheck className="w-3 h-3" /> Ativar</>}
                         </button>
+                        <button
+                          onClick={() => setEditModal({ id: u.id })}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition"
+                        >
+                          <Pencil className="w-3 h-3" /> Editar
+                        </button>
+                        <button
+                          onClick={() => setDeleteModal({ id: u.id, email: u.email })}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-semibold transition"
+                        >
+                          <Trash2 className="w-3 h-3" /> Apagar
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -306,6 +455,16 @@ export default function AdminUsersPage() {
           currentRole={roleModal.role}
           onClose={() => setRoleModal(null)}
         />
+      )}
+
+      {/* Edit user modal */}
+      {editModal && (
+        <EditUserModal userId={editModal.id} onClose={() => setEditModal(null)} />
+      )}
+
+      {/* Delete user modal */}
+      {deleteModal && (
+        <DeleteUserModal userId={deleteModal.id} email={deleteModal.email} onClose={() => setDeleteModal(null)} />
       )}
     </div>
   );

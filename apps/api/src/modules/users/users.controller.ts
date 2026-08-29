@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Query, Body, UseGuards, Post } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Param, Query, Body, UseGuards, Post } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsString, IsOptional, MinLength, IsEmail } from 'class-validator';
 import { UsersService } from './users.service';
@@ -29,6 +29,13 @@ class ForgotPasswordDto {
 class ResetPasswordDto {
   @IsString() token: string;
   @IsString() @MinLength(6) newPassword: string;
+}
+
+class UpdateUserDto {
+  @IsOptional() @IsEmail() email?: string;
+  @IsOptional() @IsString() firstName?: string;
+  @IsOptional() @IsString() lastName?: string;
+  @IsOptional() @IsString() phone?: string;
 }
 
 @ApiTags('users')
@@ -77,6 +84,25 @@ export class UsersController {
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Listar utilizadores' })
   findAll(@Query() query: any) { return this.service.findAll(query); }
+
+  @Get(':id')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Detalhes de um utilizador' })
+  findOne(@Param('id') id: string) { return this.service.getMe(id); }
+
+  @Patch(':id')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Actualizar dados de um utilizador' })
+  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+    return this.service.updateUser(id, dto);
+  }
+
+  @Delete(':id')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Remover utilizador' })
+  remove(@Param('id') id: string, @CurrentUser('id') currentUserId: string) {
+    return this.service.deleteUser(id, currentUserId);
+  }
 
   @Patch(':id/toggle')
   @Roles('ADMIN')
