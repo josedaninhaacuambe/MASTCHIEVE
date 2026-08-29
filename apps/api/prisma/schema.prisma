@@ -366,6 +366,14 @@ model LinkPartilha {
   chave     String   @unique // NEWSLETTER | PROGRAMA_ANUAL | OPEN_DAY | TREINADOR_CLIENTE | VIDEO_INDUCAO
   label     String
   url       String   @db.Text
+  titulo    String?
+  subtitulo String?
+  conteudo  String?  @db.Text
+  imagemUrl String?  @db.Text
+  videoUrl  String?  @db.Text
+  ctaTexto  String?
+  ctaUrl    String?  @db.Text
+  ativo     Boolean  @default(true)
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 
