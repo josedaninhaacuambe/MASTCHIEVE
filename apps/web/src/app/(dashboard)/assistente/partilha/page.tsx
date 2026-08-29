@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import {
   Share2, Copy, Check, Save, Link2, Pencil, X,
-  Upload, Eye, EyeOff, ExternalLink,
+  Upload, Eye, EyeOff, ExternalLink, Trash2, AlertTriangle,
 } from 'lucide-react';
 
 const SLUGS: Record<string, string> = {
@@ -188,7 +188,49 @@ function EditModal({ link, onClose }: { link: LinkPartilha; onClose: () => void 
   );
 }
 
-function LinkCard({ link, onEdit }: { link: LinkPartilha; onEdit: () => void }) {
+function DeleteContentModal({ link, onClose }: { link: LinkPartilha; onClose: () => void }) {
+  const qc = useQueryClient();
+
+  const apagar = useMutation({
+    mutationFn: () => api.delete(`/link-partilha/${link.chave}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['links-partilha'] });
+      onClose();
+    },
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="w-11 h-11 rounded-full bg-red-50 flex items-center justify-center mb-4">
+          <AlertTriangle className="w-5 h-5 text-red-600" />
+        </div>
+        <h2 className="font-bold text-lg text-gray-900 mb-1.5">Apagar conteúdo?</h2>
+        <p className="text-sm text-gray-500 mb-6">
+          Isto remove o título, texto, imagem, vídeo e botão de <strong>{link.label}</strong> e volta a página a
+          rascunho (deixa de ficar visível ao público). Não pode ser desfeito.
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => apagar.mutate()}
+            disabled={apagar.isPending}
+            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition"
+          >
+            <Trash2 className="w-4 h-4" /> {apagar.isPending ? 'A apagar...' : 'Apagar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LinkCard({ link, onEdit, onDelete }: { link: LinkPartilha; onEdit: () => void; onDelete: () => void }) {
   const [copied, setCopied] = useState(false);
   const slug = SLUGS[link.chave] ?? `/${link.chave.toLowerCase()}`;
   const realUrl = typeof window !== 'undefined' ? `${window.location.origin}${slug}` : slug;
@@ -245,6 +287,13 @@ function LinkCard({ link, onEdit }: { link: LinkPartilha; onEdit: () => void }) 
         >
           <Pencil className="w-3.5 h-3.5" /> Editar conteúdo
         </button>
+        <button
+          onClick={onDelete}
+          title="Apagar conteúdo"
+          className="flex items-center justify-center px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
   );
@@ -260,6 +309,7 @@ export default function CentralPartilhaPage() {
   });
 
   const [editing, setEditing] = useState<LinkPartilha | null>(null);
+  const [deleting, setDeleting] = useState<LinkPartilha | null>(null);
   const links: LinkPartilha[] = data ?? [];
 
   return (
@@ -278,12 +328,18 @@ export default function CentralPartilhaPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {links.map((link) => (
-            <LinkCard key={link.id} link={link} onEdit={() => setEditing(link)} />
+            <LinkCard
+              key={link.id}
+              link={link}
+              onEdit={() => setEditing(link)}
+              onDelete={() => setDeleting(link)}
+            />
           ))}
         </div>
       )}
 
       {editing && <EditModal link={editing} onClose={() => setEditing(null)} />}
+      {deleting && <DeleteContentModal link={deleting} onClose={() => setDeleting(null)} />}
     </div>
   );
 }

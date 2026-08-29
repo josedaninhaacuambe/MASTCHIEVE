@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Put, Post, Param, Body, UseGuards,
+  Controller, Get, Put, Post, Delete, Param, Body, UseGuards,
   UseInterceptors, UploadedFile, SetMetadata,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -68,5 +68,12 @@ export class LinkPartilhaController {
   @ApiOperation({ summary: 'Upload da imagem de capa de uma página de partilha' })
   uploadImagem(@Param('chave') chave: string, @UploadedFile() file: Express.Multer.File) {
     return this.service.atualizarImagem(chave, `/uploads/${file.filename}`);
+  }
+
+  @Delete(':chave')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN')
+  @ApiOperation({ summary: 'Apagar conteúdo de uma página de partilha (volta a rascunho vazio)' })
+  apagarConteudo(@Param('chave') chave: string) {
+    return this.service.apagarConteudo(chave);
   }
 }

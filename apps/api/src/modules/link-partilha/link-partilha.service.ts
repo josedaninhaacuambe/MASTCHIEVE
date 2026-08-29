@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { join } from 'path';
+import { unlink } from 'fs/promises';
 import { PrismaService } from '../../config/prisma/prisma.service';
 
 @Injectable()
@@ -38,5 +40,26 @@ export class LinkPartilhaService {
     const link = await this.prisma.linkPartilha.findUnique({ where: { chave } });
     if (!link) throw new NotFoundException('Link de partilha não encontrado');
     return this.prisma.linkPartilha.update({ where: { chave }, data: { imagemUrl } });
+  }
+
+  async apagarConteudo(chave: string) {
+    const link = await this.prisma.linkPartilha.findUnique({ where: { chave } });
+    if (!link) throw new NotFoundException('Link de partilha não encontrado');
+    if (link.imagemUrl) {
+      await unlink(join(process.cwd(), link.imagemUrl.replace(/^\//, ''))).catch(() => {});
+    }
+    return this.prisma.linkPartilha.update({
+      where: { chave },
+      data: {
+        titulo: null,
+        subtitulo: null,
+        conteudo: null,
+        imagemUrl: null,
+        videoUrl: null,
+        ctaTexto: null,
+        ctaUrl: null,
+        ativo: false,
+      },
+    });
   }
 }
