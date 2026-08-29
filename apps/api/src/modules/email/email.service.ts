@@ -27,12 +27,21 @@ export class EmailService {
     });
   }
 
+  private async safeSend(mailOptions: nodemailer.SendMailOptions, successLog: string) {
+    try {
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(successLog);
+    } catch (err: any) {
+      this.logger.error(`Falha ao enviar email para ${mailOptions.to}: ${err?.message || err}`);
+    }
+  }
+
   async sendPaymentReminder(to: string, studentName: string, amount: number, dueDate: string) {
     if (!process.env.SMTP_USER || process.env.SMTP_USER === 'noreply@mastchieve.com') {
       this.logger.warn(`[EMAIL SKIPPED] Payment reminder to ${to} — SMTP not configured`);
       return;
     }
-    await this.transporter.sendMail({
+    await this.safeSend({
       from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
       to,
       subject: '⚠️ Mensalidade em atraso — Mastchieve',
@@ -62,8 +71,7 @@ export class EmailService {
           </div>
         </div>
       `,
-    });
-    this.logger.log(`Payment reminder sent to ${to}`);
+    }, `Payment reminder sent to ${to}`);
   }
 
   async sendFeedbackReady(to: string, studentName: string, feedbackPreview: string) {
@@ -71,7 +79,7 @@ export class EmailService {
       this.logger.warn(`[EMAIL SKIPPED] Feedback ready to ${to} — SMTP not configured`);
       return;
     }
-    await this.transporter.sendMail({
+    await this.safeSend({
       from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
       to,
       subject: '🧠 Novo feedback da IA disponível — Mastchieve',
@@ -94,8 +102,7 @@ export class EmailService {
           </div>
         </div>
       `,
-    });
-    this.logger.log(`Feedback email sent to ${to}`);
+    }, `Feedback email sent to ${to}`);
   }
 
   async sendMonthlyReport(to: string, studentName: string, pdfBuffer: Buffer) {
@@ -103,7 +110,7 @@ export class EmailService {
       this.logger.warn(`[EMAIL SKIPPED] Monthly report to ${to} — SMTP not configured`);
       return;
     }
-    await this.transporter.sendMail({
+    await this.safeSend({
       from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
       to,
       subject: '📋 Relatório Mensal de Progressão — Mastchieve',
@@ -122,8 +129,7 @@ export class EmailService {
       attachments: [
         { filename: `relatorio-mensal-${studentName.replace(/\s+/g, '-').toLowerCase()}.pdf`, content: pdfBuffer, contentType: 'application/pdf' },
       ],
-    });
-    this.logger.log(`Monthly report sent to ${to}`);
+    }, `Monthly report sent to ${to}`);
   }
 
   async sendChamadaAtencao(to: string, studentName: string, mensagem: string, habilidadesAbaixoMinimo: string[] = []) {
@@ -134,7 +140,7 @@ export class EmailService {
     const listaHtml = habilidadesAbaixoMinimo.length
       ? `<ul style="color: #6b7280; padding-left: 20px;">${habilidadesAbaixoMinimo.map((h) => `<li>${escapeHtml(h)}</li>`).join('')}</ul>`
       : '';
-    await this.transporter.sendMail({
+    await this.safeSend({
       from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
       to,
       subject: '⚠️ Chamada de Atenção — Mastchieve',
@@ -154,8 +160,7 @@ export class EmailService {
           </div>
         </div>
       `,
-    });
-    this.logger.log(`Chamada de atenção sent to ${to}`);
+    }, `Chamada de atenção sent to ${to}`);
   }
 
   async sendWelcome(to: string, firstName: string, role: string) {
@@ -163,7 +168,7 @@ export class EmailService {
       this.logger.warn(`[EMAIL SKIPPED] Welcome to ${to} — SMTP not configured`);
       return;
     }
-    await this.transporter.sendMail({
+    await this.safeSend({
       from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
       to,
       subject: '🌊 Bem-vindo à Mastchieve!',
@@ -186,8 +191,7 @@ export class EmailService {
           </div>
         </div>
       `,
-    });
-    this.logger.log(`Welcome email sent to ${to}`);
+    }, `Welcome email sent to ${to}`);
   }
 
   async sendBoasVindasAtleta(
@@ -211,7 +215,7 @@ export class EmailService {
         </a>`,
       )
       .join('');
-    await this.transporter.sendMail({
+    await this.safeSend({
       from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
       to,
       subject: `🌊 Bem-vindo(a) à Mastchieve, ${nomeCompleto}!`,
@@ -238,8 +242,7 @@ export class EmailService {
           </div>
         </div>
       `,
-    });
-    this.logger.log(`Boas-vindas atleta email sent to ${to}`);
+    }, `Boas-vindas atleta email sent to ${to}`);
   }
 
   async sendComunicacao(to: string, titulo: string, descricao: string, link?: string | null) {
@@ -247,7 +250,7 @@ export class EmailService {
       this.logger.warn(`[EMAIL SKIPPED] Comunicação to ${to} — SMTP not configured`);
       return;
     }
-    await this.transporter.sendMail({
+    await this.safeSend({
       from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
       to,
       subject: `📣 ${titulo} — Mastchieve`,
@@ -263,7 +266,6 @@ export class EmailService {
           </div>
         </div>
       `,
-    });
-    this.logger.log(`Comunicação email sent to ${to}`);
+    }, `Comunicação email sent to ${to}`);
   }
 }
