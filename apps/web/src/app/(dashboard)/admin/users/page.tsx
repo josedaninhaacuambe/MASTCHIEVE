@@ -4,11 +4,12 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { toast } from '@/lib/toast';
 import {
   Users, Search, Filter, RefreshCw, Shield, UserCheck, UserX,
   ChevronLeft, ChevronRight, CheckCircle2, XCircle, Clock,
   MoreVertical, ArrowUpDown, Briefcase, GraduationCap, Bell, ClipboardList, UserPlus,
-  Pencil, Trash2,
+  Pencil, Trash2, AlertCircle,
 } from 'lucide-react';
 import { BulkNotificationsModal } from '@/components/bulk-notifications-modal';
 
@@ -43,6 +44,7 @@ function RoleModal({ userId, currentRole, onClose }: { userId: string; currentRo
   const mutation = useMutation({
     mutationFn: (role: string) => api.patch(`/users/${userId}/role`, { role }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); onClose(); },
+    onError: (err: any) => toast.error('Erro ao alterar perfil', err?.response?.data?.message ?? 'Tenta novamente'),
   });
 
   return (
@@ -230,7 +232,7 @@ export default function AdminUsersPage() {
   const [deleteModal, setDeleteModal] = useState<{ id: string; email: string } | null>(null);
   const [showBulkNotif, setShowBulkNotif] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin-users', search, roleFilter, page],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: '20' });
@@ -244,6 +246,7 @@ export default function AdminUsersPage() {
   const toggleMutation = useMutation({
     mutationFn: (id: string) => api.patch(`/users/${id}/toggle`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+    onError: (err: any) => toast.error('Erro ao atualizar estado', err?.response?.data?.message ?? 'Tenta novamente'),
   });
 
   const users: any[] = data?.data ?? [];
@@ -257,12 +260,12 @@ export default function AdminUsersPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-black text-gray-900">Gestão de Utilizadores</h1>
           <p className="text-gray-500 text-sm mt-0.5">Gerir perfis, papéis e acessos da plataforma</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/rh/funcionarios"
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-xl text-sm font-medium transition"
@@ -326,6 +329,18 @@ export default function AdminUsersPage() {
         />
       </div>
 
+      {isError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar utilizadores. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => refetch()} className="flex items-center gap-1 text-xs text-red-600 hover:underline">
+            <RefreshCw className="w-3 h-3" /> Tentar novamente
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {isLoading ? (
@@ -339,88 +354,158 @@ export default function AdminUsersPage() {
             <p className="text-gray-500">Nenhum utilizador encontrado</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  {['Email', 'Perfil', 'Estado', 'Último login', 'Criado em', 'Ações'].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50/50 transition-colors group">
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                          {u.email[0]?.toUpperCase()}
-                        </div>
-                        <span className="text-sm font-medium text-gray-900 truncate max-w-[200px]">{u.email}</span>
+          <>
+            {/* Mobile / tablet: card list (avoids cramped horizontal-scroll tables and hover-only actions on touch) */}
+            <div className="lg:hidden divide-y divide-gray-50">
+              {users.map((u) => (
+                <div key={u.id} className="p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                      {u.email[0]?.toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">{u.email}</p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <RoleBadge role={u.role} />
+                        {u.isActive ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full">
+                            <CheckCircle2 className="w-3 h-3" /> Ativo
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 px-2 py-1 rounded-full">
+                            <XCircle className="w-3 h-3" /> Inativo
+                          </span>
+                        )}
                       </div>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <RoleBadge role={u.role} />
-                    </td>
-                    <td className="px-4 py-3.5">
-                      {u.isActive ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full">
-                          <CheckCircle2 className="w-3 h-3" /> Ativo
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 px-2 py-1 rounded-full">
-                          <XCircle className="w-3 h-3" /> Inativo
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 text-xs text-gray-500 whitespace-nowrap">
-                      {u.lastLoginAt
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> Login: {u.lastLoginAt
                         ? new Date(u.lastLoginAt).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })
-                        : <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Nunca</span>}
-                    </td>
-                    <td className="px-4 py-3.5 text-xs text-gray-500 whitespace-nowrap">
-                      {new Date(u.createdAt).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => setRoleModal({ id: u.id, role: u.role })}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition"
-                        >
-                          <ArrowUpDown className="w-3 h-3" /> Perfil
-                        </button>
-                        <button
-                          onClick={() => toggleMutation.mutate(u.id)}
-                          disabled={toggleMutation.isPending}
-                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
-                            u.isActive
-                              ? 'bg-red-50 hover:bg-red-100 text-red-700'
-                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
-                          }`}
-                        >
-                          {u.isActive ? <><UserX className="w-3 h-3" /> Desativar</> : <><UserCheck className="w-3 h-3" /> Ativar</>}
-                        </button>
-                        <button
-                          onClick={() => setEditModal({ id: u.id })}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition"
-                        >
-                          <Pencil className="w-3 h-3" /> Editar
-                        </button>
-                        <button
-                          onClick={() => setDeleteModal({ id: u.id, email: u.email })}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-semibold transition"
-                        >
-                          <Trash2 className="w-3 h-3" /> Apagar
-                        </button>
-                      </div>
-                    </td>
+                        : 'Nunca'}
+                    </span>
+                    <span>Criado: {new Date(u.createdAt).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => setRoleModal({ id: u.id, role: u.role })}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition"
+                    >
+                      <ArrowUpDown className="w-3 h-3" /> Perfil
+                    </button>
+                    <button
+                      onClick={() => toggleMutation.mutate(u.id)}
+                      disabled={toggleMutation.isPending}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                        u.isActive
+                          ? 'bg-red-50 hover:bg-red-100 text-red-700'
+                          : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                      }`}
+                    >
+                      {u.isActive ? <><UserX className="w-3 h-3" /> Desativar</> : <><UserCheck className="w-3 h-3" /> Ativar</>}
+                    </button>
+                    <button
+                      onClick={() => setEditModal({ id: u.id })}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition"
+                    >
+                      <Pencil className="w-3 h-3" /> Editar
+                    </button>
+                    <button
+                      onClick={() => setDeleteModal({ id: u.id, email: u.email })}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-semibold transition"
+                    >
+                      <Trash2 className="w-3 h-3" /> Apagar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: full table */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    {['Email', 'Perfil', 'Estado', 'Último login', 'Criado em', 'Ações'].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {users.map((u) => (
+                    <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                            {u.email[0]?.toUpperCase()}
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 truncate max-w-[200px]">{u.email}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <RoleBadge role={u.role} />
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {u.isActive ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full">
+                            <CheckCircle2 className="w-3 h-3" /> Ativo
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 px-2 py-1 rounded-full">
+                            <XCircle className="w-3 h-3" /> Inativo
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-xs text-gray-500 whitespace-nowrap">
+                        {u.lastLoginAt
+                          ? new Date(u.lastLoginAt).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })
+                          : <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Nunca</span>}
+                      </td>
+                      <td className="px-4 py-3.5 text-xs text-gray-500 whitespace-nowrap">
+                        {new Date(u.createdAt).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => setRoleModal({ id: u.id, role: u.role })}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition"
+                          >
+                            <ArrowUpDown className="w-3 h-3" /> Perfil
+                          </button>
+                          <button
+                            onClick={() => toggleMutation.mutate(u.id)}
+                            disabled={toggleMutation.isPending}
+                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                              u.isActive
+                                ? 'bg-red-50 hover:bg-red-100 text-red-700'
+                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                            }`}
+                          >
+                            {u.isActive ? <><UserX className="w-3 h-3" /> Desativar</> : <><UserCheck className="w-3 h-3" /> Ativar</>}
+                          </button>
+                          <button
+                            onClick={() => setEditModal({ id: u.id })}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition"
+                          >
+                            <Pencil className="w-3 h-3" /> Editar
+                          </button>
+                          <button
+                            onClick={() => setDeleteModal({ id: u.id, email: u.email })}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-semibold transition"
+                          >
+                            <Trash2 className="w-3 h-3" /> Apagar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {/* Pagination */}

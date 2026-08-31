@@ -41,7 +41,7 @@ export default function SessionAttendancePage() {
   const avaliadosIds: string[] = avaliadosData?.studentIds ?? [];
 
   // Fetch session info + existing attendance
-  const { data: sessionData, isLoading } = useQuery({
+  const { data: sessionData, isLoading, isError, refetch } = useQuery({
     queryKey: ['session-attendance', sessionId],
     queryFn: async () => {
       const [attRes, classRes] = await Promise.all([
@@ -126,6 +126,18 @@ export default function SessionAttendancePage() {
         <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
         <span className="text-gray-900 font-medium">Presenças da Sessão</span>
       </div>
+
+      {isError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar a sessão. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => refetch()} className="flex items-center gap-1 text-xs text-red-600 hover:underline">
+            <RefreshCw className="w-3 h-3" /> Tentar novamente
+          </button>
+        </div>
+      )}
 
       {/* Session header */}
       <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl p-5 text-white">

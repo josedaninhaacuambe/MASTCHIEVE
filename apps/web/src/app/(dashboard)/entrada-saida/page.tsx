@@ -14,16 +14,25 @@ export default function EntradaSaidaPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showBulkForm, setShowBulkForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const [form, setForm] = useState({ studentId: '', tipo: 'ENTRADA', pessoaAutorizadaId: '', justificativa: '' });
 
   const load = async () => {
     setLoading(true);
-    const params: any = {};
-    if (data) params.data = data;
-    const r = await api.get('/entrada-saida/registos', { params });
-    setRegistos(r.data.data ?? []);
-    setLoading(false);
+    try {
+      const params: any = {};
+      if (data) params.data = data;
+      const r = await api.get('/entrada-saida/registos', { params });
+      setRegistos(r.data.data ?? []);
+      setLoadError(false);
+    } catch (e: any) {
+      setLoadError(true);
+      toast.error('Erro ao carregar registos', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, [data]);
@@ -44,6 +53,7 @@ export default function EntradaSaidaPage() {
   };
 
   const salvar = async () => {
+    setSaving(true);
     try {
       await api.post('/entrada-saida/registos', {
         studentId: form.studentId,
@@ -55,7 +65,9 @@ export default function EntradaSaidaPage() {
       setShowForm(false);
       load();
     } catch (e: any) {
-      toast.error('Erro ao registar', e?.response?.data?.message);
+      toast.error('Erro ao registar', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -81,6 +93,18 @@ export default function EntradaSaidaPage() {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <XCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar registos. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => load()} className="text-xs text-red-600 hover:underline">
+            Tentar novamente
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-gray-400">A carregar...</div>
@@ -177,8 +201,10 @@ export default function EntradaSaidaPage() {
               </>
             )}
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.studentId || !saidaValida} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">Registar</button>
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.studentId || !saidaValida || saving} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
+                {saving ? 'A registar...' : 'Registar'}
+              </button>
             </div>
           </div>
         </div>

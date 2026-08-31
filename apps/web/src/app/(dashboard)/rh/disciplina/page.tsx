@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { Plus, Gavel } from 'lucide-react';
 
@@ -30,12 +31,19 @@ export default function DisciplinaPage() {
   const [form, setForm] = useState({ funcionarioId: '', tipo: 'ATRASO', gravidade: 'LEVE', descricao: '' });
   const [decidindo, setDecidindo] = useState<any>(null);
   const [dForm, setDForm] = useState({ decisaoFinal: 'ADVERTENCIA', medidaAplicada: '' });
+  const [saving, setSaving] = useState(false);
+  const [savingDecisao, setSavingDecisao] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/rh/disciplina');
-    setOcorrencias(r.data.data || []);
-    setLoading(false);
+    try {
+      const r = await api.get('/rh/disciplina');
+      setOcorrencias(r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar ocorrências', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -44,16 +52,36 @@ export default function DisciplinaPage() {
   }, []);
 
   const salvar = async () => {
-    await api.post('/rh/disciplina', form);
-    setShowForm(false);
-    setForm({ funcionarioId: '', tipo: 'ATRASO', gravidade: 'LEVE', descricao: '' });
-    load();
+    if (!form.funcionarioId || !form.descricao.trim()) {
+      toast.error('Campos obrigatórios', 'Seleciona o funcionário e descreve a ocorrência');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post('/rh/disciplina', form);
+      setShowForm(false);
+      setForm({ funcionarioId: '', tipo: 'ATRASO', gravidade: 'LEVE', descricao: '' });
+      toast.success('Ocorrência registada');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao registar ocorrência', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const salvarDecisao = async () => {
-    await api.put(`/rh/disciplina/${decidindo.id}/decidir`, dForm);
-    setDecidindo(null);
-    load();
+    setSavingDecisao(true);
+    try {
+      await api.put(`/rh/disciplina/${decidindo.id}/decidir`, dForm);
+      setDecidindo(null);
+      toast.success('Decisão registada');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao registar decisão', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSavingDecisao(false);
+    }
   };
 
   const podeDecidir = (o: any) => o.gravidade !== 'GRAVE' || isSuperAdmin;
@@ -129,10 +157,10 @@ export default function DisciplinaPage() {
               <textarea value={form.descricao} onChange={(e) => setForm(f => ({ ...f, descricao: e.target.value }))} rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.funcionarioId || !form.descricao}
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.funcionarioId || !form.descricao || saving}
                 className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
-                Registar
+                {saving ? 'A registar...' : 'Registar'}
               </button>
             </div>
           </div>
@@ -154,8 +182,8 @@ export default function DisciplinaPage() {
               <textarea value={dForm.medidaAplicada} onChange={(e) => setDForm(f => ({ ...f, medidaAplicada: e.target.value }))} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setDecidindo(null)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvarDecisao} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900">Guardar</button>
+              <button onClick={() => setDecidindo(null)} disabled={savingDecisao} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvarDecisao} disabled={savingDecisao} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">{savingDecisao ? 'A guardar...' : 'Guardar'}</button>
             </div>
           </div>
         </div>

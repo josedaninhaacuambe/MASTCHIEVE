@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import {
   Award, CheckCircle2, ChevronDown, ChevronRight,
   UserPlus, X, Search, Loader2, Trophy, Users, TrendingUp,
@@ -149,17 +150,24 @@ function AssignModal({ fase, config, onClose, onAssigned }: {
   const [students, setStudents] = useState<Student[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [assigning, setAssigning] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadStudents = useCallback(() => {
+    setLoading(true);
     api.get('/students?limit=100').then(r => {
       const raw = r.data?.data ?? r.data;
       const arr: Student[] = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
       const assignedIds = new Set(fase.studentFases.map(sf => sf.studentId));
       setStudents(arr.filter(s => !assignedIds.has(s.id)));
-      setLoading(false);
-    }).catch(() => setLoading(false));
+      setLoadError(false);
+    }).catch(() => {
+      setLoadError(true);
+      toast.error('Erro ao carregar atletas', 'Tenta novamente');
+    }).finally(() => setLoading(false));
   }, [fase.studentFases]);
+
+  useEffect(() => { loadStudents(); }, [loadStudents]);
 
   const filtered = students.filter(s =>
     studentName(s).toLowerCase().includes(search.toLowerCase())
@@ -174,6 +182,8 @@ function AssignModal({ fase, config, onClose, onAssigned }: {
       });
       onAssigned();
       onClose();
+    } catch (e: any) {
+      toast.error('Erro ao adicionar atleta', e?.response?.data?.message ?? 'Tenta novamente');
     } finally {
       setAssigning(null);
     }
@@ -204,6 +214,11 @@ function AssignModal({ fase, config, onClose, onAssigned }: {
           </div>
           {loading ? (
             <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 text-gray-400 animate-spin" /></div>
+          ) : loadError ? (
+            <div className="text-center py-6 text-sm space-y-2">
+              <p className="text-red-500">Erro ao carregar atletas.</p>
+              <button onClick={loadStudents} className="text-xs text-blue-500 hover:underline">Tentar novamente</button>
+            </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-6 text-gray-400 text-sm">
               {students.length === 0 ? 'Todos os atletas já foram atribuídos' : 'Nenhum atleta encontrado'}
@@ -272,12 +287,13 @@ function EstudanteRow({ sf, criterios, totalMinimo, faseId, config, onUpdate }: 
       await api.put(`/fases/estudante/${sf.studentId}/fase/${faseId}`, { avaliacoes: [{ index: idx, valor }] });
       const avaliacoes = Object.entries(nextScores).map(([i, v]) => ({ criterioIndex: Number(i), valor: v }));
       onUpdate({ studentId: sf.studentId, faseId, avaliacoes });
-    } catch {
+    } catch (e: any) {
       setScores(s => {
         const next = { ...s };
         if (prev === undefined) delete next[idx]; else next[idx] = prev;
         return next;
       });
+      toast.error('Erro ao guardar pontuação', e?.response?.data?.message ?? 'Tenta novamente');
     } finally {
       setSavingIdx(null);
     }
@@ -528,7 +544,10 @@ export function NivelPage({ nivel }: { nivel: 'AMA' | 'INTERMEDIARIO' | 'AVANCAD
     setError(null);
     api.get(`/fases/nivel/${nivel}`)
       .then(r => { const raw = r.data?.data ?? r.data; setFases(Array.isArray(raw) ? raw : []); })
-      .catch(() => setError(`Erro a carregar módulos ${nivel}.`))
+      .catch((e: any) => {
+        setError(`Erro a carregar módulos ${nivel}.`);
+        toast.error('Erro ao carregar módulos', e?.response?.data?.message ?? 'Tenta novamente');
+      })
       .finally(() => setLoading(false));
   }, [nivel]);
 
@@ -608,7 +627,10 @@ export function NivelPage({ nivel }: { nivel: 'AMA' | 'INTERMEDIARIO' | 'AVANCAD
           <span className="text-sm">A carregar...</span>
         </div>
       ) : error ? (
-        <div className="text-center py-16 text-red-500 text-sm">{error}</div>
+        <div className="flex flex-col items-center justify-center py-16 text-red-500 text-sm gap-2">
+          <span>{error}</span>
+          <button onClick={fetchData} className="text-xs text-blue-500 hover:underline">Tentar novamente</button>
+        </div>
       ) : fases.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
           <span className="text-sm">Nenhum módulo encontrado.</span>

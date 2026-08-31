@@ -153,21 +153,36 @@ export default function RotinaDiariaPage() {
   const [data, setData] = useState(hojeISO());
   const [rotinas, setRotinas] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [unidadesError, setUnidadesError] = useState(false);
 
-  useEffect(() => {
+  const loadUnidades = () => {
+    setUnidadesError(false);
     api.get('/unidades').then((r) => {
       const lista = r.data.data ?? r.data ?? [];
       setUnidades(lista);
       if (lista.length > 0) setUnidadeId((prev) => prev || lista[0].id);
-    }).catch(() => {});
-  }, []);
+    }).catch((e: any) => {
+      setUnidadesError(true);
+      toast.error('Erro ao carregar unidades', e?.response?.data?.message ?? 'Tenta novamente');
+    });
+  };
+
+  useEffect(() => { loadUnidades(); }, []);
 
   const load = async () => {
     if (!unidadeId) return;
     setLoading(true);
-    const r = await api.get('/rotina-diaria', { params: { unidadeId, data } });
-    setRotinas(r.data.data ?? []);
-    setLoading(false);
+    try {
+      const r = await api.get('/rotina-diaria', { params: { unidadeId, data } });
+      setRotinas(r.data.data ?? []);
+      setLoadError(false);
+    } catch (e: any) {
+      setLoadError(true);
+      toast.error('Erro ao carregar rotina diária', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, [unidadeId, data]);
@@ -188,6 +203,20 @@ export default function RotinaDiariaPage() {
         </select>
         <input type="date" value={data} onChange={(e) => setData(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
       </div>
+
+      {unidadesError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <span className="text-sm text-red-700">Erro ao carregar unidades. Verifica a ligação ao servidor.</span>
+          <button onClick={loadUnidades} className="text-xs text-red-600 hover:underline">Tentar novamente</button>
+        </div>
+      )}
+
+      {loadError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <span className="text-sm text-red-700">Erro ao carregar rotina diária. Verifica a ligação ao servidor.</span>
+          <button onClick={() => load()} className="text-xs text-red-600 hover:underline">Tentar novamente</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-gray-400">A carregar...</div>

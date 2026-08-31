@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../config/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { CreateFuncionarioDto } from './dto/create-funcionario.dto';
@@ -158,13 +158,22 @@ export class FuncionariosService {
       throw new ForbiddenException('Apenas o Super Admin pode atribuir o papel de Super Admin');
     }
     const funcionario = await this.findOne(id);
-    await this.prisma.user.update({ where: { id: funcionario.userId }, data: { role: dto.role } });
+
+    if (dto.email) {
+      const exists = await this.prisma.user.findFirst({ where: { email: dto.email, NOT: { id: funcionario.userId } } });
+      if (exists) throw new BadRequestException('Este email já está em uso');
+    }
+
+    await this.prisma.user.update({
+      where: { id: funcionario.userId },
+      data: { role: dto.role, ...(dto.email ? { email: dto.email } : {}) },
+    });
     await this.audit.log({
       userId: actorUserId,
       action: 'FUNCIONARIO_PERMISSOES_CONFIGURADAS',
       entity: 'Funcionario',
       entityId: id,
-      newValues: { role: dto.role },
+      newValues: { role: dto.role, email: dto.email },
     });
     return this.findOne(id);
   }

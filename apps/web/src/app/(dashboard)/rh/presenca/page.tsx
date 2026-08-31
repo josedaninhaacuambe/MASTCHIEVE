@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { Fingerprint, MonitorSmartphone, Plus, Filter } from 'lucide-react';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 
@@ -15,14 +16,20 @@ export default function PresencaBiometricaPage() {
   const [showForm, setShowForm] = useState(false);
   const [erro, setErro] = useState('');
   const [form, setForm] = useState({ funcionarioId: '', tipo: 'ENTRADA', timestamp: '', observacao: '' });
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const params: any = {};
-    Object.entries(filtros).forEach(([k, v]) => { if (v) params[k] = v; });
-    const r = await api.get('/rh/presenca/registos', { params });
-    setRegistos(r.data.data || []);
-    setLoading(false);
+    try {
+      const params: any = {};
+      Object.entries(filtros).forEach(([k, v]) => { if (v) params[k] = v; });
+      const r = await api.get('/rh/presenca/registos', { params });
+      setRegistos(r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar registos', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -35,14 +42,22 @@ export default function PresencaBiometricaPage() {
   const aplicarFiltros = () => load();
 
   const lancarManual = async () => {
+    if (!form.funcionarioId || !form.observacao.trim()) {
+      setErro('Preenche o funcionário e a observação');
+      return;
+    }
     setErro('');
+    setSaving(true);
     try {
       await api.post('/rh/presenca/registos/manual', form);
       setShowForm(false);
       setForm({ funcionarioId: '', tipo: 'ENTRADA', timestamp: '', observacao: '' });
+      toast.success('Registo lançado');
       load();
     } catch (e: any) {
       setErro(e?.response?.data?.message || 'Erro ao lançar registo');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -154,10 +169,10 @@ export default function PresencaBiometricaPage() {
                 placeholder="Motivo do lançamento manual" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={lancarManual} disabled={!form.funcionarioId || !form.observacao}
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={lancarManual} disabled={!form.funcionarioId || !form.observacao || saving}
                 className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
-                Lançar
+                {saving ? 'A lançar...' : 'Lançar'}
               </button>
             </div>
           </div>

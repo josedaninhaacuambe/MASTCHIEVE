@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
-import { Plus, TrendingUp, Users, CheckCircle, XCircle, Phone, Mail, Building2, Megaphone } from 'lucide-react';
+import { Plus, TrendingUp, Users, CheckCircle, XCircle, Phone, Mail, Building2, Megaphone, AlertTriangle } from 'lucide-react';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 const ESTADOS = ['NOVO','CONTACTADO','AGENDADO','CONVERTIDO','PERDIDO'];
@@ -14,7 +14,9 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState<any[]>([]);
   const [pipeline, setPipeline] = useState<any>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState('');
   const [form, setForm] = useState({ nome:'', email:'', telefone:'', origem:'WALK_IN', campanha:'', notas:'' });
 
@@ -27,13 +29,20 @@ export default function LeadsPage() {
 
   const load = async () => {
     setLoading(true);
-    const [l, p] = await Promise.all([
-      api.get('/leads', { params: { estado: filtroEstado || undefined } }),
-      api.get('/leads/pipeline'),
-    ]);
-    setLeads(l.data.data || l.data);
-    setPipeline(p.data.data || p.data);
-    setLoading(false);
+    try {
+      const [l, p] = await Promise.all([
+        api.get('/leads', { params: { estado: filtroEstado || undefined } }),
+        api.get('/leads/pipeline'),
+      ]);
+      setLeads(l.data.data || l.data);
+      setPipeline(p.data.data || p.data);
+      setLoadError(false);
+    } catch (e: any) {
+      setLoadError(true);
+      toast.error('Erro ao carregar leads', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, [filtroEstado]);
@@ -64,16 +73,29 @@ export default function LeadsPage() {
   };
 
   const salvar = async () => {
-    await api.post('/leads', form);
-    setShowForm(false);
-    setForm({ nome:'', email:'', telefone:'', origem:'WALK_IN', campanha:'', notas:'' });
-    load();
+    setSaving(true);
+    try {
+      await api.post('/leads', form);
+      toast.success('Lead criado');
+      setShowForm(false);
+      setForm({ nome:'', email:'', telefone:'', origem:'WALK_IN', campanha:'', notas:'' });
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao criar lead', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const avancar = async (id: string, estadoAtual: string) => {
     const idx = ESTADOS.indexOf(estadoAtual);
-    if (idx < 3) await api.put(`/leads/${id}`, { estado: ESTADOS[idx + 1] });
-    load();
+    if (idx >= 3) return;
+    try {
+      await api.put(`/leads/${id}`, { estado: ESTADOS[idx + 1] });
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao avançar lead', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   const p = pipeline.pipeline || {};
@@ -110,6 +132,18 @@ export default function LeadsPage() {
         <span className="text-sm text-blue-800 font-medium">Taxa de conversão: <strong>{pipeline.conversao || 0}%</strong> (meta: ≥30%)</span>
         <span className="text-sm text-gray-500 ml-auto">Total: {pipeline.total || 0} leads</span>
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar leads. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => load()} className="text-xs text-red-600 hover:underline">
+            Tentar novamente
+          </button>
+        </div>
+      )}
 
       {/* Lista */}
       {loading ? <div className="text-center py-12 text-gray-400">A carregar...</div> : (
@@ -179,8 +213,10 @@ export default function LeadsPage() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.nome} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">Guardar</button>
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.nome || saving} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                {saving ? 'A guardar...' : 'Guardar'}
+              </button>
             </div>
           </div>
         </div>

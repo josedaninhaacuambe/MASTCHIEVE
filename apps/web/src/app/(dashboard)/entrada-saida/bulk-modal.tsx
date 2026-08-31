@@ -33,7 +33,7 @@ export function BulkEntradaSaidaModal({ onClose, onSaved }: BulkEntradaSaidaModa
         setStudents(enrolled);
         setSelected(new Set());
       })
-      .catch(() => setStudents([]))
+      .catch(() => { setStudents([]); toast.error('Erro ao carregar atletas da turma'); })
       .finally(() => setLoadingStudents(false));
   }, [classId]);
 

@@ -4,6 +4,7 @@ import { PrismaService } from '../../config/prisma/prisma.service';
 import { NotificationsService } from './notifications.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { calcularStatusInstrutor } from '../administrativo/rotina-diaria/rotina-diaria-status.util';
 
 @Injectable()
 export class NotificationsScheduler {
@@ -348,6 +349,52 @@ export class NotificationsScheduler {
     const body = `A rotina de ${label} de hoje ainda não foi concluída para ${pendentes.length} unidade(s).`;
     await this.notifyRoleOnce('ASSISTENTE_ADMIN', `ROTINA_${tipo}_PENDENTE`, title, body);
     await this.notifyRoleOnce('ADMIN', `ROTINA_${tipo}_PENDENTE`, title, body);
+  }
+
+  // Runs every 30 min from 06:00 to 08:30 — nags each instructor individually (real push) until they
+  // complete água/equipamentos/materiais for their unit's ABERTURA routine. Does not nag instructors
+  // while AGUARDA_ADMIN (nothing they can do about it) — that gap stays covered by checkRotinaAberturaPendente above.
+  @Cron('*/30 6-8 * * *')
+  async checkInstrutoresRotinaAberturaPendente() {
+    this.logger.log('Checking rotina diária de abertura pendente por instrutor...');
+    const inicioHoje = new Date();
+    inicioHoje.setHours(0, 0, 0, 0);
+    const fimHoje = new Date(inicioHoje);
+    fimHoje.setDate(fimHoje.getDate() + 1);
+
+    const instrutores = await this.prisma.instructor.findMany({
+      where: { isActive: true, user: { isActive: true } },
+      include: { unidades: true },
+    });
+
+    for (const inst of instrutores) {
+      const unidade = inst.unidades.find((u) => u.isPrimary) ?? inst.unidades[0];
+      if (!unidade) continue;
+
+      const rotina = await this.prisma.rotinaDiaria.findFirst({
+        where: { unidadeId: unidade.unidadeId, tipo: 'ABERTURA', data: { gte: inicioHoje, lt: fimHoje } },
+        include: { materiais: true },
+      });
+      const { status, pendentes } = calcularStatusInstrutor(rotina, inst.id);
+      if (status !== 'INCOMPLETO') continue;
+
+      const existing = await this.prisma.notification.findFirst({
+        where: {
+          userId: inst.userId,
+          type: 'ROTINA_ABERTURA_INSTRUTOR_PENDENTE',
+          createdAt: { gte: new Date(Date.now() - 25 * 60000) },
+        },
+      });
+      if (existing) continue;
+
+      const label: Record<string, string> = { agua: 'água', equipamentos: 'equipamentos', materiais: 'materiais' };
+      await this.notifService.createForUser(
+        inst.userId,
+        'ROTINA_ABERTURA_INSTRUTOR_PENDENTE',
+        '🚨 Rotina diária por preencher',
+        `Confirma ${pendentes.map((p) => label[p]).join(', ')} antes de continuares a usar o sistema.`,
+      );
+    }
   }
 
   // Runs every day at 09:25 — atendimentos de recepção e reclamações com prazo ultrapassado (P01, P10)

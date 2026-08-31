@@ -8,7 +8,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { formatDate, getInitials, cn } from '@/lib/utils';
 import {
   User, Mail, Phone, Lock, Save, Eye, EyeOff,
-  Shield, Edit2, CheckCircle, AlertCircle, Waves, Fingerprint, Trash2,
+  Shield, Edit2, CheckCircle, AlertCircle, Waves, Fingerprint, Trash2, RefreshCw,
 } from 'lucide-react';
 
 function BiometriaSection() {
@@ -32,8 +32,12 @@ function BiometriaSection() {
   useEffect(() => { load(); }, []);
 
   const revogar = async (id: string) => {
-    await api.delete(`/rh/presenca/credenciais/${id}`);
-    load();
+    try {
+      await api.delete(`/rh/presenca/credenciais/${id}`);
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao revogar credencial', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   if (erro) return null;
@@ -162,7 +166,7 @@ export default function ProfilePage() {
   const { user } = useAuthStore();
   const qc = useQueryClient();
 
-  const { data: profile, isLoading } = useQuery({
+  const { data: profile, isLoading, isError, refetch } = useQuery({
     queryKey: ['my-profile'],
     queryFn: async () => { const { data } = await api.get('/users/me'); return data; },
     staleTime: 60_000,
@@ -213,6 +217,20 @@ export default function ProfilePage() {
         <div className="h-32 bg-gray-200 rounded-2xl" />
         <div className="h-64 bg-gray-200 rounded-2xl" />
         <div className="h-48 bg-gray-200 rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="max-w-2xl flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+        <div className="flex items-center gap-2 text-sm text-red-700">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          Erro ao carregar perfil. Verifica a ligação ao servidor.
+        </div>
+        <button onClick={() => refetch()} className="flex items-center gap-1 text-xs text-red-600 hover:underline">
+          <RefreshCw className="w-3 h-3" /> Tentar novamente
+        </button>
       </div>
     );
   }

@@ -6,7 +6,7 @@ import api from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { formatDate } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { QrCode, X, Download, RotateCw } from 'lucide-react';
+import { QrCode, X, Download, RotateCw, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface Props {
   studentId: string;
@@ -23,7 +23,7 @@ export default function StudentQrModal({ studentId, studentName, onClose }: Prop
   const qc = useQueryClient();
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
-  const { data: qrCode, isLoading } = useQuery({
+  const { data: qrCode, isLoading, isError, refetch } = useQuery({
     queryKey: ['student-qr', studentId],
     queryFn: async () => {
       const { data } = await api.get(`/students/${studentId}/qr-code`);
@@ -60,6 +60,19 @@ export default function StudentQrModal({ studentId, studentName, onClose }: Prop
 
         {isLoading ? (
           <div className="py-10 text-center text-sm text-gray-400">A carregar...</div>
+        ) : isError ? (
+          <div className="py-6 text-center space-y-3">
+            <div className="flex items-center justify-center gap-2 text-sm text-red-600">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              Erro ao carregar o QR Code. Verifica a ligação ao servidor.
+            </div>
+            <button
+              onClick={() => refetch()}
+              className="inline-flex items-center gap-1.5 text-sm text-mastchieve-600 hover:underline"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Tentar novamente
+            </button>
+          </div>
         ) : qrCode ? (
           <div className="space-y-4">
             <div className="flex flex-col items-center gap-2">

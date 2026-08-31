@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { ArrowLeft, Fingerprint, Trash2, Pencil } from 'lucide-react';
 import Link from 'next/link';
@@ -24,30 +25,51 @@ export default function FuncionarioDetalhePage() {
   const [tab, setTab] = useState('Dados');
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState('');
+  const [email, setEmail] = useState('');
+  const [permissoesError, setPermissoesError] = useState('');
   const [unidades, setUnidades] = useState<any[]>([]);
   const [showEdit, setShowEdit] = useState(false);
   const [editForm, setEditForm] = useState<any>(null);
+  const [savingEdicao, setSavingEdicao] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get(`/rh/funcionarios/${id}`);
-    const data = r.data.data || r.data;
-    setF(data);
-    setRole(data.user?.role || '');
-    setLoading(false);
+    try {
+      const r = await api.get(`/rh/funcionarios/${id}`);
+      const data = r.data.data || r.data;
+      setF(data);
+      setRole(data.user?.role || '');
+      setEmail(data.user?.email || '');
+    } catch (e: any) {
+      toast.error('Erro ao carregar funcionário', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, [id]);
-  useEffect(() => { api.get('/unidades').then((r) => setUnidades(r.data.data || r.data)); }, []);
+  useEffect(() => { api.get('/unidades').then((r) => setUnidades(r.data.data || r.data)).catch(() => {}); }, []);
 
   const mudarEstado = async (estado: string) => {
-    await api.put(`/rh/funcionarios/${id}/estado`, { estado });
-    load();
+    try {
+      await api.put(`/rh/funcionarios/${id}/estado`, { estado });
+      toast.success('Estado atualizado');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao alterar estado', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   const salvarPermissoes = async () => {
-    await api.put(`/rh/funcionarios/${id}/permissoes`, { role });
-    load();
+    setPermissoesError('');
+    try {
+      await api.put(`/rh/funcionarios/${id}/permissoes`, { role, email });
+      toast.success('Permissões atualizadas');
+      load();
+    } catch (err: any) {
+      setPermissoesError(err?.response?.data?.message || 'Erro ao guardar permissões');
+      toast.error('Erro ao guardar permissões', err?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   const abrirEdicao = () => {
@@ -62,13 +84,25 @@ export default function FuncionarioDetalhePage() {
   };
 
   const salvarEdicao = async () => {
-    await api.put(`/rh/funcionarios/${id}`, {
-      ...editForm,
-      salarioBase: editForm.salarioBase !== '' ? Number(editForm.salarioBase) : undefined,
-      unidadeId: editForm.unidadeId || undefined,
-    });
-    setShowEdit(false);
-    load();
+    if (!editForm.firstName || !editForm.lastName || !editForm.cargo) {
+      toast.error('Campos obrigatórios', 'Preenche o nome, apelido e cargo');
+      return;
+    }
+    setSavingEdicao(true);
+    try {
+      await api.put(`/rh/funcionarios/${id}`, {
+        ...editForm,
+        salarioBase: editForm.salarioBase !== '' ? Number(editForm.salarioBase) : undefined,
+        unidadeId: editForm.unidadeId || undefined,
+      });
+      setShowEdit(false);
+      toast.success('Funcionário atualizado');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao atualizar funcionário', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSavingEdicao(false);
+    }
   };
 
   if (loading) return <div className="text-center py-12 text-gray-400">A carregar...</div>;
@@ -121,13 +155,18 @@ export default function FuncionarioDetalhePage() {
           {podeConfigurarPermissoes && (
             <div className="bg-white rounded-xl border border-amber-200 p-5 space-y-3">
               <h3 className="text-sm font-semibold text-gray-700">Permissões de acesso</h3>
-              <p className="text-xs text-gray-500">Define o perfil (role) de sistema associado ao utilizador deste funcionário.</p>
+              <p className="text-xs text-gray-500">Define o perfil (role) e o email de login do utilizador deste funcionário.</p>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Email de login</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
               <div className="flex gap-2">
                 <select value={role} onChange={(e) => setRole(e.target.value)} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
                   {rolesDisponiveis.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
-                <button onClick={salvarPermissoes} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-900">Guardar</button>
+                <button onClick={salvarPermissoes} disabled={!email} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-900 disabled:opacity-50">Guardar</button>
               </div>
+              {permissoesError && <p className="text-xs text-red-600">{permissoesError}</p>}
             </div>
           )}
         </div>
@@ -254,10 +293,10 @@ export default function FuncionarioDetalhePage() {
               </div>
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowEdit(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvarEdicao} disabled={!editForm.firstName || !editForm.lastName || !editForm.cargo}
+              <button onClick={() => setShowEdit(false)} disabled={savingEdicao} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvarEdicao} disabled={!editForm.firstName || !editForm.lastName || !editForm.cargo || savingEdicao}
                 className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
-                Guardar
+                {savingEdicao ? 'A guardar...' : 'Guardar'}
               </button>
             </div>
           </div>
@@ -273,16 +312,27 @@ function BiometriaTab({ funcionarioId }: { funcionarioId: string }) {
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get(`/rh/presenca/credenciais/funcionario/${funcionarioId}`);
-    setCredenciais(r.data.data || []);
-    setLoading(false);
+    try {
+      const r = await api.get(`/rh/presenca/credenciais/funcionario/${funcionarioId}`);
+      setCredenciais(r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar credenciais', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, [funcionarioId]);
 
   const revogar = async (id: string) => {
-    await api.delete(`/rh/presenca/credenciais/${id}`);
-    load();
+    if (!window.confirm('Revogar esta credencial biométrica? Esta ação não pode ser desfeita.')) return;
+    try {
+      await api.delete(`/rh/presenca/credenciais/${id}`);
+      toast.success('Credencial revogada');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao revogar credencial', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   if (loading) return <div className="text-center py-10 text-gray-400">A carregar...</div>;

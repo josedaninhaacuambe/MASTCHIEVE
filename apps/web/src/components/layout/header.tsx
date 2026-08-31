@@ -6,10 +6,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUIStore } from '@/stores/ui.store';
 import api from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { timeAgo } from '@/lib/utils';
 import { io, Socket } from 'socket.io-client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { subscribeToPush } from '@/lib/push';
 
 /* ── Notification type config ───────────────────────────────────────────── */
 const TYPE_CFG: Record<string, { label: string; icon: any; color: string; bg: string; dot: string }> = {
@@ -288,19 +290,9 @@ export function Header() {
   const subscribePush = async () => {
     if (!('serviceWorker' in navigator)) return;
     setPushStatus('subscribing');
-    try {
-      const { data: vapidData } = await api.get('/notifications/push/vapid-public-key');
-      const pubKey = vapidData?.publicKey;
-      if (!pubKey) { setPushStatus('unknown'); return; }
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: pubKey,
-      });
-      const { endpoint, keys } = sub.toJSON() as any;
-      await api.post('/notifications/push/subscribe', { endpoint, p256dh: keys.p256dh, auth: keys.auth });
-      setPushStatus('granted');
-    } catch { setPushStatus('unknown'); }
+    const ok = await subscribeToPush();
+    setPushStatus(ok ? 'granted' : 'unknown');
+    if (!ok) toast.error('Não foi possível ativar as notificações push', 'Tenta novamente');
   };
 
   /* Online/offline */
@@ -411,11 +403,13 @@ export function Header() {
   const markReadMutation = useMutation({
     mutationFn: (id: string) => api.patch(`/notifications/${id}/read`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+    onError: (e: any) => toast.error('Erro ao marcar como lida', e?.response?.data?.message ?? 'Tenta novamente'),
   });
 
   const markAllReadMutation = useMutation({
     mutationFn: () => api.patch('/notifications/read-all'),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+    onError: (e: any) => toast.error('Erro ao marcar todas como lidas', e?.response?.data?.message ?? 'Tenta novamente'),
   });
 
   /* Filter (notification panel) */

@@ -8,7 +8,7 @@ import { levelLabel, cn } from '@/lib/utils';
 import Link from 'next/link';
 import {
   Waves, Plus, X, ChevronDown, ChevronUp, Users, CheckCircle, Clock, AlertCircle,
-  ArrowUp, ArrowDown, ChevronRight, Play, Trash2, ExternalLink, Video, Link2, Fish, Zap, Award,
+  ArrowUp, ArrowDown, ChevronRight, Play, Trash2, ExternalLink, Video, Link2, Fish, Zap, Award, RefreshCw,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
 
@@ -742,7 +742,7 @@ export default function ModulesPage() {
   const [levelFilter, setLevelFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
 
-  const { data: modules, isLoading } = useQuery({
+  const { data: modules, isLoading, isError, refetch } = useQuery({
     queryKey: ['swimming-modules', levelFilter],
     queryFn: async () => {
       const params = levelFilter ? `?level=${levelFilter}` : '';
@@ -850,6 +850,18 @@ export default function ModulesPage() {
           </button>
         ))}
       </div>
+
+      {isError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar módulos. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => refetch()} className="flex items-center gap-1 text-xs text-red-600 hover:underline">
+            <RefreshCw className="w-3 h-3" /> Tentar novamente
+          </button>
+        </div>
+      )}
 
       {/* Grid */}
       {isLoading ? (

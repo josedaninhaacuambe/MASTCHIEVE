@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { Plus, MonitorSmartphone, Copy, Check, Power, KeyRound } from 'lucide-react';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 
@@ -13,12 +14,18 @@ export default function DispositivosQuiosquePage() {
   const [form, setForm] = useState({ nome: '', unidadeId: '' });
   const [chaveGerada, setChaveGerada] = useState<{ id: string; nome: string; chave: string } | null>(null);
   const [copiado, setCopiado] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/rh/presenca/dispositivos');
-    setDispositivos(r.data.data || []);
-    setLoading(false);
+    try {
+      const r = await api.get('/rh/presenca/dispositivos');
+      setDispositivos(r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar quiosques', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -27,7 +34,12 @@ export default function DispositivosQuiosquePage() {
   }, []);
 
   const criar = async () => {
+    if (!form.nome.trim() || !form.unidadeId) {
+      setErro('Preenche o nome e a unidade');
+      return;
+    }
     setErro('');
+    setSaving(true);
     try {
       const r = await api.post('/rh/presenca/dispositivos', form);
       const criado = r.data.data;
@@ -37,17 +49,27 @@ export default function DispositivosQuiosquePage() {
       load();
     } catch (e: any) {
       setErro(e?.response?.data?.message || 'Erro ao criar dispositivo');
+    } finally {
+      setSaving(false);
     }
   };
 
   const toggleAtivo = async (id: string, ativo: boolean) => {
-    await api.put(`/rh/presenca/dispositivos/${id}/${ativo ? 'desativar' : 'ativar'}`);
-    load();
+    try {
+      await api.put(`/rh/presenca/dispositivos/${id}/${ativo ? 'desativar' : 'ativar'}`);
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao atualizar quiosque', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   const rotarChave = async (id: string, nome: string) => {
-    const r = await api.put(`/rh/presenca/dispositivos/${id}/rotar-chave`);
-    setChaveGerada({ id, nome, chave: r.data.data.chave });
+    try {
+      const r = await api.put(`/rh/presenca/dispositivos/${id}/rotar-chave`);
+      setChaveGerada({ id, nome, chave: r.data.data.chave });
+    } catch (e: any) {
+      toast.error('Erro ao rotacionar chave', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   const copiar = (texto: string) => {
@@ -132,10 +154,10 @@ export default function DispositivosQuiosquePage() {
               </select>
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={criar} disabled={!form.nome || !form.unidadeId}
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={criar} disabled={!form.nome || !form.unidadeId || saving}
                 className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
-                Criar
+                {saving ? 'A criar...' : 'Criar'}
               </button>
             </div>
           </div>

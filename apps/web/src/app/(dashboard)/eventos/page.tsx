@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { Plus, Calendar, MapPin, Users, Award, ClipboardList, X, Check, Trash2, Search } from 'lucide-react';
 
 const ESTADOS_CORES: Record<string, string> = { PLANEADO:'bg-blue-100 text-blue-700', REALIZADO:'bg-green-100 text-green-700', CANCELADO:'bg-red-100 text-red-700' };
@@ -24,9 +25,14 @@ function EventoManageModal({ evento, onClose, onSaved }: { evento: any; onClose:
 
   const loadParticipantes = async () => {
     setLoadingParticipantes(true);
-    const r = await api.get(`/eventos/${evento.id}/participantes`);
-    setParticipantes(r.data.data || r.data);
-    setLoadingParticipantes(false);
+    try {
+      const r = await api.get(`/eventos/${evento.id}/participantes`);
+      setParticipantes(r.data.data || r.data);
+    } catch (e: any) {
+      toast.error('Erro ao carregar participantes', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoadingParticipantes(false);
+    }
   };
 
   useEffect(() => { loadParticipantes(); }, []);
@@ -34,18 +40,29 @@ function EventoManageModal({ evento, onClose, onSaved }: { evento: any; onClose:
   useEffect(() => {
     if (!studentSearch) { setStudentResults([]); return; }
     const t = setTimeout(async () => {
-      const r = await api.get(`/students?search=${encodeURIComponent(studentSearch)}&limit=6`);
-      setStudentResults(r.data.data ?? []);
+      try {
+        const r = await api.get(`/students?search=${encodeURIComponent(studentSearch)}&limit=6`);
+        setStudentResults(r.data.data ?? []);
+      } catch {
+        setStudentResults([]);
+      }
     }, 300);
     return () => clearTimeout(t);
   }, [studentSearch]);
 
   const salvarChecklist = async (next: { texto: string; checked: boolean }[]) => {
+    const previous = checklist;
     setChecklist(next);
     setSavingChecklist(true);
-    await api.put(`/eventos/${evento.id}`, { checklistMateriais: JSON.stringify(next) });
-    setSavingChecklist(false);
-    onSaved();
+    try {
+      await api.put(`/eventos/${evento.id}`, { checklistMateriais: JSON.stringify(next) });
+      onSaved();
+    } catch (e: any) {
+      setChecklist(previous);
+      toast.error('Erro ao guardar checklist', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSavingChecklist(false);
+    }
   };
 
   const adicionarItem = () => {
@@ -63,28 +80,47 @@ function EventoManageModal({ evento, onClose, onSaved }: { evento: any; onClose:
   };
 
   const adicionarParticipanteStudent = async (studentId: string) => {
-    await api.post(`/eventos/${evento.id}/participantes`, { studentId });
-    setStudentSearch('');
-    setStudentResults([]);
-    loadParticipantes();
+    try {
+      await api.post(`/eventos/${evento.id}/participantes`, { studentId });
+      setStudentSearch('');
+      setStudentResults([]);
+      loadParticipantes();
+    } catch (e: any) {
+      toast.error('Erro ao adicionar participante', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   const adicionarParticipanteManual = async () => {
-    if (!nomeManual.trim()) return;
-    await api.post(`/eventos/${evento.id}/participantes`, { nome: nomeManual.trim(), contacto: contactoManual || undefined });
-    setNomeManual('');
-    setContactoManual('');
-    loadParticipantes();
+    if (!nomeManual.trim()) {
+      toast.error('Campo obrigatório', 'Indica o nome do participante');
+      return;
+    }
+    try {
+      await api.post(`/eventos/${evento.id}/participantes`, { nome: nomeManual.trim(), contacto: contactoManual || undefined });
+      setNomeManual('');
+      setContactoManual('');
+      loadParticipantes();
+    } catch (e: any) {
+      toast.error('Erro ao adicionar participante', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   const marcarPresenca = async (participanteId: string, presente: boolean) => {
-    await api.put(`/eventos/participantes/${participanteId}/presenca`, { presente });
-    loadParticipantes();
+    try {
+      await api.put(`/eventos/participantes/${participanteId}/presenca`, { presente });
+      loadParticipantes();
+    } catch (e: any) {
+      toast.error('Erro ao marcar presença', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   const removerParticipante = async (participanteId: string) => {
-    await api.delete(`/eventos/participantes/${participanteId}`);
-    loadParticipantes();
+    try {
+      await api.delete(`/eventos/participantes/${participanteId}`);
+      loadParticipantes();
+    } catch (e: any) {
+      toast.error('Erro ao remover participante', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   return (
@@ -200,26 +236,48 @@ export default function EventosPage() {
   const [showForm, setShowForm] = useState(false);
   const [manageEvento, setManageEvento] = useState<any | null>(null);
   const [form, setForm] = useState({ nome:'', tipo:'OPEN_DAY', data:'', programa:'', capacidade:'', notas:'' });
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/eventos');
-    setEventos(r.data.data || r.data);
-    setLoading(false);
+    try {
+      const r = await api.get('/eventos');
+      setEventos(r.data.data || r.data);
+    } catch (e: any) {
+      toast.error('Erro ao carregar eventos', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
 
   const salvar = async () => {
-    await api.post('/eventos', { ...form, capacidade: form.capacidade ? Number(form.capacidade) : undefined, data: new Date(form.data).toISOString() });
-    setShowForm(false);
-    setForm({ nome:'', tipo:'OPEN_DAY', data:'', programa:'', capacidade:'', notas:'' });
-    load();
+    if (!form.nome.trim() || !form.data) {
+      toast.error('Campos obrigatórios', 'Preenche o nome e a data do evento');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post('/eventos', { ...form, capacidade: form.capacidade ? Number(form.capacidade) : undefined, data: new Date(form.data).toISOString() });
+      setShowForm(false);
+      setForm({ nome:'', tipo:'OPEN_DAY', data:'', programa:'', capacidade:'', notas:'' });
+      toast.success('Evento criado');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao criar evento', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const atualizar = async (id: string, estado: string) => {
-    await api.put(`/eventos/${id}`, { estado });
-    load();
+    try {
+      await api.put(`/eventos/${id}`, { estado });
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao atualizar evento', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   return (
@@ -294,8 +352,8 @@ export default function EventosPage() {
               <textarea value={form.programa} onChange={e => setForm(f => ({ ...f, programa: e.target.value }))} rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.nome || !form.data} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">Criar Evento</button>
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.nome || !form.data || saving} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">{saving ? 'A criar...' : 'Criar Evento'}</button>
             </div>
           </div>
         </div>

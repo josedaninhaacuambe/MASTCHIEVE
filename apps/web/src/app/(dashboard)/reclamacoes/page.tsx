@@ -4,7 +4,7 @@ import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { formatDate, cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
-import { Plus, MessageSquareWarning, MessageSquareHeart, Lightbulb, Send } from 'lucide-react';
+import { Plus, MessageSquareWarning, MessageSquareHeart, Lightbulb, Send, AlertTriangle } from 'lucide-react';
 
 const TIPOS = ['RECLAMACAO', 'SUGESTAO', 'ELOGIO'] as const;
 const TIPO_LABEL: Record<string, string> = { RECLAMACAO: 'Reclamação', SUGESTAO: 'Sugestão', ELOGIO: 'Elogio' };
@@ -39,10 +39,13 @@ export default function ReclamacoesPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [meusFilhos, setMeusFilhos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<'TODOS' | 'ABERTA' | 'EM_ANALISE' | 'RESPONDIDA' | 'FECHADA'>('TODOS');
   const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [responderAlvo, setResponderAlvo] = useState<any | null>(null);
   const [resposta, setResposta] = useState('');
+  const [respondendo, setRespondendo] = useState(false);
 
   const [form, setForm] = useState({
     tipo: 'RECLAMACAO', categoria: 'OUTRO', studentId: '', nome: '', contacto: '', unidadeId: '', descricao: '', prazoResposta: '',
@@ -50,11 +53,18 @@ export default function ReclamacoesPage() {
 
   const load = async () => {
     setLoading(true);
-    const params: any = {};
-    if (filtroEstado !== 'TODOS') params.estado = filtroEstado;
-    const r = await api.get('/reclamacoes', { params });
-    setLista(r.data.data ?? []);
-    setLoading(false);
+    try {
+      const params: any = {};
+      if (filtroEstado !== 'TODOS') params.estado = filtroEstado;
+      const r = await api.get('/reclamacoes', { params });
+      setLista(r.data.data ?? []);
+      setLoadError(false);
+    } catch (e: any) {
+      setLoadError(true);
+      toast.error('Erro ao carregar registos', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, [filtroEstado]);
@@ -73,6 +83,7 @@ export default function ReclamacoesPage() {
   };
 
   const salvar = async () => {
+    setSaving(true);
     try {
       await api.post('/reclamacoes', {
         tipo: form.tipo,
@@ -88,12 +99,15 @@ export default function ReclamacoesPage() {
       setShowForm(false);
       load();
     } catch (e: any) {
-      toast.error('Erro ao registar', e?.response?.data?.message);
+      toast.error('Erro ao registar', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
     }
   };
 
   const responder = async () => {
     if (!responderAlvo) return;
+    setRespondendo(true);
     try {
       await api.put(`/reclamacoes/${responderAlvo.id}/responder`, { resposta });
       toast.success('Resposta registada');
@@ -101,7 +115,9 @@ export default function ReclamacoesPage() {
       setResposta('');
       load();
     } catch (e: any) {
-      toast.error('Erro ao responder', e?.response?.data?.message);
+      toast.error('Erro ao responder', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setRespondendo(false);
     }
   };
 
@@ -143,6 +159,18 @@ export default function ReclamacoesPage() {
           </button>
         ))}
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar registos. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => load()} className="text-xs text-red-600 hover:underline">
+            Tentar novamente
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-gray-400">A carregar...</div>
@@ -276,8 +304,10 @@ export default function ReclamacoesPage() {
               </div>
             )}
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.descricao.trim()} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">Registar</button>
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.descricao.trim() || saving} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
+                {saving ? 'A registar...' : 'Registar'}
+              </button>
             </div>
           </div>
         </div>
@@ -293,9 +323,9 @@ export default function ReclamacoesPage() {
               <textarea value={resposta} onChange={(e) => setResposta(e.target.value)} rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setResponderAlvo(null)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={responder} disabled={!resposta.trim()} className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-1.5">
-                <Send className="w-3.5 h-3.5" /> Enviar
+              <button onClick={() => setResponderAlvo(null)} disabled={respondendo} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={responder} disabled={!resposta.trim() || respondendo} className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-1.5">
+                <Send className="w-3.5 h-3.5" /> {respondendo ? 'A enviar...' : 'Enviar'}
               </button>
             </div>
           </div>

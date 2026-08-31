@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { Plus, Banknote } from 'lucide-react';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
@@ -21,12 +22,18 @@ export default function FolhaPagamentoPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ funcionarioId: '', mes: String(new Date().getMonth() + 1), ano: String(new Date().getFullYear()), salarioBase: '', premios: '0', descontos: '0', horasExtras: '0', detalhes: '' });
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/rh/folha-pagamento');
-    setFolhas(r.data.data || []);
-    setLoading(false);
+    try {
+      const r = await api.get('/rh/folha-pagamento');
+      setFolhas(r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar folhas', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -35,19 +42,40 @@ export default function FolhaPagamentoPage() {
   }, []);
 
   const salvar = async () => {
-    await api.post('/rh/folha-pagamento', {
-      ...form,
-      mes: Number(form.mes), ano: Number(form.ano), salarioBase: Number(form.salarioBase),
-      premios: Number(form.premios), descontos: Number(form.descontos), horasExtras: Number(form.horasExtras),
-    });
-    setShowForm(false);
-    setForm({ funcionarioId: '', mes: String(new Date().getMonth() + 1), ano: String(new Date().getFullYear()), salarioBase: '', premios: '0', descontos: '0', horasExtras: '0', detalhes: '' });
-    load();
+    if (!form.funcionarioId || !form.salarioBase) {
+      toast.error('Campos obrigatórios', 'Seleciona o funcionário e indica o salário base');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post('/rh/folha-pagamento', {
+        ...form,
+        mes: Number(form.mes), ano: Number(form.ano), salarioBase: Number(form.salarioBase),
+        premios: Number(form.premios), descontos: Number(form.descontos), horasExtras: Number(form.horasExtras),
+      });
+      setShowForm(false);
+      setForm({ funcionarioId: '', mes: String(new Date().getMonth() + 1), ano: String(new Date().getFullYear()), salarioBase: '', premios: '0', descontos: '0', horasExtras: '0', detalhes: '' });
+      toast.success('Folha processada');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao processar folha', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const aprovar = async (id: string) => { await api.put(`/rh/folha-pagamento/${id}/aprovar`); load(); };
-  const rejeitar = async (id: string) => { await api.put(`/rh/folha-pagamento/${id}/rejeitar`); load(); };
-  const marcarPaga = async (id: string) => { await api.put(`/rh/folha-pagamento/${id}/marcar-paga`); load(); };
+  const aprovar = async (id: string) => {
+    try { await api.put(`/rh/folha-pagamento/${id}/aprovar`); load(); }
+    catch (e: any) { toast.error('Erro ao aprovar folha', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
+  const rejeitar = async (id: string) => {
+    try { await api.put(`/rh/folha-pagamento/${id}/rejeitar`); load(); }
+    catch (e: any) { toast.error('Erro ao rejeitar folha', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
+  const marcarPaga = async (id: string) => {
+    try { await api.put(`/rh/folha-pagamento/${id}/marcar-paga`); load(); }
+    catch (e: any) { toast.error('Erro ao marcar como paga', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -148,10 +176,10 @@ export default function FolhaPagamentoPage() {
               <textarea value={form.detalhes} onChange={(e) => setForm(f => ({ ...f, detalhes: e.target.value }))} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.funcionarioId || !form.salarioBase}
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.funcionarioId || !form.salarioBase || saving}
                 className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
-                Processar
+                {saving ? 'A processar...' : 'Processar'}
               </button>
             </div>
           </div>

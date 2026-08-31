@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { Plus, ClipboardCheck } from 'lucide-react';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 
@@ -17,12 +18,19 @@ export default function AvaliacoesDesempenhoPage() {
   const [form, setForm] = useState({ funcionarioId: '', periodo: '', dataLimite: '' });
   const [realizando, setRealizando] = useState<any>(null);
   const [rForm, setRForm] = useState({ pontualidade: '3', competenciaTecnica: '3', trabalhoEquipa: '3', atendimento: '3', pontosFortes: '', areasMelhoria: '', planoDesenvolvimento: '' });
+  const [saving, setSaving] = useState(false);
+  const [savingRealizar, setSavingRealizar] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/rh/avaliacoes-desempenho');
-    setAvaliacoes(r.data.data || []);
-    setLoading(false);
+    try {
+      const r = await api.get('/rh/avaliacoes-desempenho');
+      setAvaliacoes(r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar avaliações', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -31,10 +39,22 @@ export default function AvaliacoesDesempenhoPage() {
   }, []);
 
   const salvar = async () => {
-    await api.post('/rh/avaliacoes-desempenho', { ...form, dataLimite: form.dataLimite || undefined });
-    setShowForm(false);
-    setForm({ funcionarioId: '', periodo: '', dataLimite: '' });
-    load();
+    if (!form.funcionarioId || !form.periodo.trim()) {
+      toast.error('Campos obrigatórios', 'Seleciona o funcionário e indica o período');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post('/rh/avaliacoes-desempenho', { ...form, dataLimite: form.dataLimite || undefined });
+      setShowForm(false);
+      setForm({ funcionarioId: '', periodo: '', dataLimite: '' });
+      toast.success('Avaliação agendada');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao agendar avaliação', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const abrirRealizar = (a: any) => {
@@ -43,17 +63,25 @@ export default function AvaliacoesDesempenhoPage() {
   };
 
   const salvarRealizar = async () => {
-    await api.put(`/rh/avaliacoes-desempenho/${realizando.id}/realizar`, {
-      pontualidade: Number(rForm.pontualidade),
-      competenciaTecnica: Number(rForm.competenciaTecnica),
-      trabalhoEquipa: Number(rForm.trabalhoEquipa),
-      atendimento: Number(rForm.atendimento),
-      pontosFortes: rForm.pontosFortes || undefined,
-      areasMelhoria: rForm.areasMelhoria || undefined,
-      planoDesenvolvimento: rForm.planoDesenvolvimento || undefined,
-    });
-    setRealizando(null);
-    load();
+    setSavingRealizar(true);
+    try {
+      await api.put(`/rh/avaliacoes-desempenho/${realizando.id}/realizar`, {
+        pontualidade: Number(rForm.pontualidade),
+        competenciaTecnica: Number(rForm.competenciaTecnica),
+        trabalhoEquipa: Number(rForm.trabalhoEquipa),
+        atendimento: Number(rForm.atendimento),
+        pontosFortes: rForm.pontosFortes || undefined,
+        areasMelhoria: rForm.areasMelhoria || undefined,
+        planoDesenvolvimento: rForm.planoDesenvolvimento || undefined,
+      });
+      setRealizando(null);
+      toast.success('Resultado registado');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao registar resultado', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSavingRealizar(false);
+    }
   };
 
   return (
@@ -127,10 +155,10 @@ export default function AvaliacoesDesempenhoPage() {
               </div>
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.funcionarioId || !form.periodo}
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.funcionarioId || !form.periodo || saving}
                 className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
-                Agendar
+                {saving ? 'A agendar...' : 'Agendar'}
               </button>
             </div>
           </div>
@@ -164,8 +192,8 @@ export default function AvaliacoesDesempenhoPage() {
               <textarea value={rForm.planoDesenvolvimento} onChange={(e) => setRForm(f => ({ ...f, planoDesenvolvimento: e.target.value }))} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setRealizando(null)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvarRealizar} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900">Guardar</button>
+              <button onClick={() => setRealizando(null)} disabled={savingRealizar} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvarRealizar} disabled={savingRealizar} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">{savingRealizar ? 'A guardar...' : 'Guardar'}</button>
             </div>
           </div>
         </div>

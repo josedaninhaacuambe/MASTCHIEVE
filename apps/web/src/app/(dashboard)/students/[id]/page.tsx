@@ -9,7 +9,7 @@ import {
   ArrowLeft, User, Brain, Activity, BookOpen, CreditCard,
   CheckCircle, XCircle, Clock, AlertCircle, Dumbbell, Send, TrendingUp,
   Upload, FileText, Trash2, Waves, History, FileDown, Printer,
-  Mail, AlertTriangle, X, ClipboardCheck, PhoneCall, DoorOpen, QrCode, Pencil,
+  Mail, AlertTriangle, X, ClipboardCheck, PhoneCall, DoorOpen, QrCode, Pencil, RefreshCw,
 } from 'lucide-react';
 
 function printProgressReport(student: any, fasesProgresso: any[]) {
@@ -171,7 +171,7 @@ export default function StudentDetailPage() {
   const canEditProfile = ['ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN'].includes(user?.role ?? '');
 
   // ── Queries ────────────────────────────────────────────────────────────────
-  const { data: student, isLoading: loadingStudent } = useQuery({
+  const { data: student, isLoading: loadingStudent, isError: studentError, refetch: refetchStudent } = useQuery({
     queryKey: ['student', id],
     queryFn: async () => { const { data } = await api.get(`/students/${id}`); return data.data; },
   });
@@ -366,6 +366,18 @@ export default function StudentDetailPage() {
     return (
       <div className="flex items-center justify-center h-full min-h-64">
         <div className="animate-spin w-8 h-8 border-4 border-mastchieve-600 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (studentError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-64 text-center gap-3">
+        <AlertCircle className="w-10 h-10 text-red-400" />
+        <p className="text-gray-500 text-sm">Erro ao carregar atleta. Verifica a ligação ao servidor.</p>
+        <button onClick={() => refetchStudent()} className="flex items-center gap-1.5 text-sm text-red-600 hover:underline">
+          <RefreshCw className="w-4 h-4" /> Tentar novamente
+        </button>
       </div>
     );
   }

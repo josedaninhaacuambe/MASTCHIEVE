@@ -11,7 +11,7 @@ import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
 import {
   CreditCard, AlertCircle, CheckCircle, Clock, TrendingUp, Plus,
-  X, FileDown, Bell, ChevronDown, ShieldOff, Wallet, ClipboardList, Briefcase,
+  X, FileDown, Bell, ChevronDown, ShieldOff, Wallet, ClipboardList, Briefcase, RefreshCw,
 } from 'lucide-react';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 
@@ -230,7 +230,7 @@ function CaixaTab() {
     queryFn: async () => { const { data } = await api.get('/unidades'); return data.data ?? data ?? []; },
   });
 
-  const { data: conferencias, isLoading } = useQuery({
+  const { data: conferencias, isLoading, isError, refetch } = useQuery({
     queryKey: ['caixa', unidadeId],
     queryFn: async () => {
       const { data } = await api.get('/financial/caixa', { params: unidadeId ? { unidadeId } : {} });
@@ -315,6 +315,18 @@ function CaixaTab() {
         </div>
       </div>
 
+      {isError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar conferências de caixa. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => refetch()} className="flex items-center gap-1 text-xs text-red-600 hover:underline">
+            <RefreshCw className="w-3 h-3" /> Tentar novamente
+          </button>
+        </div>
+      )}
+
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <ResponsiveTable>
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -372,7 +384,7 @@ export default function FinancialPage() {
   const [isencaoTarget, setIsencaoTarget] = useState<any | null>(null);
 
   /* ── Queries ── */
-  const { data: payments, isLoading } = useQuery({
+  const { data: payments, isLoading, isError: paymentsError, refetch: refetchPayments } = useQuery({
     queryKey: ['payments', page, statusFilter],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: '20', ...(statusFilter && { status: statusFilter }) });
@@ -394,9 +406,11 @@ export default function FinancialPage() {
     mutationFn: ({ id, method }: { id: string; method: string }) =>
       api.patch(`/financial/payments/${id}/pay`, { method }),
     onSuccess: () => {
+      toast.success('Pagamento registado');
       qc.invalidateQueries({ queryKey: ['payments'] });
       qc.invalidateQueries({ queryKey: ['financial-summary'] });
     },
+    onError: (err: any) => toast.error('Erro ao marcar como pago', err?.response?.data?.message ?? 'Tenta novamente'),
   });
 
   const generateMutation = useMutation({
@@ -652,6 +666,18 @@ export default function FinancialPage() {
           </AreaChart>
         </ResponsiveContainer>
       </div>
+
+      {paymentsError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar pagamentos. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => refetchPayments()} className="flex items-center gap-1 text-xs text-red-600 hover:underline">
+            <RefreshCw className="w-3 h-3" /> Tentar novamente
+          </button>
+        </div>
+      )}
 
       {/* ── Filter bar ── */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-3">

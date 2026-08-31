@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { Plus, Users, Search } from 'lucide-react';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
@@ -30,21 +31,40 @@ export default function FuncionariosPage() {
     cargo: 'RECEPCIONISTA', departamento: 'OPERACOES', dataAdmissao: '', salarioBase: '', unidadeId: '',
   });
 
+  const [saving, setSaving] = useState(false);
+
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/rh/funcionarios', { params: { search: search || undefined } });
-    setData(r.data.data?.data || r.data.data || []);
-    setLoading(false);
+    try {
+      const r = await api.get('/rh/funcionarios', { params: { search: search || undefined } });
+      setData(r.data.data?.data || r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar funcionários', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, [search]);
   useEffect(() => { api.get('/unidades').then((r) => setUnidades(r.data.data || r.data || [])).catch(() => {}); }, []);
 
   const salvar = async () => {
-    await api.post('/rh/funcionarios', { ...form, salarioBase: form.salarioBase ? Number(form.salarioBase) : undefined, unidadeId: form.unidadeId || undefined });
-    setShowForm(false);
-    setForm({ email: '', password: '', firstName: '', lastName: '', phone: '', biNumero: '', cargo: 'RECEPCIONISTA', departamento: 'OPERACOES', dataAdmissao: '', salarioBase: '', unidadeId: '' });
-    load();
+    if (!form.email || !form.firstName || !form.lastName || !form.cargo || !form.unidadeId) {
+      toast.error('Campos obrigatórios', 'Preenche o nome, apelido, email, cargo e unidade');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post('/rh/funcionarios', { ...form, salarioBase: form.salarioBase ? Number(form.salarioBase) : undefined, unidadeId: form.unidadeId || undefined });
+      setShowForm(false);
+      setForm({ email: '', password: '', firstName: '', lastName: '', phone: '', biNumero: '', cargo: 'RECEPCIONISTA', departamento: 'OPERACOES', dataAdmissao: '', salarioBase: '', unidadeId: '' });
+      toast.success('Funcionário admitido');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao admitir funcionário', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -173,10 +193,10 @@ export default function FuncionariosPage() {
               )}
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.email || !form.firstName || !form.lastName || !form.cargo || !form.unidadeId}
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.email || !form.firstName || !form.lastName || !form.cargo || !form.unidadeId || saving}
                 className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
-                Admitir
+                {saving ? 'A admitir...' : 'Admitir'}
               </button>
             </div>
           </div>

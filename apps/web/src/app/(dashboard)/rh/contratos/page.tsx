@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { Plus, FileSignature } from 'lucide-react';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
@@ -23,12 +24,18 @@ export default function ContratosPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ funcionarioId: '', tipo: 'EFETIVO', cargo: '', salarioBase: '', dataInicio: '', dataFim: '' });
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/rh/contratos');
-    setContratos(r.data.data || []);
-    setLoading(false);
+    try {
+      const r = await api.get('/rh/contratos');
+      setContratos(r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar contratos', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -37,14 +44,32 @@ export default function ContratosPage() {
   }, []);
 
   const salvar = async () => {
-    await api.post('/rh/contratos', { ...form, salarioBase: Number(form.salarioBase), dataFim: form.dataFim || undefined });
-    setShowForm(false);
-    setForm({ funcionarioId: '', tipo: 'EFETIVO', cargo: '', salarioBase: '', dataInicio: '', dataFim: '' });
-    load();
+    if (!form.funcionarioId || !form.cargo.trim() || !form.salarioBase || !form.dataInicio) {
+      toast.error('Campos obrigatórios', 'Preenche o funcionário, cargo, salário base e data de início');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post('/rh/contratos', { ...form, salarioBase: Number(form.salarioBase), dataFim: form.dataFim || undefined });
+      setShowForm(false);
+      setForm({ funcionarioId: '', tipo: 'EFETIVO', cargo: '', salarioBase: '', dataInicio: '', dataFim: '' });
+      toast.success('Contrato elaborado');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao elaborar contrato', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const assinar = async (id: string) => { await api.put(`/rh/contratos/${id}/assinar`); load(); };
-  const rescindir = async (id: string) => { await api.put(`/rh/contratos/${id}/rescindir`); load(); };
+  const assinar = async (id: string) => {
+    try { await api.put(`/rh/contratos/${id}/assinar`); load(); }
+    catch (e: any) { toast.error('Erro ao assinar contrato', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
+  const rescindir = async (id: string) => {
+    try { await api.put(`/rh/contratos/${id}/rescindir`); load(); }
+    catch (e: any) { toast.error('Erro ao rescindir contrato', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -138,10 +163,10 @@ export default function ContratosPage() {
               <input type="date" value={form.dataFim} onChange={(e) => setForm(f => ({ ...f, dataFim: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.funcionarioId || !form.cargo || !form.salarioBase || !form.dataInicio}
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.funcionarioId || !form.cargo || !form.salarioBase || !form.dataInicio || saving}
                 className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
-                Elaborar
+                {saving ? 'A elaborar...' : 'Elaborar'}
               </button>
             </div>
           </div>

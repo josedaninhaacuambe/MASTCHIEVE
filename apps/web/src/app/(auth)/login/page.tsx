@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { GoogleLogin } from '@react-oauth/google';
 import { Waves, Sparkles, Eye, EyeOff, Lock, Mail, AlertCircle, XCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
+import { ensurePushSubscribed } from '@/lib/push';
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 
@@ -50,7 +51,10 @@ function LoginForm() {
   const passwordValue = watch('password', '');
 
   const redirectAfterLogin = (role: string) => {
-    if (role === 'INSTRUCTOR') router.push('/instructor');
+    if (role === 'INSTRUCTOR') {
+      void ensurePushSubscribed();
+      router.push('/instructor');
+    }
     else if (role === 'VISITOR') router.push('/');
     else router.push('/dashboard');
   };

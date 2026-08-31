@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { toast } from '@/lib/toast';
 import {
   Share2, Copy, Check, Save, Link2, Pencil, X,
-  Upload, Eye, EyeOff, ExternalLink, Trash2, AlertTriangle,
+  Upload, Eye, EyeOff, ExternalLink, Trash2, AlertTriangle, AlertCircle, RefreshCw,
 } from 'lucide-react';
 
 const SLUGS: Record<string, string> = {
@@ -66,8 +67,10 @@ function EditModal({ link, onClose }: { link: LinkPartilha; onClose: () => void 
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['links-partilha'] });
+      toast.success('Conteúdo guardado');
       onClose();
     },
+    onError: (e: any) => toast.error('Erro ao guardar', e?.response?.data?.message ?? 'Tenta novamente'),
   });
 
   const imagemAtual = preview ?? (link.imagemUrl ? `${API_ORIGIN}${link.imagemUrl}` : null);
@@ -195,8 +198,10 @@ function DeleteContentModal({ link, onClose }: { link: LinkPartilha; onClose: ()
     mutationFn: () => api.delete(`/link-partilha/${link.chave}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['links-partilha'] });
+      toast.success('Conteúdo apagado');
       onClose();
     },
+    onError: (e: any) => toast.error('Erro ao apagar', e?.response?.data?.message ?? 'Tenta novamente'),
   });
 
   return (
@@ -300,7 +305,7 @@ function LinkCard({ link, onEdit, onDelete }: { link: LinkPartilha; onEdit: () =
 }
 
 export default function CentralPartilhaPage() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['links-partilha'],
     queryFn: async () => {
       const { data } = await api.get('/link-partilha');
@@ -322,6 +327,18 @@ export default function CentralPartilhaPage() {
           Páginas públicas geridas pelo Assistente Administrativo — newsletter, programa anual, open day, treinador do cliente e vídeo de indução.
         </p>
       </div>
+
+      {isError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar páginas de partilha. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => refetch()} className="flex items-center gap-1 text-xs text-red-600 hover:underline">
+            <RefreshCw className="w-3 h-3" /> Tentar novamente
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="p-12 text-center text-gray-400">A carregar...</div>

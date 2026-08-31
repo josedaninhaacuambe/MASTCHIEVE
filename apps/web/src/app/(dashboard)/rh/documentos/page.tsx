@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { Upload, FolderOpen } from 'lucide-react';
 
 const TIPOS = ['BI', 'CERTIFICADO_NADADOR_SALVADOR', 'CERTIFICADO_INSTRUTOR_NATACAO', 'CERTIFICADO_PRIMEIROS_SOCORROS', 'REGISTO_CRIMINAL', 'ATESTADO_APTIDAO_FISICA', 'CONTRATO', 'CV', 'OUTRO'];
@@ -22,15 +23,23 @@ export default function DocumentosRhPage() {
   const load = async (fid: string) => {
     if (!fid) { setDocumentos([]); return; }
     setLoading(true);
-    const r = await api.get(`/rh/documentos/funcionario/${fid}`);
-    setDocumentos(r.data.data || []);
-    setLoading(false);
+    try {
+      const r = await api.get(`/rh/documentos/funcionario/${fid}`);
+      setDocumentos(r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar documentos', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(funcionarioId); }, [funcionarioId]);
 
   const upload = async () => {
-    if (!file || !funcionarioId) return;
+    if (!file || !funcionarioId) {
+      toast.error('Campos obrigatórios', 'Seleciona o funcionário e o ficheiro');
+      return;
+    }
     setUploading(true);
     const fd = new FormData();
     fd.append('file', file);
@@ -40,14 +49,24 @@ export default function DocumentosRhPage() {
       await api.post('/rh/documentos', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       setFile(null);
       if (fileRef.current) fileRef.current.value = '';
+      toast.success('Documento enviado');
       load(funcionarioId);
+    } catch (e: any) {
+      toast.error('Erro ao enviar documento', e?.response?.data?.message ?? 'Tenta novamente');
     } finally {
       setUploading(false);
     }
   };
 
-  const validar = async (id: string) => { await api.put(`/rh/documentos/${id}/validar`); load(funcionarioId); };
-  const remover = async (id: string) => { await api.delete(`/rh/documentos/${id}`); load(funcionarioId); };
+  const validar = async (id: string) => {
+    try { await api.put(`/rh/documentos/${id}/validar`); load(funcionarioId); }
+    catch (e: any) { toast.error('Erro ao validar documento', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
+  const remover = async (id: string) => {
+    if (!window.confirm('Remover este documento? Esta ação não pode ser desfeita.')) return;
+    try { await api.delete(`/rh/documentos/${id}`); toast.success('Documento removido'); load(funcionarioId); }
+    catch (e: any) { toast.error('Erro ao remover documento', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
 
   return (
     <div className="p-6 space-y-6">

@@ -7,7 +7,7 @@ import { toast } from '@/lib/toast';
 import { getInitials, formatDate, cn } from '@/lib/utils';
 import {
   ClipboardList, ChevronRight, CheckCircle, XCircle, Clock, AlertCircle,
-  Save, Plus, CalendarDays, ChevronLeft, Users, Activity, TrendingUp, BarChart3, FileDown,
+  Save, Plus, CalendarDays, ChevronLeft, Users, Activity, TrendingUp, BarChart3, FileDown, RefreshCw,
 } from 'lucide-react';
 
 type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
@@ -66,7 +66,7 @@ async function exportSessionPdf(sessionId: string, filenameHint: string) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 function Step1({ onSelect }: { onSelect: (cls: any) => void }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['classes-attendance'],
     queryFn: async () => { const { data } = await api.get('/classes?limit=50&status=ACTIVE'); return data.data ?? []; },
   });
@@ -77,6 +77,17 @@ function Step1({ onSelect }: { onSelect: (cls: any) => void }) {
         <h2 className="text-lg font-semibold text-gray-900">Selecionar Turma</h2>
         <p className="text-sm text-gray-500 mt-1">Escolhe a turma para registar presenças</p>
       </div>
+      {isError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar turmas. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => refetch()} className="flex items-center gap-1 text-xs text-red-600 hover:underline">
+            <RefreshCw className="w-3 h-3" /> Tentar novamente
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {isLoading ? Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 animate-pulse h-24" />
@@ -105,7 +116,7 @@ function Step1({ onSelect }: { onSelect: (cls: any) => void }) {
 function Step2({ cls, onSelect, onBack }: { cls: any; onSelect: (session: any) => void; onBack: () => void }) {
   const today = new Date().toISOString().split('T')[0];
 
-  const { data: classDetail, isLoading } = useQuery({
+  const { data: classDetail, isLoading, isError, refetch } = useQuery({
     queryKey: ['class-detail', cls.id],
     queryFn: async () => { const { data } = await api.get(`/classes/${cls.id}`); return data.data; },
   });
@@ -130,6 +141,18 @@ function Step2({ cls, onSelect, onBack }: { cls: any; onSelect: (session: any) =
           <p className="text-sm text-gray-500">Selecionar sessão</p>
         </div>
       </div>
+
+      {isError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar sessões da turma. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => refetch()} className="flex items-center gap-1 text-xs text-red-600 hover:underline">
+            <RefreshCw className="w-3 h-3" /> Tentar novamente
+          </button>
+        </div>
+      )}
 
       {!isLoading && !todaySession && (
         <div className="bg-mastchieve-50 border border-mastchieve-200 rounded-xl p-4 flex items-center justify-between">
@@ -176,7 +199,7 @@ function Step2({ cls, onSelect, onBack }: { cls: any; onSelect: (session: any) =
 // ──────────────────────────────────────────────────────────────────────────────
 
 function Step3({ cls, session, onBack }: { cls: any; session: any; onBack: () => void }) {
-  const { data: classDetail } = useQuery({
+  const { data: classDetail, isError, refetch } = useQuery({
     queryKey: ['class-detail', cls.id],
     queryFn: async () => { const { data } = await api.get(`/classes/${cls.id}`); return data.data; },
   });
@@ -232,6 +255,18 @@ function Step3({ cls, session, onBack }: { cls: any; session: any; onBack: () =>
           <FileDown className="w-3.5 h-3.5" /> Exportar Lista
         </button>
       </div>
+
+      {isError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar atletas da turma. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => refetch()} className="flex items-center gap-1 text-xs text-red-600 hover:underline">
+            <RefreshCw className="w-3 h-3" /> Tentar novamente
+          </button>
+        </div>
+      )}
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
         <div className="flex gap-4 text-sm">
@@ -307,7 +342,7 @@ function CalendarioTab({ onMarkSession }: { onMarkSession: (cls: any, session: a
     queryFn: async () => { const { data } = await api.get('/classes?limit=50&status=ACTIVE'); return data.data ?? []; },
   });
 
-  const { data: classDetail, isLoading } = useQuery({
+  const { data: classDetail, isLoading, isError, refetch } = useQuery({
     queryKey: ['class-detail-cal', selectedClassId],
     queryFn: async () => {
       if (!selectedClassId) return null;
@@ -452,6 +487,18 @@ function CalendarioTab({ onMarkSession }: { onMarkSession: (cls: any, session: a
           <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-gray-200 inline-block" /> sem sessão</span>
         </div>
       </div>
+
+      {selectedClassId && isError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar sessões da turma. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => refetch()} className="flex items-center gap-1 text-xs text-red-600 hover:underline">
+            <RefreshCw className="w-3 h-3" /> Tentar novamente
+          </button>
+        </div>
+      )}
 
       {/* Session list */}
       {!selectedClassId && (

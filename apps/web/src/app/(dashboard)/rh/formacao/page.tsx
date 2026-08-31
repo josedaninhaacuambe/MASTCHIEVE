@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { Plus, FolderOpen } from 'lucide-react';
 
@@ -21,12 +22,19 @@ export default function FormacaoPage() {
   const [form, setForm] = useState({ titulo: '', tipo: 'RECICLAGEM', descricao: '', custoEstimado: '', dataInicio: '', dataFim: '' });
   const [inscrevendo, setInscrevendo] = useState<any>(null);
   const [funcionarioParaInscrever, setFuncionarioParaInscrever] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [inscrevendoSaving, setInscrevendoSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/rh/formacao');
-    setFormacoes(r.data.data || []);
-    setLoading(false);
+    try {
+      const r = await api.get('/rh/formacao');
+      setFormacoes(r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar formações', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -35,26 +43,60 @@ export default function FormacaoPage() {
   }, []);
 
   const salvar = async () => {
-    await api.post('/rh/formacao', { ...form, custoEstimado: form.custoEstimado ? Number(form.custoEstimado) : undefined, dataInicio: form.dataInicio || undefined, dataFim: form.dataFim || undefined });
-    setShowForm(false);
-    setForm({ titulo: '', tipo: 'RECICLAGEM', descricao: '', custoEstimado: '', dataInicio: '', dataFim: '' });
-    load();
+    if (!form.titulo.trim()) {
+      toast.error('Campo obrigatório', 'Indica o título da formação');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post('/rh/formacao', { ...form, custoEstimado: form.custoEstimado ? Number(form.custoEstimado) : undefined, dataInicio: form.dataInicio || undefined, dataFim: form.dataFim || undefined });
+      setShowForm(false);
+      setForm({ titulo: '', tipo: 'RECICLAGEM', descricao: '', custoEstimado: '', dataInicio: '', dataFim: '' });
+      toast.success('Formação proposta');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao propor formação', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const aprovarOrcamento = async (id: string) => { await api.put(`/rh/formacao/${id}/aprovar-orcamento`); load(); };
-  const rejeitar = async (id: string) => { await api.put(`/rh/formacao/${id}/rejeitar`); load(); };
+  const aprovarOrcamento = async (id: string) => {
+    try { await api.put(`/rh/formacao/${id}/aprovar-orcamento`); load(); }
+    catch (e: any) { toast.error('Erro ao aprovar orçamento', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
+  const rejeitar = async (id: string) => {
+    try { await api.put(`/rh/formacao/${id}/rejeitar`); load(); }
+    catch (e: any) { toast.error('Erro ao rejeitar formação', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
 
   const inscrever = async () => {
-    await api.post(`/rh/formacao/${inscrevendo.id}/inscrever`, { funcionarioId: funcionarioParaInscrever });
-    setInscrevendo(null);
-    setFuncionarioParaInscrever('');
-    load();
+    if (!funcionarioParaInscrever) {
+      toast.error('Campo obrigatório', 'Seleciona o funcionário');
+      return;
+    }
+    setInscrevendoSaving(true);
+    try {
+      await api.post(`/rh/formacao/${inscrevendo.id}/inscrever`, { funcionarioId: funcionarioParaInscrever });
+      setInscrevendo(null);
+      setFuncionarioParaInscrever('');
+      toast.success('Funcionário inscrito');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao inscrever funcionário', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setInscrevendoSaving(false);
+    }
   };
 
   const concluir = async (participanteId: string) => {
     const notaFinal = prompt('Nota final (opcional):');
-    await api.put(`/rh/formacao/participantes/${participanteId}/concluir`, { notaFinal: notaFinal ? Number(notaFinal) : undefined });
-    load();
+    try {
+      await api.put(`/rh/formacao/participantes/${participanteId}/concluir`, { notaFinal: notaFinal ? Number(notaFinal) : undefined });
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao concluir participação', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   return (
@@ -150,10 +192,10 @@ export default function FormacaoPage() {
               </div>
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.titulo}
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.titulo || saving}
                 className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
-                Propor
+                {saving ? 'A propor...' : 'Propor'}
               </button>
             </div>
           </div>
@@ -172,8 +214,8 @@ export default function FormacaoPage() {
               </select>
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => { setInscrevendo(null); setFuncionarioParaInscrever(''); }} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={inscrever} disabled={!funcionarioParaInscrever} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">Inscrever</button>
+              <button onClick={() => { setInscrevendo(null); setFuncionarioParaInscrever(''); }} disabled={inscrevendoSaving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={inscrever} disabled={!funcionarioParaInscrever || inscrevendoSaving} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">{inscrevendoSaving ? 'A inscrever...' : 'Inscrever'}</button>
             </div>
           </div>
         </div>

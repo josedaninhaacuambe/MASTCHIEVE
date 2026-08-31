@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import Link from 'next/link';
 import { Plus, ClipboardList, User, AlertTriangle, ChevronDown, ChevronRight, CheckSquare, Square, Award } from 'lucide-react';
 
@@ -172,7 +173,10 @@ function DiagnosticModal({ students, fases, onClose, onSaved }: {
   const faseRecomendadaDb = fases.find((f: any) => f.ordem === recomOrdem);
 
   const salvar = async () => {
-    if (!studentId) return;
+    if (!studentId) {
+      toast.error('Campos obrigatórios', 'Seleciona o atleta');
+      return;
+    }
     setSaving(true);
     try {
       const criteriosAvaliados = FASES_DIAGNOSTICO.flatMap(fase =>
@@ -195,8 +199,11 @@ function DiagnosticModal({ students, fases, onClose, onSaved }: {
           iniciadoEm: new Date().toISOString(),
         }).catch(() => {});
       }
+      toast.success('Diagnóstico registado');
       onSaved();
       onClose();
+    } catch (e: any) {
+      toast.error('Erro ao registar diagnóstico', e?.response?.data?.message ?? 'Tenta novamente');
     } finally {
       setSaving(false);
     }
@@ -438,18 +445,27 @@ export default function AvaliacoesIniciaisPage() {
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/avaliacoes-iniciais');
-    setAvaliacoes(r.data.data || r.data);
-    setLoading(false);
+    try {
+      const r = await api.get('/avaliacoes-iniciais');
+      setAvaliacoes(r.data.data || r.data);
+    } catch (e: any) {
+      toast.error('Erro ao carregar avaliações iniciais', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
 
   const openForm = async () => {
-    const [s, f] = await Promise.all([api.get('/students'), api.get('/fases')]);
-    setStudents(s.data.data || s.data);
-    setFases(f.data.data || f.data);
-    setShowForm(true);
+    try {
+      const [s, f] = await Promise.all([api.get('/students'), api.get('/fases')]);
+      setStudents(s.data.data || s.data);
+      setFases(f.data.data || f.data);
+      setShowForm(true);
+    } catch (e: any) {
+      toast.error('Erro ao carregar dados', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   return (

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { Plus, CalendarX } from 'lucide-react';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
@@ -23,12 +24,18 @@ export default function FeriasFaltasPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ funcionarioId: '', tipo: 'FERIAS', dataInicio: '', dataFim: '', diasSolicitados: '1', motivo: '', excepcional: false });
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/rh/ferias-faltas');
-    setRegistos(r.data.data || []);
-    setLoading(false);
+    try {
+      const r = await api.get('/rh/ferias-faltas');
+      setRegistos(r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar pedidos', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -37,17 +44,32 @@ export default function FeriasFaltasPage() {
   }, []);
 
   const salvar = async () => {
-    await api.post('/rh/ferias-faltas', { ...form, diasSolicitados: Number(form.diasSolicitados) });
-    setShowForm(false);
-    setForm({ funcionarioId: '', tipo: 'FERIAS', dataInicio: '', dataFim: '', diasSolicitados: '1', motivo: '', excepcional: false });
-    load();
+    if (!form.funcionarioId || !form.dataInicio || !form.dataFim) {
+      toast.error('Campos obrigatórios', 'Seleciona o funcionário e o período');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post('/rh/ferias-faltas', { ...form, diasSolicitados: Number(form.diasSolicitados) });
+      setShowForm(false);
+      setForm({ funcionarioId: '', tipo: 'FERIAS', dataInicio: '', dataFim: '', diasSolicitados: '1', motivo: '', excepcional: false });
+      toast.success('Pedido lançado');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao lançar pedido', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const aprovar = async (id: string) => { await api.put(`/rh/ferias-faltas/${id}/aprovar`); load(); };
+  const aprovar = async (id: string) => {
+    try { await api.put(`/rh/ferias-faltas/${id}/aprovar`); load(); }
+    catch (e: any) { toast.error('Erro ao aprovar pedido', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
   const rejeitar = async (id: string) => {
     const motivoRejeicao = prompt('Motivo da rejeição:') || '';
-    await api.put(`/rh/ferias-faltas/${id}/rejeitar`, { motivoRejeicao });
-    load();
+    try { await api.put(`/rh/ferias-faltas/${id}/rejeitar`, { motivoRejeicao }); load(); }
+    catch (e: any) { toast.error('Erro ao rejeitar pedido', e?.response?.data?.message ?? 'Tenta novamente'); }
   };
 
   const podeDecidir = (r: any) => !r.excepcional || isSuperAdmin;
@@ -144,10 +166,10 @@ export default function FeriasFaltasPage() {
               Pedido excecional (exige aprovação do Super Admin)
             </label>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.funcionarioId || !form.dataInicio || !form.dataFim}
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.funcionarioId || !form.dataInicio || !form.dataFim || saving}
                 className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
-                Lançar
+                {saving ? 'A lançar...' : 'Lançar'}
               </button>
             </div>
           </div>

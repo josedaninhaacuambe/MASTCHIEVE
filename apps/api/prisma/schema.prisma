@@ -20,31 +20,33 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  admin                 Admin?
-  instructor            Instructor?
-  student               Student?
-  parent                Parent?
-  notifications         Notification[]
-  pushSubscriptions     PushSubscription[]
-  auditLogs             AuditLog[]
-  incidentesReportados  Incidente[]         @relation("IncidenteReportado")
-  pedidosComunicacao    PedidoComunicacao[] @relation("PedidoSolicitante")
-  pedidosAprovados      PedidoComunicacao[] @relation("PedidoAprovado")
-  certificadosValidados Certificado[]
-  documentosValidados        Document[]
-  contactosFaltaRegistados   ContactoFalta[]
-  isencoesAutorizadas        Payment[]
-  conferenciasCaixa          ConferenciaCaixa[]
-  transferenciasAutorizadas  TransferenciaTurma[]
-  atendimentosEncarregados   AtendimentoEncarregado[]
+  admin                     Admin?
+  instructor                Instructor?
+  student                   Student?
+  parent                    Parent?
+  notifications             Notification[]
+  pushSubscriptions         PushSubscription[]
+  auditLogs                 AuditLog[]
+  incidentesReportados      Incidente[]              @relation("IncidenteReportado")
+  pedidosComunicacao        PedidoComunicacao[]      @relation("PedidoSolicitante")
+  pedidosAprovados          PedidoComunicacao[]      @relation("PedidoAprovado")
+  certificadosValidados     Certificado[]
+  documentosValidados       Document[]
+  contactosFaltaRegistados  ContactoFalta[]
+  isencoesAutorizadas       Payment[]
+  conferenciasCaixa         ConferenciaCaixa[]
+  transferenciasAutorizadas TransferenciaTurma[]
+  atendimentosEncarregados  AtendimentoEncarregado[]
 
-  atendimentosRecepcaoAtendidos     AtendimentoRecepcao[]      @relation("AtendimentoRecepcaoAtendido")
-  atendimentosRecepcaoEncaminhados  AtendimentoRecepcao[]      @relation("AtendimentoRecepcaoEncaminhado")
-  movimentosInventarioResponsavel   MovimentoInventario[]
-  registosEntradaSaidaRegistados    RegistoEntradaSaidaAluno[]
-  reclamacoesRegistadas             Reclamacao[]
-  relatoriosMensaisGerados          RelatorioMensal[]
-  rotinasDiariasConcluidas          RotinaDiaria[]
+  atendimentosRecepcaoAtendidos       AtendimentoRecepcao[]      @relation("AtendimentoRecepcaoAtendido")
+  atendimentosRecepcaoEncaminhados    AtendimentoRecepcao[]      @relation("AtendimentoRecepcaoEncaminhado")
+  movimentosInventarioResponsavel     MovimentoInventario[]
+  registosEntradaSaidaRegistados      RegistoEntradaSaidaAluno[]
+  reclamacoesRegistadas               Reclamacao[]
+  relatoriosMensaisGerados            RelatorioMensal[]
+  rotinasDiariasConcluidas            RotinaDiaria[]             @relation("RotinaConcluidoPor")
+  rotinasDiariasAguaRegistada         RotinaDiaria[]             @relation("RotinaAguaRegistadoPor")
+  rotinasDiariasEquipamentosRegistado RotinaDiaria[]             @relation("RotinaEquipamentosRegistadoPor")
 
   funcionario                 Funcionario?
   vagasSolicitadas            Vaga[]                  @relation("VagaSolicitante")
@@ -107,7 +109,7 @@ model Instructor {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  user                         User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   classes                      Class[]
   attendances                  Attendance[]
   feedbacks                    Feedback[]
@@ -115,6 +117,7 @@ model Instructor {
   avaliacoesIniciais           AvaliacaoInicial[]
   unidades                     InstructorUnidade[]
   checklistsProtocolo          ChecklistProtocolo[]
+  materiaisRotina              RotinaDiariaMaterial[]
   funcionario                  Funcionario?
   athleteReports               AthleteReport[]
   avaliacoesAgendadas          AvaliacaoAgendada[]
@@ -150,33 +153,33 @@ model Student {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  user                User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  unidade             Unidade?                     @relation(fields: [unidadeId], references: [id])
-  lead                Lead?                        @relation(fields: [leadId], references: [id])
-  parents             StudentParent[]
-  enrollments         Enrollment[]
-  attendances         Attendance[]
-  feedbacks           Feedback[]
-  progressRecords     Progress[]
-  studentFases        StudentFase[]
-  certificados        Certificado[]
-  trainingPlans       TrainingPlan[]
-  payments            Payment[]
-  monthlyFees         MonthlyFee[]
-  documents           Document[]
-  avaliacaoInicial    AvaliacaoInicial?
-  competicoes         CompeticaoAtleta[]
-  athleteReports      AthleteReport[]
-  avaliacoesAgendadas Avaliacao[]
-  mensagensWhatsapp   MensagemWhatsapp[]
-  contactosFalta      ContactoFalta[]
-  transferencias      TransferenciaTurma[]
-  atendimentos        AtendimentoEncarregado[]
-  eventoParticipacoes EventoParticipante[]
-  pessoasAutorizadas  PessoaAutorizada[]
+  user                 User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unidade              Unidade?                   @relation(fields: [unidadeId], references: [id])
+  lead                 Lead?                      @relation(fields: [leadId], references: [id])
+  parents              StudentParent[]
+  enrollments          Enrollment[]
+  attendances          Attendance[]
+  feedbacks            Feedback[]
+  progressRecords      Progress[]
+  studentFases         StudentFase[]
+  certificados         Certificado[]
+  trainingPlans        TrainingPlan[]
+  payments             Payment[]
+  monthlyFees          MonthlyFee[]
+  documents            Document[]
+  avaliacaoInicial     AvaliacaoInicial?
+  competicoes          CompeticaoAtleta[]
+  athleteReports       AthleteReport[]
+  avaliacoesAgendadas  Avaliacao[]
+  mensagensWhatsapp    MensagemWhatsapp[]
+  contactosFalta       ContactoFalta[]
+  transferencias       TransferenciaTurma[]
+  atendimentos         AtendimentoEncarregado[]
+  eventoParticipacoes  EventoParticipante[]
+  pessoasAutorizadas   PessoaAutorizada[]
   registosEntradaSaida RegistoEntradaSaidaAluno[]
-  reclamacoes         Reclamacao[]
-  qrCredentials       StudentQrCredential[]
+  reclamacoes          Reclamacao[]
+  qrCredentials        StudentQrCredential[]
 
   @@index([isActive])
   @@index([unidadeId])
@@ -236,8 +239,8 @@ model Parent {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user        User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  children    StudentParent[]
+  user         User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  children     StudentParent[]
   atendimentos AtendimentoEncarregado[]
   reclamacoes  Reclamacao[]
 
@@ -329,9 +332,9 @@ model Lead {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  unidade Unidade? @relation(fields: [unidadeId], references: [id])
-  evento  Evento?  @relation(fields: [eventoId], references: [id])
-  student Student?
+  unidade           Unidade?           @relation(fields: [unidadeId], references: [id])
+  evento            Evento?            @relation(fields: [eventoId], references: [id])
+  student           Student?
   mensagensWhatsapp MensagemWhatsapp[]
 
   @@index([estado])
@@ -447,8 +450,8 @@ model StudentFase {
   notas       String?   @db.Text
   updatedAt   DateTime  @updatedAt
 
-  student             Student                @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  fase                FaseProgressao         @relation(fields: [faseId], references: [id])
+  student             Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  fase                FaseProgressao        @relation(fields: [faseId], references: [id])
   avaliacoes          StudentFaseCriterio[]
   avaliacoesAgendadas Avaliacao[]
 
@@ -489,8 +492,8 @@ model AvaliacaoAgendada {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  instructor Instructor @relation(fields: [instructorId], references: [id])
-  class      Class      @relation(fields: [classId], references: [id])
+  instructor Instructor  @relation(fields: [instructorId], references: [id])
+  class      Class       @relation(fields: [classId], references: [id])
   resultados Avaliacao[]
 
   @@index([instructorId])
@@ -571,11 +574,11 @@ model Class {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  instructor          Instructor          @relation(fields: [instructorId], references: [id])
-  unidade             Unidade?            @relation(fields: [unidadeId], references: [id])
-  enrollments         Enrollment[]
-  sessions            ClassSession[]
-  avaliacoesAgendadas AvaliacaoAgendada[]
+  instructor            Instructor           @relation(fields: [instructorId], references: [id])
+  unidade               Unidade?             @relation(fields: [unidadeId], references: [id])
+  enrollments           Enrollment[]
+  sessions              ClassSession[]
+  avaliacoesAgendadas   AvaliacaoAgendada[]
   transferenciasOrigem  TransferenciaTurma[] @relation("TransferenciaOrigem")
   transferenciasDestino TransferenciaTurma[] @relation("TransferenciaDestino")
 
@@ -784,23 +787,23 @@ model MonthlyFee {
 }
 
 model Payment {
-  id            String    @id @default(uuid())
-  studentId     String
-  monthlyFeeId  String?   @unique
-  amount        Float
-  method        String    @default("CASH")
-  status        String    @default("PENDING")
-  reference     String?
-  receiptNumber String?   @unique
-  notes         String?   @db.Text
-  paidAt        DateTime?
-  dueDate       DateTime
+  id                     String    @id @default(uuid())
+  studentId              String
+  monthlyFeeId           String?   @unique
+  amount                 Float
+  method                 String    @default("CASH")
+  status                 String    @default("PENDING")
+  reference              String?
+  receiptNumber          String?   @unique
+  notes                  String?   @db.Text
+  paidAt                 DateTime?
+  dueDate                DateTime
   isento                 Boolean   @default(false)
   isencaoMotivo          String?   @db.Text
   isencaoAutorizadoPorId String?
   isencaoAutorizadoEm    DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   student              Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
   monthlyFee           MonthlyFee?          @relation(fields: [monthlyFeeId], references: [id])
@@ -900,23 +903,23 @@ model Incidente {
 // ─── Eventos / Open Day (SOP 07) ─────────────────────────────────────────────
 
 model Evento {
-  id         String   @id @default(uuid())
-  tipo       String   @default("OPEN_DAY") // OPEN_DAY|COMPETICAO|OUTRO
-  nome       String
-  data       DateTime
-  unidadeId  String?
-  programa   String?  @db.Text
-  capacidade Int?
-  estado     String   @default("PLANEADO") // PLANEADO|REALIZADO|CANCELADO
-  notas      String?  @db.Text
-  checklistMateriais String? @db.Text // JSON: [{texto, checked}]
-  relatorioPos       String? @db.Text
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  tipo               String   @default("OPEN_DAY") // OPEN_DAY|COMPETICAO|OUTRO
+  nome               String
+  data               DateTime
+  unidadeId          String?
+  programa           String?  @db.Text
+  capacidade         Int?
+  estado             String   @default("PLANEADO") // PLANEADO|REALIZADO|CANCELADO
+  notas              String?  @db.Text
+  checklistMateriais String?  @db.Text // JSON: [{texto, checked}]
+  relatorioPos       String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  unidade      Unidade?      @relation(fields: [unidadeId], references: [id])
-  certificados Certificado[]
-  leads        Lead[]
+  unidade       Unidade?             @relation(fields: [unidadeId], references: [id])
+  certificados  Certificado[]
+  leads         Lead[]
   participantes EventoParticipante[]
 
   @@index([tipo])
@@ -1027,13 +1030,13 @@ model PushSubscription {
 // ─── Documents ───────────────────────────────────────────────────────────────
 
 model Document {
-  id         String   @id @default(uuid())
-  studentId  String
-  name       String
-  type       String
-  url        String
-  size       Int?
-  uploadedAt DateTime @default(now())
+  id            String    @id @default(uuid())
+  studentId     String
+  name          String
+  type          String
+  url           String
+  size          Int?
+  uploadedAt    DateTime  @default(now())
   validado      Boolean   @default(false)
   validadoPorId String?
   validadoEm    DateTime?
@@ -1272,23 +1275,23 @@ model Reclamacao {
 }
 
 model RelatorioMensal {
-  id                 String   @id @default(uuid())
-  unidadeId          String?
-  mes                Int
-  ano                Int
-  totalAlunos        Int
-  novasInscricoes    Int
-  taxaPresencaMedia  Float
-  receitaTotal       Float
-  pagamentosEmAtraso Int
-  totalIncidentes    Int
-  incidentesGraves   Int
-  totalReclamacoes   Int
-  totalEventos       Int
-  itensStockBaixo    Int
+  id                      String   @id @default(uuid())
+  unidadeId               String?
+  mes                     Int
+  ano                     Int
+  totalAlunos             Int
+  novasInscricoes         Int
+  taxaPresencaMedia       Float
+  receitaTotal            Float
+  pagamentosEmAtraso      Int
+  totalIncidentes         Int
+  incidentesGraves        Int
+  totalReclamacoes        Int
+  totalEventos            Int
+  itensStockBaixo         Int
   presencasPorFaixaEtaria String?  @db.Text
-  geradoPorId        String
-  createdAt          DateTime @default(now())
+  geradoPorId             String
+  createdAt               DateTime @default(now())
 
   unidade   Unidade? @relation(fields: [unidadeId], references: [id])
   geradoPor User     @relation(fields: [geradoPorId], references: [id])
@@ -1309,12 +1312,47 @@ model RotinaDiaria {
   observacoes    String?   @db.Text
   createdAt      DateTime  @default(now())
 
-  unidade      Unidade @relation(fields: [unidadeId], references: [id])
-  concluidoPor User?   @relation(fields: [concluidoPorId], references: [id])
+  // Água — partilhado por unidade/dia, primeiro instrutor a registar satisfaz todos
+  aguaTemperatura    Float?
+  aguaPh             Float?
+  aguaCloro          Float?
+  aguaFotoUrl        String?   @db.VarChar(500)
+  aguaRegistadoPorId String?
+  aguaRegistadoEm    DateTime?
+
+  // Equipamentos de segurança — partilhado por unidade/dia
+  equipamentosSeguranca      String?   @db.Text // JSON: [{item, quantidade}]
+  equipamentosFotoUrl        String?   @db.VarChar(500)
+  equipamentosRegistadoPorId String?
+  equipamentosRegistadoEm    DateTime?
+
+  unidade                  Unidade @relation(fields: [unidadeId], references: [id])
+  concluidoPor             User?   @relation("RotinaConcluidoPor", fields: [concluidoPorId], references: [id])
+  aguaRegistadoPor         User?   @relation("RotinaAguaRegistadoPor", fields: [aguaRegistadoPorId], references: [id])
+  equipamentosRegistadoPor User?   @relation("RotinaEquipamentosRegistadoPor", fields: [equipamentosRegistadoPorId], references: [id])
+
+  materiais RotinaDiariaMaterial[]
 
   @@unique([unidadeId, data, tipo])
   @@index([unidadeId])
   @@map("rotinas_diarias")
+}
+
+model RotinaDiariaMaterial {
+  id             String   @id @default(uuid())
+  rotinaDiariaId String
+  instrutorId    String
+  item           String
+  quantidade     Int
+  fotoUrl        String?  @db.VarChar(500)
+  registadoEm    DateTime @default(now())
+
+  rotinaDiaria RotinaDiaria @relation(fields: [rotinaDiariaId], references: [id], onDelete: Cascade)
+  instrutor    Instructor   @relation(fields: [instrutorId], references: [id])
+
+  @@index([rotinaDiariaId])
+  @@index([instrutorId])
+  @@map("rotina_diaria_materiais")
 }
 
 // ─── Audit Log ───────────────────────────────────────────────────────────────

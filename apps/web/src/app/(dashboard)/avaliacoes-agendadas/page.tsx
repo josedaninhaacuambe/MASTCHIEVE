@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { Plus, ClipboardCheck, Calendar, Users, ChevronRight, AlertTriangle } from 'lucide-react';
 
@@ -31,6 +32,7 @@ function CreateSessaoModal({ classes, onClose, onSaved }: {
         data: new Date(data).toISOString(),
         observacoes: observacoes || undefined,
       });
+      toast.success('Avaliação agendada');
       onSaved();
       onClose();
     } catch (e: any) {
@@ -129,19 +131,28 @@ export default function AvaliacoesAgendadasPage() {
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/avaliacoes-agendadas');
-    setSessoes(r.data.data || r.data);
-    setLoading(false);
+    try {
+      const r = await api.get('/avaliacoes-agendadas');
+      setSessoes(r.data.data || r.data);
+    } catch (e: any) {
+      toast.error('Erro ao carregar avaliações agendadas', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
 
   const openForm = async () => {
-    const endpoint = user?.role === 'INSTRUCTOR' ? '/classes/my' : '/classes';
-    const r = await api.get(endpoint);
-    const data = r.data.data || r.data;
-    setClasses(Array.isArray(data) ? data : []);
-    setShowForm(true);
+    try {
+      const endpoint = user?.role === 'INSTRUCTOR' ? '/classes/my' : '/classes';
+      const r = await api.get(endpoint);
+      const data = r.data.data || r.data;
+      setClasses(Array.isArray(data) ? data : []);
+      setShowForm(true);
+    } catch (e: any) {
+      toast.error('Erro ao carregar turmas', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   const atrasadas = sessoes.filter((s: any) => s.estado === 'AGENDADA' && s.data && new Date(s.data) < new Date());

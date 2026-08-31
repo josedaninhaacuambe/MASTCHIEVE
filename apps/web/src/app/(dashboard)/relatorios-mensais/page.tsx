@@ -13,13 +13,21 @@ export default function RelatoriosMensaisPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [gerando, setGerando] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [form, setForm] = useState({ unidadeId: '', mes: new Date().getMonth() + 1, ano: new Date().getFullYear() });
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/relatorios-mensais');
-    setLista(r.data.data ?? []);
-    setLoading(false);
+    try {
+      const r = await api.get('/relatorios-mensais');
+      setLista(r.data.data ?? []);
+      setLoadError(false);
+    } catch (e: any) {
+      setLoadError(true);
+      toast.error('Erro ao carregar relatórios', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -68,6 +76,18 @@ export default function RelatoriosMensaisPage() {
           <RefreshCw className="w-4 h-4" /> Gerar Relatório
         </button>
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar relatórios. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => load()} className="text-xs text-red-600 hover:underline">
+            Tentar novamente
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-gray-400">A carregar...</div>

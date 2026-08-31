@@ -7,7 +7,7 @@ import { toast } from '@/lib/toast';
 import { formatDate, cn } from '@/lib/utils';
 import {
   Bell, BellOff, CheckCheck, Check, AlertTriangle, Info, Trophy,
-  CreditCard, MessageSquare, Users, Loader2, RefreshCw, Filter,
+  CreditCard, MessageSquare, Users, Loader2, RefreshCw, Filter, AlertCircle,
 } from 'lucide-react';
 
 interface Notification {
@@ -77,7 +77,7 @@ export default function NotificationsPage() {
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['notifications', page],
     queryFn: async () => {
       const { data } = await api.get(`/notifications?page=${page}&limit=30`);
@@ -94,6 +94,7 @@ export default function NotificationsPage() {
   const markRead = useMutation({
     mutationFn: (id: string) => api.patch(`/notifications/${id}/read`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+    onError: (e: any) => toast.error('Erro ao marcar como lida', e?.response?.data?.message ?? 'Tenta novamente'),
   });
 
   const markAllRead = useMutation({
@@ -102,6 +103,7 @@ export default function NotificationsPage() {
       toast.success('Todas as notificações marcadas como lidas');
       qc.invalidateQueries({ queryKey: ['notifications'] });
     },
+    onError: (e: any) => toast.error('Erro ao marcar todas como lidas', e?.response?.data?.message ?? 'Tenta novamente'),
   });
 
   const filtered = filter === 'unread'
@@ -163,6 +165,18 @@ export default function NotificationsPage() {
           </button>
         ))}
       </div>
+
+      {isError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar notificações. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => refetch()} className="flex items-center gap-1 text-xs text-red-600 hover:underline">
+            <RefreshCw className="w-3 h-3" /> Tentar novamente
+          </button>
+        </div>
+      )}
 
       {/* List */}
       {isLoading ? (

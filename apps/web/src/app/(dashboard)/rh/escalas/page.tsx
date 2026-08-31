@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { Plus, CalendarClock } from 'lucide-react';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 
@@ -19,12 +20,18 @@ export default function EscalasPage() {
   const [erro, setErro] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ funcionarioId: '', data: '', turno: 'MANHA', horaInicio: '', horaFim: '', tipo: 'AULA', observacoes: '' });
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/rh/escalas');
-    setEscalas(r.data.data || []);
-    setLoading(false);
+    try {
+      const r = await api.get('/rh/escalas');
+      setEscalas(r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar escalas', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -33,19 +40,33 @@ export default function EscalasPage() {
   }, []);
 
   const salvar = async () => {
+    if (!form.funcionarioId || !form.data || !form.horaInicio || !form.horaFim) {
+      setErro('Preenche o funcionário, data e horário');
+      return;
+    }
     setErro('');
+    setSaving(true);
     try {
       await api.post('/rh/escalas', form);
       setShowForm(false);
       setForm({ funcionarioId: '', data: '', turno: 'MANHA', horaInicio: '', horaFim: '', tipo: 'AULA', observacoes: '' });
+      toast.success('Escala criada');
       load();
     } catch (e: any) {
       setErro(e?.response?.data?.message || 'Erro ao criar escala');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const confirmar = async (id: string) => { await api.put(`/rh/escalas/${id}/confirmar`); load(); };
-  const cancelar = async (id: string) => { await api.put(`/rh/escalas/${id}/cancelar`); load(); };
+  const confirmar = async (id: string) => {
+    try { await api.put(`/rh/escalas/${id}/confirmar`); load(); }
+    catch (e: any) { toast.error('Erro ao confirmar escala', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
+  const cancelar = async (id: string) => {
+    try { await api.put(`/rh/escalas/${id}/cancelar`); load(); }
+    catch (e: any) { toast.error('Erro ao cancelar escala', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -148,10 +169,10 @@ export default function EscalasPage() {
               <textarea value={form.observacoes} onChange={(e) => setForm(f => ({ ...f, observacoes: e.target.value }))} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.funcionarioId || !form.data || !form.horaInicio || !form.horaFim}
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.funcionarioId || !form.data || !form.horaInicio || !form.horaFim || saving}
                 className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
-                Criar
+                {saving ? 'A criar...' : 'Criar'}
               </button>
             </div>
           </div>

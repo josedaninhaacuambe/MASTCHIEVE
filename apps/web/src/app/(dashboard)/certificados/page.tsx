@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import Link from 'next/link';
 import { Award, Plus, Search, ChevronRight, Loader2, Printer, Download } from 'lucide-react';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
@@ -73,12 +74,18 @@ export default function CertificadosPage() {
   const [form, setForm] = useState({ studentId:'', faseId:'', dataEmissao:'' });
   const [prontos, setProntos] = useState<ProntoInfo[]>([]);
   const [loadingProntos, setLoadingProntos] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/certificados', { params: { search: search || undefined } });
-    setCerts(r.data.data || r.data);
-    setLoading(false);
+    try {
+      const r = await api.get('/certificados', { params: { search: search || undefined } });
+      setCerts(r.data.data || r.data);
+    } catch (e: any) {
+      toast.error('Erro ao carregar certificados', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadProntos = async () => {
@@ -118,17 +125,33 @@ export default function CertificadosPage() {
   useEffect(() => { loadProntos(); }, []);
 
   const openForm = async () => {
-    const [s, f] = await Promise.all([api.get('/students'), api.get('/fases')]);
-    setStudents(s.data.data || s.data);
-    setFases(f.data.data || f.data);
-    setShowForm(true);
+    try {
+      const [s, f] = await Promise.all([api.get('/students'), api.get('/fases')]);
+      setStudents(s.data.data || s.data);
+      setFases(f.data.data || f.data);
+      setShowForm(true);
+    } catch (e: any) {
+      toast.error('Erro ao carregar dados', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   const emitir = async () => {
-    await api.post('/certificados', { ...form, dataEmissao: form.dataEmissao ? new Date(form.dataEmissao).toISOString() : undefined });
-    setShowForm(false);
-    setForm({ studentId:'', faseId:'', dataEmissao:'' });
-    load();
+    if (!form.studentId || !form.faseId) {
+      toast.error('Campos obrigatórios', 'Seleciona o aluno e o módulo concluído');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post('/certificados', { ...form, dataEmissao: form.dataEmissao ? new Date(form.dataEmissao).toISOString() : undefined });
+      setShowForm(false);
+      setForm({ studentId:'', faseId:'', dataEmissao:'' });
+      toast.success('Certificado emitido');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao emitir certificado', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const totalPorNivel = (nivel: string) => certs.filter(c => c.fase?.certificacao === nivel).length;
@@ -280,8 +303,8 @@ export default function CertificadosPage() {
               <input type="date" value={form.dataEmissao} onChange={e => setForm(f => ({ ...f, dataEmissao: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={emitir} disabled={!form.studentId || !form.faseId} className="flex-1 bg-amber-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50">Emitir</button>
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={emitir} disabled={!form.studentId || !form.faseId || saving} className="flex-1 bg-amber-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50">{saving ? 'A emitir...' : 'Emitir'}</button>
             </div>
           </div>
         </div>

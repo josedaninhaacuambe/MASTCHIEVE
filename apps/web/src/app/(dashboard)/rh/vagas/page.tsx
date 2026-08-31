@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { Plus, Briefcase } from 'lucide-react';
 
@@ -23,35 +24,62 @@ export default function VagasPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ titulo: '', cargo: 'INSTRUTOR_NATACAO', descricao: '', requisitos: '', numeroVagas: '1', orcamentoEstimado: '' });
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/rh/vagas');
-    setVagas(r.data.data || []);
-    setLoading(false);
+    try {
+      const r = await api.get('/rh/vagas');
+      setVagas(r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar vagas', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
 
   const salvar = async () => {
-    await api.post('/rh/vagas', {
-      ...form,
-      numeroVagas: form.numeroVagas ? Number(form.numeroVagas) : undefined,
-      orcamentoEstimado: form.orcamentoEstimado ? Number(form.orcamentoEstimado) : undefined,
-    });
-    setShowForm(false);
-    setForm({ titulo: '', cargo: 'INSTRUTOR_NATACAO', descricao: '', requisitos: '', numeroVagas: '1', orcamentoEstimado: '' });
-    load();
+    if (!form.titulo.trim() || !form.descricao.trim()) {
+      toast.error('Campos obrigatórios', 'Preenche o título e a descrição da vaga');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post('/rh/vagas', {
+        ...form,
+        numeroVagas: form.numeroVagas ? Number(form.numeroVagas) : undefined,
+        orcamentoEstimado: form.orcamentoEstimado ? Number(form.orcamentoEstimado) : undefined,
+      });
+      setShowForm(false);
+      setForm({ titulo: '', cargo: 'INSTRUTOR_NATACAO', descricao: '', requisitos: '', numeroVagas: '1', orcamentoEstimado: '' });
+      toast.success('Vaga solicitada');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao solicitar vaga', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const aprovar = async (id: string) => { await api.put(`/rh/vagas/${id}/aprovar`); load(); };
+  const aprovar = async (id: string) => {
+    try { await api.put(`/rh/vagas/${id}/aprovar`); load(); }
+    catch (e: any) { toast.error('Erro ao aprovar vaga', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
   const rejeitar = async (id: string) => {
     const motivoRejeicao = prompt('Motivo da rejeição:') || '';
-    await api.put(`/rh/vagas/${id}/rejeitar`, { motivoRejeicao });
-    load();
+    try { await api.put(`/rh/vagas/${id}/rejeitar`, { motivoRejeicao }); load(); }
+    catch (e: any) { toast.error('Erro ao rejeitar vaga', e?.response?.data?.message ?? 'Tenta novamente'); }
   };
-  const publicar = async (id: string) => { await api.put(`/rh/vagas/${id}/publicar`); load(); };
-  const encerrar = async (id: string) => { await api.put(`/rh/vagas/${id}/encerrar`); load(); };
+  const publicar = async (id: string) => {
+    try { await api.put(`/rh/vagas/${id}/publicar`); load(); }
+    catch (e: any) { toast.error('Erro ao publicar vaga', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
+  const encerrar = async (id: string) => {
+    try { await api.put(`/rh/vagas/${id}/encerrar`); load(); }
+    catch (e: any) { toast.error('Erro ao encerrar vaga', e?.response?.data?.message ?? 'Tenta novamente'); }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -133,10 +161,10 @@ export default function VagasPage() {
               </div>
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.titulo || !form.descricao}
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.titulo || !form.descricao || saving}
                 className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
-                Solicitar
+                {saving ? 'A solicitar...' : 'Solicitar'}
               </button>
             </div>
           </div>

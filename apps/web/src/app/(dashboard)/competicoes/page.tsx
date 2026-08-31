@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { Plus, Trophy, Calendar, MapPin, Medal, Users } from 'lucide-react';
 
 const ESTADOS_CORES: Record<string, string> = { PLANEADA:'bg-blue-100 text-blue-700', REALIZADA:'bg-green-100 text-green-700', CANCELADA:'bg-red-100 text-red-700' };
@@ -11,26 +12,48 @@ export default function CompeticoesPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ nome:'', data:'', local:'', organizador:'', modalidades:'[]', categorias:'[]', notas:'' });
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/competicoes');
-    setCompeticoes(r.data.data || r.data);
-    setLoading(false);
+    try {
+      const r = await api.get('/competicoes');
+      setCompeticoes(r.data.data || r.data);
+    } catch (e: any) {
+      toast.error('Erro ao carregar competições', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
 
   const salvar = async () => {
-    await api.post('/competicoes', { ...form, data: new Date(form.data).toISOString() });
-    setShowForm(false);
-    setForm({ nome:'', data:'', local:'', organizador:'', modalidades:'[]', categorias:'[]', notas:'' });
-    load();
+    if (!form.nome.trim() || !form.data) {
+      toast.error('Campos obrigatórios', 'Preenche o nome e a data da competição');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post('/competicoes', { ...form, data: new Date(form.data).toISOString() });
+      setShowForm(false);
+      setForm({ nome:'', data:'', local:'', organizador:'', modalidades:'[]', categorias:'[]', notas:'' });
+      toast.success('Competição criada');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao criar competição', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const atualizar = async (id: string, estado: string) => {
-    await api.put(`/competicoes/${id}`, { estado });
-    load();
+    try {
+      await api.put(`/competicoes/${id}`, { estado });
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao atualizar competição', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   const totais = { total: competicoes.length, realizadas: competicoes.filter(c => c.estado === 'REALIZADA').length, atletas: competicoes.reduce((acc, c) => acc + (c._count?.atletas || 0), 0) };
@@ -119,8 +142,8 @@ export default function CompeticoesPage() {
               <textarea value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.nome || !form.data} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">Criar</button>
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.nome || !form.data || saving} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">{saving ? 'A criar...' : 'Criar'}</button>
             </div>
           </div>
         </div>

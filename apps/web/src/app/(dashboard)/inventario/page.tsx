@@ -24,12 +24,15 @@ export default function InventarioPage() {
   const [alertas, setAlertas] = useState<any[]>([]);
   const [unidades, setUnidades] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
   const [editando, setEditando] = useState<any | null>(null);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ nome: '', categoria: 'OUTRO', unidadeId: '', quantidade: '0', quantidadeMin: '0', unidadeMedida: 'UN', localizacao: '' });
 
   const [movAlvo, setMovAlvo] = useState<any | null>(null);
+  const [movSaving, setMovSaving] = useState(false);
   const [movForm, setMovForm] = useState({ tipo: 'ENTRADA', quantidade: '1', motivo: '' });
 
   const loadItens = async () => { const r = await api.get('/inventario/itens'); setItens(r.data.data ?? []); };
@@ -38,8 +41,15 @@ export default function InventarioPage() {
 
   const loadAll = async () => {
     setLoading(true);
-    await Promise.all([loadItens(), loadMovimentos(), loadAlertas()]);
-    setLoading(false);
+    try {
+      await Promise.all([loadItens(), loadMovimentos(), loadAlertas()]);
+      setLoadError(false);
+    } catch (e: any) {
+      setLoadError(true);
+      toast.error('Erro ao carregar inventário', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { loadAll(); }, []);
@@ -67,6 +77,7 @@ export default function InventarioPage() {
       quantidade: Number(form.quantidade), quantidadeMin: Number(form.quantidadeMin),
       unidadeMedida: form.unidadeMedida, localizacao: form.localizacao || undefined,
     };
+    setSaving(true);
     try {
       if (editando) await api.put(`/inventario/itens/${editando.id}`, payload);
       else await api.post('/inventario/itens', payload);
@@ -74,12 +85,15 @@ export default function InventarioPage() {
       setShowForm(false);
       loadAll();
     } catch (e: any) {
-      toast.error('Erro ao guardar', e?.response?.data?.message);
+      toast.error('Erro ao guardar', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
     }
   };
 
   const registarMovimento = async () => {
     if (!movAlvo) return;
+    setMovSaving(true);
     try {
       await api.post(`/inventario/itens/${movAlvo.id}/movimento`, { ...movForm, quantidade: Number(movForm.quantidade) });
       toast.success('Movimento registado');
@@ -87,7 +101,9 @@ export default function InventarioPage() {
       setMovForm({ tipo: 'ENTRADA', quantidade: '1', motivo: '' });
       loadAll();
     } catch (e: any) {
-      toast.error('Erro ao registar movimento', e?.response?.data?.message);
+      toast.error('Erro ao registar movimento', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setMovSaving(false);
     }
   };
 
@@ -120,6 +136,18 @@ export default function InventarioPage() {
           </button>
         ))}
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar inventário. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => loadAll()} className="text-xs text-red-600 hover:underline">
+            Tentar novamente
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-gray-400">A carregar...</div>
@@ -260,8 +288,10 @@ export default function InventarioPage() {
               <input value={form.localizacao} onChange={(e) => setForm((f) => ({ ...f, localizacao: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.nome} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">Guardar</button>
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.nome || saving} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
+                {saving ? 'A guardar...' : 'Guardar'}
+              </button>
             </div>
           </div>
         </div>
@@ -301,8 +331,10 @@ export default function InventarioPage() {
               <input value={movForm.motivo} onChange={(e) => setMovForm((f) => ({ ...f, motivo: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setMovAlvo(null)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={registarMovimento} disabled={!movForm.quantidade} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">Registar</button>
+              <button onClick={() => setMovAlvo(null)} disabled={movSaving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={registarMovimento} disabled={!movForm.quantidade || movSaving} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
+                {movSaving ? 'A registar...' : 'Registar'}
+              </button>
             </div>
           </div>
         </div>

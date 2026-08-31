@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { Plus, IdCard } from 'lucide-react';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 
@@ -18,6 +19,7 @@ export default function CertificacoesPage() {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ tipo: 'NADADOR_SALVADOR', numeroDocumento: '', entidadeEmissora: '', dataEmissao: '', dataValidade: '', documentoUrl: '' });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     api.get('/rh/funcionarios').then(r => setFuncionarios(r.data.data?.data || r.data.data || [])).catch(() => {});
@@ -26,21 +28,41 @@ export default function CertificacoesPage() {
   const load = async (fid: string) => {
     if (!fid) { setCerts([]); return; }
     setLoading(true);
-    const r = await api.get(`/rh/certificacoes/funcionario/${fid}`);
-    setCerts(r.data.data || []);
-    setLoading(false);
+    try {
+      const r = await api.get(`/rh/certificacoes/funcionario/${fid}`);
+      setCerts(r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar certificações', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(funcionarioId); }, [funcionarioId]);
 
   const salvar = async () => {
-    await api.post('/rh/certificacoes', { ...form, funcionarioId, dataEmissao: form.dataEmissao || undefined, dataValidade: form.dataValidade || undefined });
-    setShowForm(false);
-    setForm({ tipo: 'NADADOR_SALVADOR', numeroDocumento: '', entidadeEmissora: '', dataEmissao: '', dataValidade: '', documentoUrl: '' });
-    load(funcionarioId);
+    setSaving(true);
+    try {
+      await api.post('/rh/certificacoes', { ...form, funcionarioId, dataEmissao: form.dataEmissao || undefined, dataValidade: form.dataValidade || undefined });
+      setShowForm(false);
+      setForm({ tipo: 'NADADOR_SALVADOR', numeroDocumento: '', entidadeEmissora: '', dataEmissao: '', dataValidade: '', documentoUrl: '' });
+      toast.success('Certificação registada');
+      load(funcionarioId);
+    } catch (e: any) {
+      toast.error('Erro ao registar certificação', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const revogar = async (id: string) => { await api.put(`/rh/certificacoes/${id}/revogar`); load(funcionarioId); };
+  const revogar = async (id: string) => {
+    try {
+      await api.put(`/rh/certificacoes/${id}/revogar`);
+      load(funcionarioId);
+    } catch (e: any) {
+      toast.error('Erro ao revogar certificação', e?.response?.data?.message ?? 'Tenta novamente');
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -140,8 +162,8 @@ export default function CertificacoesPage() {
               <input value={form.documentoUrl} onChange={(e) => setForm(f => ({ ...f, documentoUrl: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900">Registar</button>
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={saving} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">{saving ? 'A registar...' : 'Registar'}</button>
             </div>
           </div>
         </div>

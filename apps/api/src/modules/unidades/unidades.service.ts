@@ -6,7 +6,10 @@ export class UnidadesService {
   constructor(private prisma: PrismaService) {}
 
   findAll() {
-    return this.prisma.unidade.findMany({ where: { ativo: true }, orderBy: { nome: 'asc' } });
+    return this.prisma.unidade.findMany({
+      orderBy: { nome: 'asc' },
+      include: { _count: { select: { turmas: true, estudantes: true, instrutores: true } } },
+    });
   }
 
   async findOne(id: string) {

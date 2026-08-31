@@ -20,10 +20,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     try {
       final api = ref.read(apiClientProvider);
       final resp = await api.get('/notifications');
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _notifications = List.from(resp.data['data']['data'] ?? []);
         _loading = false;
       });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }

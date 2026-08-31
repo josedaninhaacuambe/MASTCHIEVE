@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { MessageSquare, Send, CheckCircle2, XCircle, User, Phone, Clock } from 'lucide-react';
+import { toast } from '@/lib/toast';
+import { MessageSquare, Send, CheckCircle2, XCircle, User, Phone, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 
 const TIPO_LABEL: Record<string, string> = {
   BOAS_VINDAS: 'Boas-vindas',
@@ -15,7 +16,7 @@ export default function WhatsappOutboxPage() {
   const qc = useQueryClient();
   const [filtro, setFiltro] = useState<'PENDENTE' | 'ENVIADA' | 'CANCELADA' | ''>('PENDENTE');
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['whatsapp-outbox', filtro],
     queryFn: async () => {
       const { data } = await api.get('/whatsapp', { params: filtro ? { estado: filtro } : {} });
@@ -26,11 +27,13 @@ export default function WhatsappOutboxPage() {
   const marcarEnviada = useMutation({
     mutationFn: (id: string) => api.put(`/whatsapp/${id}/enviada`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['whatsapp-outbox'] }),
+    onError: (e: any) => toast.error('Erro ao marcar como enviada', e?.response?.data?.message ?? 'Tenta novamente'),
   });
 
   const cancelar = useMutation({
     mutationFn: (id: string) => api.delete(`/whatsapp/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['whatsapp-outbox'] }),
+    onError: (e: any) => toast.error('Erro ao cancelar', e?.response?.data?.message ?? 'Tenta novamente'),
   });
 
   const mensagens: any[] = data ?? [];
@@ -64,6 +67,18 @@ export default function WhatsappOutboxPage() {
           </button>
         ))}
       </div>
+
+      {isError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar mensagens. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => refetch()} className="flex items-center gap-1 text-xs text-red-600 hover:underline">
+            <RefreshCw className="w-3 h-3" /> Tentar novamente
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="p-12 text-center text-gray-400">A carregar...</div>

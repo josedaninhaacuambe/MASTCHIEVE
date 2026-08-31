@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { Plus, AlertTriangle, CheckCircle, ShieldAlert, Zap } from 'lucide-react';
 
 const TIPOS = ['ACIDENTE_MENOR','ACIDENTE_GRAVE','NEAR_MISS','COMPORTAMENTO','EQUIPAMENTO','INSTALACOES','OUTRO'];
@@ -33,6 +34,8 @@ export default function IncidentesPage() {
   const [showForm, setShowForm] = useState(false);
   const [relampagoConfirm, setRelampagoConfirm] = useState(false);
   const [testemunhaInput, setTestemunhaInput] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [relampagoSaving, setRelampagoSaving] = useState(false);
   const [form, setForm] = useState({
     tipo: 'ACIDENTE_MENOR',
     tipoOcorrencia: 'INCIDENTE_CONFIRMADO',
@@ -47,10 +50,15 @@ export default function IncidentesPage() {
 
   const load = async () => {
     setLoading(true);
-    const [inc, s] = await Promise.all([api.get('/incidentes'), api.get('/incidentes/stats')]);
-    setIncidentes(inc.data.data || inc.data);
-    setStats(s.data.data || s.data);
-    setLoading(false);
+    try {
+      const [inc, s] = await Promise.all([api.get('/incidentes'), api.get('/incidentes/stats')]);
+      setIncidentes(inc.data.data || inc.data);
+      setStats(s.data.data || s.data);
+    } catch (e: any) {
+      toast.error('Erro ao carregar incidentes', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -59,22 +67,46 @@ export default function IncidentesPage() {
   }, []);
 
   const salvar = async () => {
-    await api.post('/incidentes', form);
-    setShowForm(false);
-    setForm({ tipo:'ACIDENTE_MENOR', tipoOcorrencia:'INCIDENTE_CONFIRMADO', gravidade:'BAIXA', dimensoes:[], testemunhas:[], protocoloId:'', descricao:'', acaoImediata:'', envolvidos:'[]' });
-    setTestemunhaInput('');
-    load();
+    if (!form.descricao.trim() || !form.acaoImediata.trim() || form.dimensoes.length === 0) {
+      toast.error('Campos obrigatórios', 'Preenche a descrição, ação imediata e seleciona pelo menos uma dimensão');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post('/incidentes', form);
+      setShowForm(false);
+      setForm({ tipo:'ACIDENTE_MENOR', tipoOcorrencia:'INCIDENTE_CONFIRMADO', gravidade:'BAIXA', dimensoes:[], testemunhas:[], protocoloId:'', descricao:'', acaoImediata:'', envolvidos:'[]' });
+      setTestemunhaInput('');
+      toast.success('Ocorrência reportada');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao reportar ocorrência', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const acionarRelampago = async () => {
-    await api.post('/incidentes/relampago');
-    setRelampagoConfirm(false);
-    load();
+    setRelampagoSaving(true);
+    try {
+      await api.post('/incidentes/relampago');
+      setRelampagoConfirm(false);
+      toast.success('Relâmpago Zero acionado', 'Evacuação registada');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao acionar Relâmpago Zero', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setRelampagoSaving(false);
+    }
   };
 
   const atualizar = async (id: string, estado: string) => {
-    await api.put(`/incidentes/${id}`, { estado });
-    load();
+    try {
+      await api.put(`/incidentes/${id}`, { estado });
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao atualizar incidente', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   const toggleDimensao = (d: string) => {
@@ -212,9 +244,9 @@ export default function IncidentesPage() {
               O registo será criado automaticamente. A supervisão será notificada depois da ação — não antes.
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setRelampagoConfirm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm">Cancelar</button>
-              <button onClick={acionarRelampago} className="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm font-bold hover:bg-red-700">
-                EVACUAR AGORA
+              <button onClick={() => setRelampagoConfirm(false)} disabled={relampagoSaving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm disabled:opacity-50">Cancelar</button>
+              <button onClick={acionarRelampago} disabled={relampagoSaving} className="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm font-bold hover:bg-red-700 disabled:opacity-50">
+                {relampagoSaving ? 'A evacuar...' : 'EVACUAR AGORA'}
               </button>
             </div>
           </div>
@@ -320,10 +352,10 @@ export default function IncidentesPage() {
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.descricao || !form.acaoImediata || form.dimensoes.length === 0}
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.descricao || !form.acaoImediata || form.dimensoes.length === 0 || saving}
                 className="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50">
-                Reportar
+                {saving ? 'A reportar...' : 'Reportar'}
               </button>
             </div>
           </div>

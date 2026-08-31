@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { Plus, UserPlus } from 'lucide-react';
 
@@ -29,12 +30,20 @@ export default function CandidaturasPage() {
   const [form, setForm] = useState({ vagaId: '', nomeCandidato: '', email: '', telefone: '', cvUrl: '', cartaMotivacao: '' });
   const [avaliarForm, setAvaliarForm] = useState({ notaEntrevista: '', notaTestePratico: '', observacoesRH: '' });
   const [aprovarForm, setAprovarForm] = useState({ email: '', password: '', salarioBase: '', dataInicio: '', tipoContrato: 'EFETIVO' });
+  const [saving, setSaving] = useState(false);
+  const [savingAvaliacao, setSavingAvaliacao] = useState(false);
+  const [savingAprovacao, setSavingAprovacao] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/rh/candidaturas');
-    setCandidaturas(r.data.data || []);
-    setLoading(false);
+    try {
+      const r = await api.get('/rh/candidaturas');
+      setCandidaturas(r.data.data || []);
+    } catch (e: any) {
+      toast.error('Erro ao carregar candidaturas', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -43,42 +52,78 @@ export default function CandidaturasPage() {
   }, []);
 
   const salvar = async () => {
-    await api.post('/rh/candidaturas', form);
-    setShowForm(false);
-    setForm({ vagaId: '', nomeCandidato: '', email: '', telefone: '', cvUrl: '', cartaMotivacao: '' });
-    load();
+    if (!form.vagaId || !form.nomeCandidato.trim()) {
+      toast.error('Campos obrigatórios', 'Seleciona a vaga e indica o nome do candidato');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post('/rh/candidaturas', form);
+      setShowForm(false);
+      setForm({ vagaId: '', nomeCandidato: '', email: '', telefone: '', cvUrl: '', cartaMotivacao: '' });
+      toast.success('Candidatura registada');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao registar candidatura', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const salvarAvaliacao = async () => {
     if (!avaliarId) return;
-    await api.put(`/rh/candidaturas/${avaliarId}/avaliar`, {
-      notaEntrevista: avaliarForm.notaEntrevista ? Number(avaliarForm.notaEntrevista) : undefined,
-      notaTestePratico: avaliarForm.notaTestePratico ? Number(avaliarForm.notaTestePratico) : undefined,
-      observacoesRH: avaliarForm.observacoesRH || undefined,
-    });
-    setAvaliarId(null);
-    setAvaliarForm({ notaEntrevista: '', notaTestePratico: '', observacoesRH: '' });
-    load();
+    setSavingAvaliacao(true);
+    try {
+      await api.put(`/rh/candidaturas/${avaliarId}/avaliar`, {
+        notaEntrevista: avaliarForm.notaEntrevista ? Number(avaliarForm.notaEntrevista) : undefined,
+        notaTestePratico: avaliarForm.notaTestePratico ? Number(avaliarForm.notaTestePratico) : undefined,
+        observacoesRH: avaliarForm.observacoesRH || undefined,
+      });
+      setAvaliarId(null);
+      setAvaliarForm({ notaEntrevista: '', notaTestePratico: '', observacoesRH: '' });
+      toast.success('Avaliação guardada');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao guardar avaliação', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSavingAvaliacao(false);
+    }
   };
 
   const rejeitar = async (id: string) => {
     const motivoRejeicao = prompt('Motivo da rejeição:') || '';
-    await api.put(`/rh/candidaturas/${id}/rejeitar`, { motivoRejeicao });
-    load();
+    try {
+      await api.put(`/rh/candidaturas/${id}/rejeitar`, { motivoRejeicao });
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao rejeitar candidatura', e?.response?.data?.message ?? 'Tenta novamente');
+    }
   };
 
   const salvarAprovacaoFinal = async () => {
     if (!aprovarId) return;
-    await api.put(`/rh/candidaturas/${aprovarId}/aprovar-final`, {
-      email: aprovarForm.email || undefined,
-      password: aprovarForm.password || undefined,
-      salarioBase: Number(aprovarForm.salarioBase),
-      dataInicio: aprovarForm.dataInicio,
-      tipoContrato: aprovarForm.tipoContrato,
-    });
-    setAprovarId(null);
-    setAprovarForm({ email: '', password: '', salarioBase: '', dataInicio: '', tipoContrato: 'EFETIVO' });
-    load();
+    if (!aprovarForm.salarioBase || !aprovarForm.dataInicio) {
+      toast.error('Campos obrigatórios', 'Preenche o salário base e a data de início');
+      return;
+    }
+    setSavingAprovacao(true);
+    try {
+      await api.put(`/rh/candidaturas/${aprovarId}/aprovar-final`, {
+        email: aprovarForm.email || undefined,
+        password: aprovarForm.password || undefined,
+        salarioBase: Number(aprovarForm.salarioBase),
+        dataInicio: aprovarForm.dataInicio,
+        tipoContrato: aprovarForm.tipoContrato,
+      });
+      setAprovarId(null);
+      setAprovarForm({ email: '', password: '', salarioBase: '', dataInicio: '', tipoContrato: 'EFETIVO' });
+      toast.success('Candidato aprovado e contratado');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao aprovar contratação', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSavingAprovacao(false);
+    }
   };
 
   return (
@@ -164,10 +209,10 @@ export default function CandidaturasPage() {
               <textarea value={form.cartaMotivacao} onChange={(e) => setForm(f => ({ ...f, cartaMotivacao: e.target.value }))} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.vagaId || !form.nomeCandidato}
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.vagaId || !form.nomeCandidato || saving}
                 className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
-                Registar
+                {saving ? 'A registar...' : 'Registar'}
               </button>
             </div>
           </div>
@@ -193,8 +238,8 @@ export default function CandidaturasPage() {
               <textarea value={avaliarForm.observacoesRH} onChange={(e) => setAvaliarForm(f => ({ ...f, observacoesRH: e.target.value }))} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setAvaliarId(null)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvarAvaliacao} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900">Guardar</button>
+              <button onClick={() => setAvaliarId(null)} disabled={savingAvaliacao} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvarAvaliacao} disabled={savingAvaliacao} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">{savingAvaliacao ? 'A guardar...' : 'Guardar'}</button>
             </div>
           </div>
         </div>
@@ -224,10 +269,10 @@ export default function CandidaturasPage() {
               </select>
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setAprovarId(null)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvarAprovacaoFinal} disabled={!aprovarForm.salarioBase || !aprovarForm.dataInicio}
+              <button onClick={() => setAprovarId(null)} disabled={savingAprovacao} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvarAprovacaoFinal} disabled={!aprovarForm.salarioBase || !aprovarForm.dataInicio || savingAprovacao}
                 className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
-                Aprovar e Contratar
+                {savingAprovacao ? 'A aprovar...' : 'Aprovar e Contratar'}
               </button>
             </div>
           </div>

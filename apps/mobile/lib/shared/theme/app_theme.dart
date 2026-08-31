@@ -65,7 +65,7 @@ class AppTheme {
           backgroundColor: Colors.white,
           elevation: 0,
           indicatorColor: primaryColor.withOpacity(0.15),
-          labelTextStyle: MaterialStateProperty.all(
+          labelTextStyle: WidgetStateProperty.all(
             const TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w500),
           ),
         ),

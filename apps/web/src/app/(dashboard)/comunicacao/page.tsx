@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { Plus, MessageSquare, Clock, CheckCircle, XCircle, Image, Video, FileText, Megaphone, PhoneCall, Search } from 'lucide-react';
 
@@ -18,9 +19,14 @@ function AtendimentoCard({ a, onUpdate }: { a: any; onUpdate: () => void }) {
 
   const atualizar = async (estado: string) => {
     setSaving(true);
-    await api.put(`/comunicacao/atendimentos/${a.id}`, { estado, resposta: resposta || undefined });
-    setSaving(false);
-    onUpdate();
+    try {
+      await api.put(`/comunicacao/atendimentos/${a.id}`, { estado, resposta: resposta || undefined });
+      onUpdate();
+    } catch (e: any) {
+      toast.error('Erro ao atualizar atendimento', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const atrasado = a.prazoResposta && a.estado !== 'RESOLVIDO' && new Date(a.prazoResposta) < new Date();
@@ -69,7 +75,9 @@ function AtendimentoCard({ a, onUpdate }: { a: any; onUpdate: () => void }) {
 function AtendimentosTab() {
   const [atendimentos, setAtendimentos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [estadoFilter, setEstadoFilter] = useState('');
   const [form, setForm] = useState({ studentId: '', studentLabel: '', assunto: '', canal: 'TELEFONE', descricao: '', prazoResposta: '' });
   const [studentSearch, setStudentSearch] = useState('');
@@ -77,9 +85,16 @@ function AtendimentosTab() {
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/comunicacao/atendimentos', { params: estadoFilter ? { estado: estadoFilter } : {} });
-    setAtendimentos(r.data.data || r.data);
-    setLoading(false);
+    try {
+      const r = await api.get('/comunicacao/atendimentos', { params: estadoFilter ? { estado: estadoFilter } : {} });
+      setAtendimentos(r.data.data || r.data);
+      setLoadError(false);
+    } catch (e: any) {
+      setLoadError(true);
+      toast.error('Erro ao carregar atendimentos', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, [estadoFilter]);
@@ -87,24 +102,36 @@ function AtendimentosTab() {
   useEffect(() => {
     if (!studentSearch) { setStudentResults([]); return; }
     const t = setTimeout(async () => {
-      const r = await api.get(`/students?search=${encodeURIComponent(studentSearch)}&limit=6`);
-      setStudentResults(r.data.data ?? []);
+      try {
+        const r = await api.get(`/students?search=${encodeURIComponent(studentSearch)}&limit=6`);
+        setStudentResults(r.data.data ?? []);
+      } catch {
+        setStudentResults([]);
+      }
     }, 300);
     return () => clearTimeout(t);
   }, [studentSearch]);
 
   const salvar = async () => {
-    await api.post('/comunicacao/atendimentos', {
-      studentId: form.studentId || undefined,
-      assunto: form.assunto,
-      canal: form.canal,
-      descricao: form.descricao,
-      prazoResposta: form.prazoResposta ? new Date(form.prazoResposta).toISOString() : undefined,
-    });
-    setShowForm(false);
-    setForm({ studentId: '', studentLabel: '', assunto: '', canal: 'TELEFONE', descricao: '', prazoResposta: '' });
-    setStudentSearch('');
-    load();
+    setSaving(true);
+    try {
+      await api.post('/comunicacao/atendimentos', {
+        studentId: form.studentId || undefined,
+        assunto: form.assunto,
+        canal: form.canal,
+        descricao: form.descricao,
+        prazoResposta: form.prazoResposta ? new Date(form.prazoResposta).toISOString() : undefined,
+      });
+      toast.success('Atendimento registado');
+      setShowForm(false);
+      setForm({ studentId: '', studentLabel: '', assunto: '', canal: 'TELEFONE', descricao: '', prazoResposta: '' });
+      setStudentSearch('');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao registar atendimento', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const stats = {
@@ -144,6 +171,18 @@ function AtendimentosTab() {
           <div className="text-3xl font-bold text-green-700">{stats.resolvidos}</div>
         </div>
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <XCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar atendimentos. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => load()} className="text-xs text-red-600 hover:underline">
+            Tentar novamente
+          </button>
+        </div>
+      )}
 
       {loading ? <div className="text-center py-12 text-gray-400">A carregar...</div> : (
         <div className="space-y-3">
@@ -200,8 +239,10 @@ function AtendimentosTab() {
               <textarea value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.assunto || !form.descricao} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">Registar</button>
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.assunto || !form.descricao || saving} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                {saving ? 'A registar...' : 'Registar'}
+              </button>
             </div>
           </div>
         </div>
@@ -214,16 +255,25 @@ export default function ComunicacaoPage() {
   const [tab, setTab] = useState<'pedidos' | 'atendimentos'>('pedidos');
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ titulo:'', tipo:'POST_REDES_SOCIAIS', descricao:'', prazo:'', prioridade:'MEDIA', canal:'WHATSAPP', publicoTipo:'TODOS', publicoId:'' });
   const [turmas, setTurmas] = useState<any[]>([]);
   const [unidades, setUnidades] = useState<any[]>([]);
 
   const load = async () => {
     setLoading(true);
-    const r = await api.get('/comunicacao');
-    setPedidos(r.data.data || r.data);
-    setLoading(false);
+    try {
+      const r = await api.get('/comunicacao');
+      setPedidos(r.data.data || r.data);
+      setLoadError(false);
+    } catch (e: any) {
+      setLoadError(true);
+      toast.error('Erro ao carregar pedidos', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -233,27 +283,39 @@ export default function ComunicacaoPage() {
   }, []);
 
   const salvar = async () => {
-    const publicoAlvo = form.publicoTipo === 'TODOS' ? 'TODOS' : `${form.publicoTipo}:${form.publicoId}`;
-    await api.post('/comunicacao', {
-      titulo: form.titulo, tipo: form.tipo, descricao: form.descricao, prioridade: form.prioridade,
-      canal: form.canal, publicoAlvo,
-      prazo: form.prazo ? new Date(form.prazo).toISOString() : undefined,
-    });
-    setShowForm(false);
-    setForm({ titulo:'', tipo:'POST_REDES_SOCIAIS', descricao:'', prazo:'', prioridade:'MEDIA', canal:'WHATSAPP', publicoTipo:'TODOS', publicoId:'' });
-    load();
+    setSaving(true);
+    try {
+      const publicoAlvo = form.publicoTipo === 'TODOS' ? 'TODOS' : `${form.publicoTipo}:${form.publicoId}`;
+      await api.post('/comunicacao', {
+        titulo: form.titulo, tipo: form.tipo, descricao: form.descricao, prioridade: form.prioridade,
+        canal: form.canal, publicoAlvo,
+        prazo: form.prazo ? new Date(form.prazo).toISOString() : undefined,
+      });
+      toast.success('Pedido criado');
+      setShowForm(false);
+      setForm({ titulo:'', tipo:'POST_REDES_SOCIAIS', descricao:'', prazo:'', prioridade:'MEDIA', canal:'WHATSAPP', publicoTipo:'TODOS', publicoId:'' });
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao criar pedido', e?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const atualizar = async (id: string, estado: string) => {
-    if (estado === 'PUBLICADO') {
-      const r = await api.put(`/comunicacao/${id}/publicar`, {});
-      const enviados = r.data.data?.enviados || r.data.enviados;
-      if (enviados) alert(`Pedido publicado. Enfileirado para ${enviados.whatsapp} contacto(s) via WhatsApp e ${enviados.email} via Email.`);
+    try {
+      if (estado === 'PUBLICADO') {
+        const r = await api.put(`/comunicacao/${id}/publicar`, {});
+        const enviados = r.data.data?.enviados || r.data.enviados;
+        if (enviados) alert(`Pedido publicado. Enfileirado para ${enviados.whatsapp} contacto(s) via WhatsApp e ${enviados.email} via Email.`);
+        load();
+        return;
+      }
+      await api.put(`/comunicacao/${id}`, { estado });
       load();
-      return;
+    } catch (e: any) {
+      toast.error('Erro ao atualizar pedido', e?.response?.data?.message ?? 'Tenta novamente');
     }
-    await api.put(`/comunicacao/${id}`, { estado });
-    load();
   };
 
   const stats = {
@@ -306,6 +368,18 @@ export default function ComunicacaoPage() {
           <div className="text-3xl font-bold text-purple-700">{stats.publicados}</div>
         </div>
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <XCircle className="w-4 h-4 flex-shrink-0" />
+            Erro ao carregar pedidos. Verifica a ligação ao servidor.
+          </div>
+          <button onClick={() => load()} className="text-xs text-red-600 hover:underline">
+            Tentar novamente
+          </button>
+        </div>
+      )}
 
       {loading ? <div className="text-center py-12 text-gray-400">A carregar...</div> : (
         <div className="space-y-3">
@@ -403,8 +477,10 @@ export default function ComunicacaoPage() {
               )}
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.titulo || !form.prazo || (form.publicoTipo !== 'TODOS' && !form.publicoId)} className="flex-1 bg-purple-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50">Submeter</button>
+              <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={!form.titulo || !form.prazo || (form.publicoTipo !== 'TODOS' && !form.publicoId) || saving} className="flex-1 bg-purple-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50">
+                {saving ? 'A submeter...' : 'Submeter'}
+              </button>
             </div>
           </div>
         </div>

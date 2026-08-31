@@ -10,7 +10,7 @@ import {
   BookOpen, Users, ArrowLeft, Edit2, Plus, X, Check,
   Calendar, Clock, ChevronRight, Search, UserMinus,
   ClipboardList, BarChart3, Waves, AlertCircle, Save,
-  ArrowRightLeft, FileDown,
+  ArrowRightLeft, FileDown, RefreshCw,
 } from 'lucide-react';
 
 const LEVEL_OPTIONS = ['BEGINNER', 'ELEMENTARY', 'INTERMEDIATE', 'ADVANCED', 'COMPETITIVE'];
@@ -467,7 +467,7 @@ export default function ClassDetailPage() {
   const [showCreateSession, setShowCreateSession] = useState(false);
   const [showTransferStudent, setShowTransferStudent] = useState(false);
 
-  const { data: cls, isLoading } = useQuery({
+  const { data: cls, isLoading, isError: clsError, refetch: refetchCls } = useQuery({
     queryKey: ['class-detail', id],
     queryFn: async () => { const { data } = await api.get(`/classes/${id}`); return data.data; },
     staleTime: 30_000,
@@ -485,6 +485,18 @@ export default function ClassDetailPage() {
         <div className="h-8 bg-gray-200 rounded-xl w-48" />
         <div className="h-32 bg-gray-200 rounded-2xl" />
         <div className="h-64 bg-gray-200 rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (clsError) {
+    return (
+      <div className="text-center py-20 text-gray-400">
+        <AlertCircle className="w-12 h-12 mx-auto mb-3 opacity-30 text-red-400" />
+        <p className="text-gray-500">Erro ao carregar turma. Verifica a ligação ao servidor.</p>
+        <button onClick={() => refetchCls()} className="mt-3 inline-flex items-center gap-1.5 text-sm text-red-600 hover:underline">
+          <RefreshCw className="w-4 h-4" /> Tentar novamente
+        </button>
       </div>
     );
   }
