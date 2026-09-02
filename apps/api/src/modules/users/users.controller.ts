@@ -1,6 +1,6 @@
 import { Controller, Get, Patch, Delete, Param, Query, Body, UseGuards, Post } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { IsString, IsOptional, MinLength, IsEmail } from 'class-validator';
+import { IsString, IsOptional, MinLength, IsEmail, IsArray, ArrayMinSize } from 'class-validator';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -36,6 +36,10 @@ class UpdateUserDto {
   @IsOptional() @IsString() firstName?: string;
   @IsOptional() @IsString() lastName?: string;
   @IsOptional() @IsString() phone?: string;
+}
+
+class BulkDeleteUsersDto {
+  @IsArray() @ArrayMinSize(1) @IsString({ each: true }) ids: string[];
 }
 
 @ApiTags('users')
@@ -95,6 +99,13 @@ export class UsersController {
   @ApiOperation({ summary: 'Actualizar dados de um utilizador' })
   update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.service.updateUser(id, dto);
+  }
+
+  @Delete('bulk')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Remover vários utilizadores em massa' })
+  removeBulk(@Body() dto: BulkDeleteUsersDto, @CurrentUser('id') currentUserId: string) {
+    return this.service.bulkDeleteUsers(dto.ids, currentUserId);
   }
 
   @Delete(':id')

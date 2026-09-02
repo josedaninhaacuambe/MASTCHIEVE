@@ -137,7 +137,12 @@ api.interceptors.response.use(
         if (typeof window !== 'undefined') {
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
-          localStorage.removeItem('auth-storage');
+          localStorage.removeItem('mastchieve-auth');
+          // O middleware (middleware.ts) decide autenticação por este cookie, não
+          // pelo localStorage — sem o limpar aqui, ele reenvia /login -> /dashboard
+          // (cookie ainda diz "autenticado") e o dashboard volta a pedir notifications
+          // sem token válido, causando um loop infinito de redirecionamento.
+          document.cookie = 'mastchieve-role=; path=/; max-age=0';
 
           if (window.location.pathname !== '/login') {
             window.location.href = '/login';

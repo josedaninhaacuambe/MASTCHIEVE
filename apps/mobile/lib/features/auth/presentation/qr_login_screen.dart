@@ -45,7 +45,11 @@ class _QrLoginScreenState extends ConsumerState<QrLoginScreen> {
 
       if (mounted) context.go('/dashboard');
     } catch (e) {
-      setState(() { _error = 'Código QR inválido ou revogado.'; });
+      setState(() {
+        _error = isNetworkError(e)
+            ? 'Não foi possível ligar ao servidor. Verifica a tua ligação.'
+            : 'Código QR inválido ou revogado.';
+      });
       _handled = false;
       await _controller.start();
     } finally {

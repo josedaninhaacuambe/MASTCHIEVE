@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from '@/lib/toast';
+import { useAuthStore } from '@/stores/auth.store';
 import {
   Users, Search, Filter, RefreshCw, Shield, UserCheck, UserX,
   ChevronLeft, ChevronRight, CheckCircle2, XCircle, Clock,
@@ -222,6 +223,70 @@ function DeleteUserModal({ userId, email, onClose }: { userId: string; email: st
   );
 }
 
+function BulkDeleteModal({ ids, emailsById, onClose, onDone }: { ids: string[]; emailsById: Record<string, string>; onClose: () => void; onDone: () => void }) {
+  const qc = useQueryClient();
+  const [result, setResult] = useState<{ deleted: string[]; failed: { id: string; reason: string }[] } | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => api.delete('/users/bulk', { data: { ids } }),
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      setResult(res.data);
+    },
+    onError: (err: any) => toast.error('Erro ao remover utilizadores', err?.response?.data?.message ?? 'Tenta novamente'),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        {!result ? (
+          <>
+            <h2 className="font-bold text-gray-900 text-lg mb-1">Remover {ids.length} utilizadores</h2>
+            <p className="text-gray-500 text-sm mb-5">
+              Tens a certeza que queres remover os {ids.length} utilizadores selecionados? Esta ação é irreversível e apaga todos os dados associados.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
+                Cancelar
+              </button>
+              <button
+                onClick={() => mutation.mutate()}
+                disabled={mutation.isPending}
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition"
+              >
+                {mutation.isPending ? 'A remover...' : 'Remover'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className="font-bold text-gray-900 text-lg mb-1">Concluído</h2>
+            <p className="text-emerald-700 text-sm mb-3">{result.deleted.length} utilizador(es) removido(s) com sucesso.</p>
+            {result.failed.length > 0 && (
+              <div className="mb-5">
+                <p className="text-red-700 text-sm font-semibold mb-1.5">{result.failed.length} falharam:</p>
+                <ul className="space-y-1 max-h-40 overflow-y-auto">
+                  {result.failed.map((f) => (
+                    <li key={f.id} className="text-xs text-red-600 bg-red-50 rounded-lg px-2.5 py-1.5">
+                      {emailsById[f.id] ?? f.id}: {f.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <button
+              onClick={() => { onDone(); onClose(); }}
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition"
+            >
+              Fechar
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminUsersPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
@@ -231,6 +296,9 @@ export default function AdminUsersPage() {
   const [editModal, setEditModal] = useState<{ id: string } | null>(null);
   const [deleteModal, setDeleteModal] = useState<{ id: string; email: string } | null>(null);
   const [showBulkNotif, setShowBulkNotif] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const currentUserId = useAuthStore((s) => s.user?.id);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin-users', search, roleFilter, page],
@@ -256,6 +324,29 @@ export default function AdminUsersPage() {
     acc[r] = users.filter((u) => u.role === r).length;
     return acc;
   }, {} as Record<string, number>);
+
+  const selectableIds = users.filter((u) => u.id !== currentUserId).map((u) => u.id);
+  const allSelectedOnPage = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
+  const emailsById = users.reduce((acc, u) => { acc[u.id] = u.email; return acc; }, {} as Record<string, string>);
+
+  const toggleSelected = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllOnPage = () => {
+    setSelected((prev) => {
+      if (allSelectedOnPage) {
+        const next = new Set(prev);
+        selectableIds.forEach((id) => next.delete(id));
+        return next;
+      }
+      return new Set([...Array.from(prev), ...selectableIds]);
+    });
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -288,6 +379,27 @@ export default function AdminUsersPage() {
       </div>
 
       {showBulkNotif && <BulkNotificationsModal onClose={() => setShowBulkNotif(false)} />}
+
+      {/* Bulk selection action bar */}
+      {selected.size > 0 && (
+        <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+          <p className="text-sm font-semibold text-blue-800">{selected.size} utilizador(es) selecionado(s)</p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelected(new Set())}
+              className="text-xs font-semibold text-blue-700 hover:underline px-2"
+            >
+              Limpar seleção
+            </button>
+            <button
+              onClick={() => setShowBulkDelete(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold transition"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Apagar selecionados
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* KPI chips */}
       <div className="flex flex-wrap gap-2">
@@ -360,6 +472,14 @@ export default function AdminUsersPage() {
               {users.map((u) => (
                 <div key={u.id} className="p-4 space-y-3">
                   <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(u.id)}
+                      disabled={u.id === currentUserId}
+                      onChange={() => toggleSelected(u.id)}
+                      title={u.id === currentUserId ? 'Não podes remover a tua própria conta' : undefined}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0 disabled:opacity-30"
+                    />
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                       {u.email[0]?.toUpperCase()}
                     </div>
@@ -427,6 +547,14 @@ export default function AdminUsersPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="px-4 py-3 text-left w-10">
+                      <input
+                        type="checkbox"
+                        checked={allSelectedOnPage}
+                        onChange={toggleSelectAllOnPage}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </th>
                     {['Email', 'Perfil', 'Estado', 'Último login', 'Criado em', 'Ações'].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                         {h}
@@ -437,6 +565,16 @@ export default function AdminUsersPage() {
                 <tbody className="divide-y divide-gray-50">
                   {users.map((u) => (
                     <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-4 py-3.5">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(u.id)}
+                          disabled={u.id === currentUserId}
+                          onChange={() => toggleSelected(u.id)}
+                          title={u.id === currentUserId ? 'Não podes remover a tua própria conta' : undefined}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-30"
+                        />
+                      </td>
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -550,6 +688,16 @@ export default function AdminUsersPage() {
       {/* Delete user modal */}
       {deleteModal && (
         <DeleteUserModal userId={deleteModal.id} email={deleteModal.email} onClose={() => setDeleteModal(null)} />
+      )}
+
+      {/* Bulk delete modal */}
+      {showBulkDelete && (
+        <BulkDeleteModal
+          ids={Array.from(selected)}
+          emailsById={emailsById}
+          onClose={() => setShowBulkDelete(false)}
+          onDone={() => setSelected(new Set())}
+        />
       )}
     </div>
   );

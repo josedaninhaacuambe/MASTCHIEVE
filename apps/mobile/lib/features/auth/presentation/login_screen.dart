@@ -42,7 +42,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (mounted) context.go('/dashboard');
     } catch (e) {
-      setState(() { _error = 'Credenciais inválidas. Tenta novamente.'; });
+      setState(() {
+        _error = isNetworkError(e)
+            ? 'Não foi possível ligar ao servidor. Verifica a tua ligação.'
+            : 'Credenciais inválidas. Tenta novamente.';
+      });
     } finally {
       if (mounted) setState(() => _loading = false);
     }

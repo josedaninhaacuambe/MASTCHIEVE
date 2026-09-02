@@ -109,6 +109,27 @@ export class UsersService {
     return { message: 'Utilizador removido com sucesso' };
   }
 
+  async bulkDeleteUsers(ids: string[], currentUserId: string) {
+    const uniqueIds = Array.from(new Set(ids));
+    const deleted: string[] = [];
+    const failed: { id: string; reason: string }[] = [];
+
+    for (const id of uniqueIds) {
+      try {
+        await this.deleteUser(id, currentUserId);
+        deleted.push(id);
+      } catch (err: any) {
+        failed.push({ id, reason: err?.message ?? 'Erro desconhecido' });
+      }
+    }
+
+    return {
+      message: `${deleted.length} utilizador(es) removido(s)${failed.length ? `, ${failed.length} falharam` : ''}`,
+      deleted,
+      failed,
+    };
+  }
+
   async getAuditLogs(query: any) {
     const { page = 1, limit = 30, userId, entity, action, search } = query;
     const where: any = {};

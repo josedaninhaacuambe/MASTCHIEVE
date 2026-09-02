@@ -2,9 +2,16 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../storage/hive_storage.dart';
 
-const String _baseUrl = String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2:4301/api/v1');
+const String _baseUrl = String.fromEnvironment('API_URL', defaultValue: 'https://mastchieve.co.mz/api/v1');
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
+
+/// True when [e] failed before reaching the server (no connection, DNS,
+/// timeout) rather than because the server rejected the request.
+bool isNetworkError(Object e) {
+  if (e is! DioException) return false;
+  return e.response == null;
+}
 
 class ApiClient {
   late final Dio _dio;
