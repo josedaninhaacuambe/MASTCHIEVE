@@ -66,19 +66,22 @@ export class UsersService {
     return safe;
   }
 
-  async updateUser(id: string, dto: { email?: string; firstName?: string; lastName?: string; phone?: string }) {
+  async updateUser(id: string, dto: { email?: string; firstName?: string; lastName?: string; phone?: string; newPassword?: string }) {
     const user = await this.prisma.user.findUnique({
       where: { id },
       select: { role: true, instructor: true, student: true, parent: true, admin: true },
     });
     if (!user) throw new NotFoundException('Utilizador não encontrado');
 
-    const { email, firstName, lastName, phone } = dto;
+    const { email, firstName, lastName, phone, newPassword } = dto;
 
-    if (email) {
-      const exists = await this.prisma.user.findFirst({ where: { email, NOT: { id } } });
-      if (exists) throw new BadRequestException('Este email já está em uso');
-      await this.prisma.user.update({ where: { id }, data: { email } });
+    if (email || newPassword) {
+      if (email) {
+        const exists = await this.prisma.user.findFirst({ where: { email, NOT: { id } } });
+        if (exists) throw new BadRequestException('Este email já está em uso');
+      }
+      const password = newPassword ? await bcrypt.hash(newPassword, 12) : undefined;
+      await this.prisma.user.update({ where: { id }, data: { ...(email && { email }), ...(password && { password }) } });
     }
 
     const data = { ...(firstName && { firstName }), ...(lastName && { lastName }), ...(phone !== undefined && { phone }) };
@@ -163,6 +166,7 @@ export class UsersService {
         student: { select: { id: true, firstName: true, lastName: true, phone: true, dateOfBirth: true, gender: true, medicalNotes: true } },
         parent: { select: { id: true, firstName: true, lastName: true, phone: true } },
         admin: { select: { id: true, firstName: true, lastName: true } },
+        funcionario: { select: { id: true } },
       },
     });
     if (!user) throw new NotFoundException('Utilizador não encontrado');

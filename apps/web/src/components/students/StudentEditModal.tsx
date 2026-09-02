@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from '@/lib/toast';
-import { Pencil, X, AlertCircle } from 'lucide-react';
+import { Pencil, X, AlertCircle, KeyRound } from 'lucide-react';
 
 interface Props {
   student: any;
@@ -43,6 +43,8 @@ export default function StudentEditModal({ student, onClose }: Props) {
     autorizacaoImagemDoc: student.autorizacaoImagemDoc ?? '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   const set = (field: string, value: string | boolean) => {
     setForm((f) => ({ ...f, [field]: value }));
@@ -86,6 +88,23 @@ export default function StudentEditModal({ student, onClose }: Props) {
     const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
     updateMutation.mutate();
+  };
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async () => {
+      await api.patch(`/students/${student.id}/reset-password`, { newPassword });
+    },
+    onSuccess: () => {
+      toast.success('Senha redefinida com sucesso');
+      setNewPassword('');
+    },
+    onError: (e: any) => toast.error('Erro ao redefinir senha', e?.response?.data?.message ?? 'Tenta novamente'),
+  });
+
+  const handleResetPassword = () => {
+    if (newPassword.trim().length < 6) { setPasswordError('A senha deve ter pelo menos 6 caracteres'); return; }
+    setPasswordError('');
+    resetPasswordMutation.mutate();
   };
 
   return (
@@ -173,6 +192,38 @@ export default function StudentEditModal({ student, onClose }: Props) {
               />
             </Field>
           )}
+
+          <div className="border-t border-gray-100 pt-4">
+            <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5 mb-2">
+              <KeyRound className="w-3.5 h-3.5" /> Redefinir senha de acesso
+            </h4>
+            {student.userId ? (
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={newPassword}
+                    onChange={(e) => { setNewPassword(e.target.value); setPasswordError(''); }}
+                    className={inputCls}
+                    placeholder="Nova senha (mín. 6 caracteres)"
+                  />
+                  {passwordError && <p className="text-xs text-red-500 mt-1">{passwordError}</p>}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  disabled={resetPasswordMutation.isPending}
+                  className="px-3 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition disabled:opacity-60 whitespace-nowrap"
+                >
+                  {resetPasswordMutation.isPending ? 'A definir...' : 'Definir Nova Senha'}
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">
+                Este atleta acede através da conta do encarregado — redefine a senha dele em vez desta.
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 p-6 border-t border-gray-100 flex-shrink-0">

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from '@/lib/toast';
+import { useAuthStore } from '@/stores/auth.store';
 import { ArrowLeft, UserPlus, AlertCircle, Plus, Trash2 } from 'lucide-react';
 
 interface Guardian {
@@ -39,9 +40,11 @@ const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm f
 
 export default function NewStudentPage() {
   const router = useRouter();
+  const { user } = useAuthStore();
+  const precisaEscolherUnidade = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const [form, setForm] = useState({
     firstName: '', lastName: '', dateOfBirth: '', gender: 'MALE',
-    email: '', phone: '', emergencyContact: '', emergencyPhone: '', medicalNotes: '', classId: '',
+    email: '', phone: '', emergencyContact: '', emergencyPhone: '', medicalNotes: '', classId: '', unidadeId: '',
     autorizacaoImagem: false, autorizacaoImagemDoc: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -52,6 +55,12 @@ export default function NewStudentPage() {
   const { data: classes } = useQuery({
     queryKey: ['classes-select'],
     queryFn: async () => { const { data } = await api.get('/classes?limit=50&status=ACTIVE'); return data.data ?? []; },
+  });
+
+  const { data: unidades } = useQuery({
+    queryKey: ['unidades-select'],
+    queryFn: async () => { const { data } = await api.get('/unidades'); return data.data ?? []; },
+    enabled: precisaEscolherUnidade,
   });
 
   const set = (field: string, value: string | boolean) => {
@@ -85,6 +94,7 @@ export default function NewStudentPage() {
     if (!form.firstName.trim()) e.firstName = 'Campo obrigatório';
     if (!form.lastName.trim()) e.lastName = 'Campo obrigatório';
     if (!form.dateOfBirth) e.dateOfBirth = 'Campo obrigatório';
+    if (precisaEscolherUnidade && !form.unidadeId) e.unidadeId = 'Escolhe a Unidade onde o atleta vai ser inscrito';
     return e;
   };
 
@@ -100,6 +110,7 @@ export default function NewStudentPage() {
         ...(form.emergencyContact && { emergencyContact: form.emergencyContact }),
         ...(form.emergencyPhone && { emergencyPhone: form.emergencyPhone }),
         ...(form.medicalNotes && { medicalNotes: form.medicalNotes }),
+        ...(form.unidadeId && { unidadeId: form.unidadeId }),
         autorizacaoImagem: form.autorizacaoImagem,
         ...(form.autorizacaoImagemDoc && { autorizacaoImagemDoc: form.autorizacaoImagemDoc }),
         ...(guardians.length && {
@@ -178,6 +189,15 @@ export default function NewStudentPage() {
             </select>
           </Field>
         </div>
+        {precisaEscolherUnidade && (
+          <Field label="Unidade" required>
+            <select value={form.unidadeId} onChange={(e) => set('unidadeId', e.target.value)} className={inputCls}>
+              <option value="">— Escolhe a Unidade —</option>
+              {(unidades ?? []).map((u: any) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+            </select>
+            {errors.unidadeId && <p className="text-xs text-red-500 mt-1">{errors.unidadeId}</p>}
+          </Field>
+        )}
         <div className="grid grid-cols-2 gap-4">
           {guardians.length === 0 ? (
             <Field label="Email (acesso à app)">

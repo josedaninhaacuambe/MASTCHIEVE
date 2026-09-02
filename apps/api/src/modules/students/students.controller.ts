@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Res, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Res, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
@@ -10,6 +10,7 @@ import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentQueryDto } from './dto/student-query.dto';
 import { ChamadaAtencaoDto } from './dto/chamada-atencao.dto';
+import { ResetStudentPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -160,8 +161,11 @@ export class StudentsController {
   @Post()
   @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({ summary: 'Criar atleta' })
-  create(@Body() dto: CreateStudentDto, @CurrentUser('id') userId: string) {
-    return this.studentsService.create(dto, userId);
+  create(@Body() dto: CreateStudentDto, @CurrentUser('id') userId: string, @CurrentUser('role') role: string) {
+    if ((role === 'ADMIN' || role === 'SUPER_ADMIN') && !dto.unidadeId) {
+      throw new BadRequestException('Escolhe a Unidade onde o atleta vai ser inscrito');
+    }
+    return this.studentsService.create(dto, userId, undefined, role);
   }
 
   @Put(':id')
@@ -169,6 +173,13 @@ export class StudentsController {
   @ApiOperation({ summary: 'Atualizar atleta' })
   update(@Param('id') id: string, @Body() dto: UpdateStudentDto, @CurrentUser('id') userId: string) {
     return this.studentsService.update(id, dto, userId);
+  }
+
+  @Patch(':id/reset-password')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Redefinir a senha de acesso do atleta (esqueceu-se da senha)' })
+  resetPassword(@Param('id') id: string, @Body() dto: ResetStudentPasswordDto, @CurrentUser('id') userId: string) {
+    return this.studentsService.resetPassword(id, dto.newPassword, userId);
   }
 
   @Delete(':id')

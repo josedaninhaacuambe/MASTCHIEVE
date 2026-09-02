@@ -353,6 +353,7 @@ export class StudentsService {
     dto: Partial<CreateStudentDto> & { email?: string; password?: string; unidadeId?: string },
     actorUserId?: string,
     passwordHashPrecomputado?: string,
+    actorRole?: string,
   ) {
     const bcrypt = await import('bcryptjs');
 
@@ -360,6 +361,18 @@ export class StudentsService {
     const firstName = dto.firstName?.trim() || (camposEmFalta.push('firstName'), '(Sem nome)');
     const lastName = dto.lastName?.trim() || (camposEmFalta.push('lastName'), '(Sem apelido)');
     const dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : (camposEmFalta.push('dateOfBirth'), new Date());
+
+    let unidadeId = dto.unidadeId || undefined;
+    if (actorRole === 'ASSISTENTE_ADMIN' && actorUserId) {
+      const funcionario = await this.prisma.funcionario.findUnique({
+        where: { userId: actorUserId },
+        select: { unidadeId: true },
+      });
+      if (!funcionario?.unidadeId) {
+        throw new BadRequestException('A tua conta não tem Unidade atribuída — pede a um Admin para a configurar em RH → Funcionários');
+      }
+      unidadeId = funcionario.unidadeId;
+    }
 
     const studentData = {
       firstName,
@@ -375,7 +388,7 @@ export class StudentsService {
       autorizacaoImagemDoc: dto.autorizacaoImagemDoc,
       estadoInscricao: 'DOCUMENTOS_PENDENTES',
       camposEmFalta: camposEmFalta.length ? JSON.stringify(camposEmFalta) : undefined,
-      unidadeId: dto.unidadeId || undefined,
+      unidadeId,
     };
 
     let user: { student?: any };
@@ -588,6 +601,32 @@ export class StudentsService {
       });
     }
     return updated;
+  }
+
+  async resetPassword(studentId: string, newPassword: string, actorUserId?: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { id: studentId },
+      select: { userId: true },
+    });
+    if (!student) throw new NotFoundException('Atleta não encontrado');
+    if (!student.userId) {
+      throw new BadRequestException('Este atleta não tem conta própria — a senha é gerida na conta do encarregado (painel /parent).');
+    }
+
+    const bcrypt = await import('bcryptjs');
+    const password = await bcrypt.hash(newPassword, 12);
+    await this.prisma.user.update({ where: { id: student.userId }, data: { password } });
+
+    if (actorUserId) {
+      await this.audit.log({
+        userId: actorUserId,
+        action: 'STUDENT_SENHA_REDEFINIDA',
+        entity: 'Student',
+        entityId: studentId,
+      });
+    }
+
+    return { success: true };
   }
 
   async importFromFile(buffer: Buffer, actorUserId?: string) {

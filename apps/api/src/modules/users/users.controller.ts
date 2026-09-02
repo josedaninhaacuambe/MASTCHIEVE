@@ -36,6 +36,7 @@ class UpdateUserDto {
   @IsOptional() @IsString() firstName?: string;
   @IsOptional() @IsString() lastName?: string;
   @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsString() @MinLength(6) newPassword?: string;
 }
 
 class BulkDeleteUsersDto {

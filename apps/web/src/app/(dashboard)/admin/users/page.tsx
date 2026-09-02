@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from '@/lib/toast';
@@ -95,13 +96,14 @@ function EditUserModal({ userId, onClose }: { userId: string; onClose: () => voi
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-user-detail', userId],
     queryFn: async () => {
       const res = await api.get(`/users/${userId}`);
-      const u = res.data;
+      const u = res.data.data ?? res.data;
       const profile = u.instructor ?? u.student ?? u.parent ?? u.admin ?? {};
       setEmail(u.email ?? '');
       setFirstName(profile.firstName ?? '');
@@ -112,7 +114,10 @@ function EditUserModal({ userId, onClose }: { userId: string; onClose: () => voi
   });
 
   const mutation = useMutation({
-    mutationFn: () => api.patch(`/users/${userId}`, { email, firstName, lastName, phone }),
+    mutationFn: () => api.patch(`/users/${userId}`, {
+      email, firstName, lastName, phone,
+      ...(newPassword && { newPassword }),
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-users'] });
       onClose();
@@ -164,6 +169,16 @@ function EditUserModal({ userId, onClose }: { userId: string; onClose: () => voi
                 className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            <div className="pt-1 border-t border-gray-100">
+              <label className="text-xs font-semibold text-gray-500">Nova senha (opcional)</label>
+              <input
+                type="text"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mín. 6 caracteres — deixa em branco para não alterar"
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
             {error && <p className="text-xs text-red-600">{error}</p>}
           </div>
         )}
@@ -173,7 +188,14 @@ function EditUserModal({ userId, onClose }: { userId: string; onClose: () => voi
             Cancelar
           </button>
           <button
-            onClick={() => { setError(''); mutation.mutate(); }}
+            onClick={() => {
+              if (newPassword && newPassword.trim().length < 6) {
+                setError('A nova senha deve ter pelo menos 6 caracteres');
+                return;
+              }
+              setError('');
+              mutation.mutate();
+            }}
             disabled={mutation.isPending || isLoading}
             className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition"
           >
@@ -289,6 +311,7 @@ function BulkDeleteModal({ ids, emailsById, onClose, onDone }: { ids: string[]; 
 
 export default function AdminUsersPage() {
   const qc = useQueryClient();
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [page, setPage] = useState(1);
@@ -298,7 +321,25 @@ export default function AdminUsersPage() {
   const [showBulkNotif, setShowBulkNotif] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [checkingEditId, setCheckingEditId] = useState<string | null>(null);
   const currentUserId = useAuthStore((s) => s.user?.id);
+
+  const handleEdit = async (u: any) => {
+    setCheckingEditId(u.id);
+    try {
+      const res = await api.get(`/users/${u.id}`);
+      const funcionarioId = (res.data.data ?? res.data)?.funcionario?.id;
+      if (funcionarioId) {
+        router.push(`/rh/funcionarios/${funcionarioId}`);
+      } else {
+        setEditModal({ id: u.id });
+      }
+    } catch (err: any) {
+      toast.error('Erro ao abrir edição', err?.response?.data?.message ?? 'Tenta novamente');
+    } finally {
+      setCheckingEditId(null);
+    }
+  };
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin-users', search, roleFilter, page],
@@ -526,10 +567,11 @@ export default function AdminUsersPage() {
                       {u.isActive ? <><UserX className="w-3 h-3" /> Desativar</> : <><UserCheck className="w-3 h-3" /> Ativar</>}
                     </button>
                     <button
-                      onClick={() => setEditModal({ id: u.id })}
-                      className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition"
+                      onClick={() => handleEdit(u)}
+                      disabled={checkingEditId === u.id}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition disabled:opacity-50"
                     >
-                      <Pencil className="w-3 h-3" /> Editar
+                      <Pencil className="w-3 h-3" /> {checkingEditId === u.id ? '...' : 'Editar'}
                     </button>
                     <button
                       onClick={() => setDeleteModal({ id: u.id, email: u.email })}
@@ -625,10 +667,11 @@ export default function AdminUsersPage() {
                             {u.isActive ? <><UserX className="w-3 h-3" /> Desativar</> : <><UserCheck className="w-3 h-3" /> Ativar</>}
                           </button>
                           <button
-                            onClick={() => setEditModal({ id: u.id })}
-                            className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition"
+                            onClick={() => handleEdit(u)}
+                            disabled={checkingEditId === u.id}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition disabled:opacity-50"
                           >
-                            <Pencil className="w-3 h-3" /> Editar
+                            <Pencil className="w-3 h-3" /> {checkingEditId === u.id ? '...' : 'Editar'}
                           </button>
                           <button
                             onClick={() => setDeleteModal({ id: u.id, email: u.email })}

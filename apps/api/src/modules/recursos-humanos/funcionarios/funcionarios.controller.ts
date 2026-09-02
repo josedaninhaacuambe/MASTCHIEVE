@@ -46,8 +46,8 @@ export class FuncionariosController {
   @Put(':id')
   @Roles('ADMIN', 'GESTOR_RH', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN')
   @ApiOperation({ summary: 'Atualizar dados do funcionário' })
-  update(@Param('id') id: string, @Body() dto: UpdateFuncionarioDto) {
-    return this.funcionariosService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateFuncionarioDto, @CurrentUser('role') role: string) {
+    return this.funcionariosService.update(id, dto, role);
   }
 
   @Put(':id/estado')

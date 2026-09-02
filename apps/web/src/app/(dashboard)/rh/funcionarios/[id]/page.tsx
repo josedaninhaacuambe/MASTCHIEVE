@@ -20,6 +20,7 @@ export default function FuncionarioDetalhePage() {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const podeConfigurarPermissoes = isSuperAdmin || user?.role === 'ADMIN';
   const podeVerSalario = user?.role === 'GESTOR_RH' || user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
+  const podeRedefinirSenha = podeVerSalario;
   const rolesDisponiveis = isSuperAdmin ? ROLES : ROLES.filter((r) => r !== 'SUPER_ADMIN');
   const [f, setF] = useState<any>(null);
   const [tab, setTab] = useState('Dados');
@@ -78,7 +79,7 @@ export default function FuncionarioDetalhePage() {
       cargo: f.cargo || 'RECEPCIONISTA', departamento: f.departamento || 'OPERACOES',
       dataAdmissao: f.dataAdmissao ? f.dataAdmissao.slice(0, 10) : '',
       contactoEmergencia: f.contactoEmergencia || '', telefoneEmergencia: f.telefoneEmergencia || '',
-      salarioBase: f.salarioBase ?? '', unidadeId: f.unidadeId || '',
+      salarioBase: f.salarioBase ?? '', unidadeId: f.unidadeId || '', newPassword: '',
     });
     setShowEdit(true);
   };
@@ -88,12 +89,18 @@ export default function FuncionarioDetalhePage() {
       toast.error('Campos obrigatórios', 'Preenche o nome, apelido e cargo');
       return;
     }
+    if (editForm.newPassword && editForm.newPassword.trim().length < 6) {
+      toast.error('Senha inválida', 'A nova senha deve ter pelo menos 6 caracteres');
+      return;
+    }
     setSavingEdicao(true);
     try {
+      const { newPassword, ...rest } = editForm;
       await api.put(`/rh/funcionarios/${id}`, {
-        ...editForm,
+        ...rest,
         salarioBase: editForm.salarioBase !== '' ? Number(editForm.salarioBase) : undefined,
         unidadeId: editForm.unidadeId || undefined,
+        ...(newPassword && { newPassword }),
       });
       setShowEdit(false);
       toast.success('Funcionário atualizado');
@@ -292,6 +299,12 @@ export default function FuncionarioDetalhePage() {
                 <input value={editForm.telefoneEmergencia} onChange={(e) => setEditForm((v: any) => ({ ...v, telefoneEmergencia: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
+            {podeRedefinirSenha && (
+              <div className="border-t border-gray-100 pt-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nova senha (opcional)</label>
+                <input value={editForm.newPassword} onChange={(e) => setEditForm((v: any) => ({ ...v, newPassword: e.target.value }))} placeholder="Mín. 6 caracteres — deixa em branco para não alterar" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+            )}
             <div className="flex gap-3 pt-2">
               <button onClick={() => setShowEdit(false)} disabled={savingEdicao} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
               <button onClick={salvarEdicao} disabled={!editForm.firstName || !editForm.lastName || !editForm.cargo || savingEdicao}

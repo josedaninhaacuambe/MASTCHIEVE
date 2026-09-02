@@ -145,11 +145,19 @@ export class FuncionariosService {
     return this.findOne(user.funcionario!.id);
   }
 
-  async update(id: string, dto: UpdateFuncionarioDto) {
-    await this.findOne(id);
+  async update(id: string, dto: UpdateFuncionarioDto, actorRole?: string) {
+    const funcionario = await this.findOne(id);
+    const { newPassword, ...rest } = dto;
+
+    if (newPassword && actorRole !== 'ASSISTENTE_ADMIN') {
+      const bcrypt = await import('bcryptjs');
+      const password = await bcrypt.hash(newPassword, 12);
+      await this.prisma.user.update({ where: { id: funcionario.userId }, data: { password } });
+    }
+
     return this.prisma.funcionario.update({
       where: { id },
-      data: { ...dto, dataAdmissao: dto.dataAdmissao ? new Date(dto.dataAdmissao) : undefined } as any,
+      data: { ...rest, dataAdmissao: rest.dataAdmissao ? new Date(rest.dataAdmissao) : undefined } as any,
     });
   }
 
