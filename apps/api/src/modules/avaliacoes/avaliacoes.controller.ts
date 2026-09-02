@@ -34,7 +34,7 @@ export class AvaliacoesController {
   }
 
   @Get('me')
-  @Roles('STUDENT')
+  @Roles('STUDENT', 'PARENT')
   @ApiOperation({ summary: 'Histórico de avaliações do atleta autenticado' })
   findMine(@CurrentUser('id') userId: string, @Query('tipo') tipo?: string) {
     return this.service.findMineAsStudent(userId, tipo);

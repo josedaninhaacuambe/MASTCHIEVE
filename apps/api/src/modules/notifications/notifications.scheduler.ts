@@ -39,21 +39,25 @@ export class NotificationsScheduler {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    const parentsInclude = { include: { parent: { include: { user: true } } } } as const;
+
     const pending = await this.prisma.payment.findMany({
       where: {
         status: 'PENDING',
         dueDate: { gte: today, lte: in3Days },
         isento: false,
       },
-      include: { student: { include: { user: true } } },
+      include: { student: { include: { user: true, parents: parentsInclude } } },
     });
 
     for (const p of pending) {
-      if (!p.student?.user?.id) continue;
+      const primaryParent = p.student?.parents.find((sp) => sp.isPrimary)?.parent ?? p.student?.parents[0]?.parent;
+      const targetUser = p.student?.user ?? primaryParent?.user;
+      if (!targetUser?.id) continue;
       const daysLeft = Math.ceil((new Date(p.dueDate).getTime() - today.getTime()) / 86400000);
       const existing = await this.prisma.notification.findFirst({
         where: {
-          userId: p.student.user.id,
+          userId: targetUser.id,
           type: 'PAYMENT_DUE',
           createdAt: { gte: new Date(Date.now() - 86400000) },
         },
@@ -61,25 +65,27 @@ export class NotificationsScheduler {
       if (existing) continue;
 
       const notif = await this.notifService.createForUser(
-        p.student.user.id,
+        targetUser.id,
         'PAYMENT_DUE',
         daysLeft === 0 ? '💰 Mensalidade vence hoje!' : `💰 Mensalidade vence em ${daysLeft} dia(s)`,
         `O valor de MT ${p.amount} deve ser pago até ${new Date(p.dueDate).toLocaleDateString('pt-PT')}.`,
       );
-      this.gateway.sendToUser(p.student.user.id, 'notification', notif);
+      this.gateway.sendToUser(targetUser.id, 'notification', notif);
     }
 
     // Overdue payments
     const overdue = await this.prisma.payment.findMany({
       where: { status: 'PENDING', dueDate: { lt: today }, isento: false },
-      include: { student: { include: { user: true } } },
+      include: { student: { include: { user: true, parents: parentsInclude } } },
     });
 
     for (const p of overdue) {
-      if (!p.student?.user?.id) continue;
+      const primaryParent = p.student?.parents.find((sp) => sp.isPrimary)?.parent ?? p.student?.parents[0]?.parent;
+      const targetUser = p.student?.user ?? primaryParent?.user;
+      if (!targetUser?.id) continue;
       const existing = await this.prisma.notification.findFirst({
         where: {
-          userId: p.student.user.id,
+          userId: targetUser.id,
           type: 'PAYMENT_DUE',
           createdAt: { gte: new Date(Date.now() - 3 * 86400000) },
         },
@@ -88,12 +94,12 @@ export class NotificationsScheduler {
 
       await this.prisma.payment.update({ where: { id: p.id }, data: { status: 'OVERDUE' } });
       const notif = await this.notifService.createForUser(
-        p.student.user.id,
+        targetUser.id,
         'PAYMENT_DUE',
         '⚠️ Mensalidade em atraso',
         `A mensalidade de MT ${p.amount} está em atraso desde ${new Date(p.dueDate).toLocaleDateString('pt-PT')}. Por favor regulariza a situação.`,
       );
-      this.gateway.sendToUser(p.student.user.id, 'notification', notif);
+      this.gateway.sendToUser(targetUser.id, 'notification', notif);
     }
   }
 

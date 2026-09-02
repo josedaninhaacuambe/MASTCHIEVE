@@ -97,7 +97,10 @@ export class FeedbackService {
       where: { id },
       include: {
         student: {
-          include: { user: { select: { email: true } } },
+          include: {
+            user: { select: { email: true } },
+            parents: { include: { parent: { include: { user: { select: { email: true } } } } } },
+          },
         },
       },
     });
@@ -109,7 +112,9 @@ export class FeedbackService {
     if (userId) {
       this.audit.log({ userId, action: 'SEND_FEEDBACK', entity: 'Feedback', entityId: id });
     }
-    const studentEmail = (feedback as any).student?.user?.email;
+    const student = (feedback as any).student;
+    const primaryParent = student?.parents?.find((sp: any) => sp.isPrimary)?.parent ?? student?.parents?.[0]?.parent;
+    const studentEmail = student?.user?.email || primaryParent?.user?.email;
     const studentName = `${(feedback as any).student?.firstName ?? ''} ${(feedback as any).student?.lastName ?? ''}`.trim();
     const preview = feedback.finalText || feedback.aiGeneratedText || '';
     if (studentEmail && preview) {

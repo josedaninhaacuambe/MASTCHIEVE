@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import * as QRCode from 'qrcode';
@@ -45,10 +45,14 @@ export class StudentsQrService {
   private async assertStudentExists(studentId: string) {
     const student = await this.prisma.student.findUnique({ where: { id: studentId } });
     if (!student) throw new NotFoundException('Atleta não encontrado');
+    return student;
   }
 
   async generate(studentId: string, actorUserId: string) {
-    await this.assertStudentExists(studentId);
+    const student = await this.assertStudentExists(studentId);
+    if (!student.userId) {
+      throw new BadRequestException('Este atleta não tem conta própria — o encarregado acede pelo painel dele.');
+    }
 
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
@@ -76,7 +80,10 @@ export class StudentsQrService {
   }
 
   async getCurrent(studentId: string) {
-    await this.assertStudentExists(studentId);
+    const student = await this.assertStudentExists(studentId);
+    if (!student.userId) {
+      throw new BadRequestException('Este atleta não tem conta própria — o encarregado acede pelo painel dele.');
+    }
 
     const credential = await this.prisma.studentQrCredential.findFirst({
       where: { studentId, ativo: true },

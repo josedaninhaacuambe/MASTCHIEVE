@@ -16,7 +16,7 @@ export class AvaliacoesAgendadasController {
   constructor(private service: AvaliacoesAgendadasService) {}
 
   @Get('me')
-  @Roles('STUDENT')
+  @Roles('STUDENT', 'PARENT')
   @ApiOperation({ summary: 'Histórico de avaliações agendadas do atleta autenticado' })
   findMine(@CurrentUser('id') userId: string) {
     return this.service.findMineAsStudent(userId);

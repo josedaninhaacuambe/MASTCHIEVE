@@ -15,7 +15,7 @@ export class FeedbackController {
   constructor(private service: FeedbackService) {}
 
   @Get('me')
-  @Roles('STUDENT')
+  @Roles('STUDENT', 'PARENT')
   @ApiOperation({ summary: 'Feedbacks do atleta autenticado' })
   getMyFeedbacks(@CurrentUser('id') userId: string, @Query() q: any) {
     return this.service.getMyFeedbacks(userId, q);

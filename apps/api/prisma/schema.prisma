@@ -131,7 +131,7 @@ model Instructor {
 
 model Student {
   id                    String    @id @default(uuid())
-  userId                String    @unique
+  userId                String?   @unique
   firstName             String
   lastName              String
   dateOfBirth           DateTime
@@ -153,7 +153,7 @@ model Student {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  user                 User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                 User?                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   unidade              Unidade?                   @relation(fields: [unidadeId], references: [id])
   lead                 Lead?                      @relation(fields: [leadId], references: [id])
   parents              StudentParent[]

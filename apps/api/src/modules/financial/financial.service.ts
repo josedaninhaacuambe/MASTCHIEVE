@@ -339,7 +339,10 @@ export class FinancialService {
       where: { status: 'OVERDUE' },
       include: {
         student: {
-          include: { user: { select: { email: true } } },
+          include: {
+            user: { select: { email: true } },
+            parents: { include: { parent: { include: { user: { select: { email: true } } } } } },
+          },
         },
         monthlyFee: { select: { month: true, year: true } },
       },
@@ -347,7 +350,8 @@ export class FinancialService {
 
     let sent = 0;
     for (const p of overdue) {
-      const email = p.student?.user?.email;
+      const primaryParent = p.student?.parents.find((sp) => sp.isPrimary)?.parent ?? p.student?.parents[0]?.parent;
+      const email = p.student?.user?.email || primaryParent?.user?.email;
       if (!email) continue;
       const name = `${p.student.firstName} ${p.student.lastName}`;
       const dueStr = new Date(p.dueDate).toLocaleDateString('pt-PT');

@@ -98,6 +98,7 @@ export class AuthService {
     if (!credential?.ativo) throw new UnauthorizedException('Código QR inválido ou revogado');
 
     const user = credential.student.user;
+    if (!user) throw new UnauthorizedException('Código QR inválido');
     if (!user.isActive) throw new UnauthorizedException('Conta desactivada. Contacta o administrador.');
 
     await this.prisma.$transaction([

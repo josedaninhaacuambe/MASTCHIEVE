@@ -61,7 +61,7 @@ export class AttendanceController {
   }
 
   @Get('me')
-  @Roles('STUDENT')
+  @Roles('STUDENT', 'PARENT')
   @ApiOperation({ summary: 'Presenças do atleta autenticado' })
   getMyAttendance(@CurrentUser('id') userId: string) {
     return this.service.getMyAttendance(userId);

@@ -354,80 +354,120 @@ export class StudentsService {
     actorUserId?: string,
     passwordHashPrecomputado?: string,
   ) {
-    let email = dto.email || `atleta_${Date.now()}_${randomUUID().slice(0, 8)}@mastchieve.com`;
-    if (dto.email) {
-      const existente = await this.prisma.user.findUnique({ where: { email: dto.email } });
-      if (existente) email = `atleta_${Date.now()}_${randomUUID().slice(0, 8)}@mastchieve.com`;
-    }
     const bcrypt = await import('bcryptjs');
-    const password = passwordHashPrecomputado ?? (await bcrypt.hash(dto.password || 'student123', 10));
 
     const camposEmFalta: string[] = [];
     const firstName = dto.firstName?.trim() || (camposEmFalta.push('firstName'), '(Sem nome)');
     const lastName = dto.lastName?.trim() || (camposEmFalta.push('lastName'), '(Sem apelido)');
     const dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : (camposEmFalta.push('dateOfBirth'), new Date());
 
-    const user = await this.prisma.$transaction(async (tx) => {
-      const createdUser = await tx.user.create({
+    const studentData = {
+      firstName,
+      lastName,
+      dateOfBirth,
+      gender: dto.gender || 'OTHER',
+      phone: dto.phone,
+      medicalNotes: dto.medicalNotes,
+      emergencyContact: dto.emergencyContact,
+      emergencyPhone: dto.emergencyPhone,
+      autorizacaoImagem: dto.autorizacaoImagem ?? false,
+      autorizacaoImagemData: dto.autorizacaoImagem ? new Date() : undefined,
+      autorizacaoImagemDoc: dto.autorizacaoImagemDoc,
+      estadoInscricao: 'DOCUMENTOS_PENDENTES',
+      camposEmFalta: camposEmFalta.length ? JSON.stringify(camposEmFalta) : undefined,
+      unidadeId: dto.unidadeId || undefined,
+    };
+
+    let user: { student?: any };
+
+    if (dto.guardians?.length) {
+      user = await this.prisma.$transaction(async (tx) => {
+        const createdStudent = await tx.student.create({ data: studentData });
+
+        const guardianPassword = await bcrypt.hash('parent123', 10);
+        for (const [index, guardian] of dto.guardians!.entries()) {
+          let parentId: string;
+
+          const existingUser = guardian.email
+            ? await tx.user.findUnique({ where: { email: guardian.email }, include: { parent: true } })
+            : null;
+
+          if (existingUser?.parent) {
+            parentId = existingUser.parent.id;
+          } else if (existingUser) {
+            const flip = existingUser.role === 'STUDENT' || existingUser.role === 'VISITOR';
+            const updated = await tx.user.update({
+              where: { id: existingUser.id },
+              data: {
+                ...(flip && { role: 'PARENT' }),
+                parent: {
+                  create: {
+                    firstName: guardian.firstName,
+                    lastName: guardian.lastName,
+                    phone: guardian.phone,
+                    relationship: guardian.relationship || 'Parent',
+                  },
+                },
+              },
+              include: { parent: true },
+            });
+            parentId = updated.parent!.id;
+          } else {
+            try {
+              const guardianUser = await tx.user.create({
+                data: {
+                  email: guardian.email ?? `encarregado_${Date.now()}_${index}_${randomUUID().slice(0, 8)}@mastchieve.com`,
+                  password: guardianPassword,
+                  role: 'PARENT',
+                  parent: {
+                    create: {
+                      firstName: guardian.firstName,
+                      lastName: guardian.lastName,
+                      phone: guardian.phone,
+                      relationship: guardian.relationship || 'Parent',
+                    },
+                  },
+                },
+                include: { parent: true },
+              });
+              parentId = guardianUser.parent!.id;
+            } catch (e: any) {
+              if (e?.code === 'P2002') {
+                throw new BadRequestException('Este email de encarregado já está associado a outra conta.');
+              }
+              throw e;
+            }
+          }
+
+          await tx.studentParent.create({
+            data: { studentId: createdStudent.id, parentId, isPrimary: guardian.isPrimary ?? index === 0 },
+          });
+        }
+
+        return { student: createdStudent };
+      });
+    } else {
+      const email = dto.email || `atleta_${Date.now()}_${randomUUID().slice(0, 8)}@mastchieve.com`;
+      if (dto.email) {
+        const existente = await this.prisma.user.findUnique({ where: { email: dto.email } });
+        if (existente) {
+          throw new BadRequestException(
+            'Este email já está associado a outra conta. Se for o encarregado deste atleta, adiciona-o na secção Encarregados em vez do campo de email do atleta.',
+          );
+        }
+      }
+      const password = passwordHashPrecomputado ?? (await bcrypt.hash(dto.password || 'student123', 10));
+
+      user = await this.prisma.user.create({
         data: {
           email,
           password,
           role: 'STUDENT',
-          student: {
-            create: {
-              firstName,
-              lastName,
-              dateOfBirth,
-              gender: dto.gender || 'OTHER',
-              phone: dto.phone,
-              medicalNotes: dto.medicalNotes,
-              emergencyContact: dto.emergencyContact,
-              emergencyPhone: dto.emergencyPhone,
-              autorizacaoImagem: dto.autorizacaoImagem ?? false,
-              autorizacaoImagemData: dto.autorizacaoImagem ? new Date() : undefined,
-              autorizacaoImagemDoc: dto.autorizacaoImagemDoc,
-              estadoInscricao: 'DOCUMENTOS_PENDENTES',
-              camposEmFalta: camposEmFalta.length ? JSON.stringify(camposEmFalta) : undefined,
-              unidadeId: dto.unidadeId || undefined,
-            },
-          },
+          student: { create: studentData },
         },
         include: { student: true },
       });
-
-      if (dto.guardians?.length && createdUser.student) {
-        const guardianPassword = await bcrypt.hash('parent123', 10);
-        for (const [index, guardian] of dto.guardians.entries()) {
-          const guardianUser = await tx.user.create({
-            data: {
-              email: `encarregado_${Date.now()}_${index}_${randomUUID().slice(0, 8)}@mastchieve.com`,
-              password: guardianPassword,
-              role: 'PARENT',
-              parent: {
-                create: {
-                  firstName: guardian.firstName,
-                  lastName: guardian.lastName,
-                  phone: guardian.phone,
-                  relationship: guardian.relationship || 'Parent',
-                },
-              },
-            },
-            include: { parent: true },
-          });
-          if (guardianUser.parent) {
-            await tx.studentParent.create({
-              data: {
-                studentId: createdUser.student.id,
-                parentId: guardianUser.parent.id,
-                isPrimary: guardian.isPrimary ?? index === 0,
-              },
-            });
-          }
-        }
-      }
-
-      return createdUser;
-    });
+    }
 
     if (actorUserId && user.student) {
       await this.audit.log({
@@ -497,16 +537,22 @@ export class StudentsService {
       if (!actor.student) {
         throw new BadRequestException('Apenas atletas ou encarregados podem inscrever filhos');
       }
-      const parent = await this.prisma.parent.create({
+      const updated = await this.prisma.user.update({
+        where: { id: actor.id },
         data: {
-          userId: actor.id,
-          firstName: actor.student.firstName,
-          lastName: actor.student.lastName,
-          phone: actor.student.phone || dto.phone || 'N/D',
-          relationship: 'Pai/Mãe',
+          role: 'PARENT',
+          parent: {
+            create: {
+              firstName: actor.student.firstName,
+              lastName: actor.student.lastName,
+              phone: actor.student.phone || dto.phone || 'N/D',
+              relationship: 'Pai/Mãe',
+            },
+          },
         },
+        include: { parent: true },
       });
-      parentId = parent.id;
+      parentId = updated.parent!.id;
     }
 
     const { guardians, ...childDto } = dto;

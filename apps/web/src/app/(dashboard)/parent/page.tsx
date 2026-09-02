@@ -4,10 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { formatDate, formatCurrency, getInitials, cn } from '@/lib/utils';
+import Link from 'next/link';
 import {
   Users, CreditCard, MessageSquare, TrendingUp,
   ChevronRight, AlertCircle, CheckCircle, Clock,
-  Calendar, Waves, Star, Activity, UserPlus,
+  Calendar, Waves, Star, Activity, UserPlus, GraduationCap,
 } from 'lucide-react';
 
 function AttendanceBadge({ rate }: { rate: number }) {
@@ -30,6 +31,12 @@ export default function ParentDashboardPage() {
     staleTime: 60_000,
   });
 
+  const { data: myAccount } = useQuery({
+    queryKey: ['users-me'],
+    queryFn: async () => { const { data } = await api.get('/users/me'); return data.data; },
+    staleTime: 60_000,
+  });
+
   if (isLoading) {
     return (
       <div className="space-y-4 animate-pulse">
@@ -48,16 +55,24 @@ export default function ParentDashboardPage() {
     <div className="space-y-6">
       {/* Welcome header */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center border border-white/30">
             <Waves className="w-7 h-7 text-white" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold">Olá, {me?.firstName}!</h1>
             <p className="text-blue-100 text-sm mt-1">
               Portal do Encarregado de Educação — {children.length} atleta{children.length !== 1 ? 's' : ''} associado{children.length !== 1 ? 's' : ''}
             </p>
           </div>
+          {myAccount?.student && (
+            <Link
+              href="/student"
+              className="flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-white hover:bg-blue-50 px-3 py-2 rounded-lg transition"
+            >
+              <GraduationCap className="w-3.5 h-3.5" /> Ver o meu perfil de atleta
+            </Link>
+          )}
         </div>
       </div>
 

@@ -27,7 +27,7 @@ export class StudentsController {
   ) {}
 
   @Get('me')
-  @Roles('STUDENT')
+  @Roles('STUDENT', 'PARENT')
   @ApiOperation({ summary: 'Perfil do atleta autenticado' })
   getMe(@CurrentUser('id') userId: string) {
     return this.studentsService.findByUserId(userId);

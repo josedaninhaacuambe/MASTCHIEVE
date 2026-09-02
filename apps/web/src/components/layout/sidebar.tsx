@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUIStore } from '@/stores/ui.store';
@@ -178,7 +180,19 @@ export function Sidebar() {
   const { user, logout } = useAuthStore();
   const { sidebarOpen, closeSidebar, darkMode, toggleDarkMode } = useUIStore();
 
-  const filtered = navItems.filter((item) => item.roles.includes(user?.role || '') || user?.role === 'SUPER_ADMIN');
+  const { data: myAccount } = useQuery({
+    queryKey: ['users-me'],
+    queryFn: async () => { const { data } = await api.get('/users/me'); return data.data; },
+    staleTime: 60_000,
+    enabled: user?.role === 'PARENT',
+  });
+  const hasOwnStudentProfile = !!myAccount?.student;
+
+  const filtered = navItems.filter((item) => {
+    if (item.roles.includes(user?.role || '') || user?.role === 'SUPER_ADMIN') return true;
+    if (user?.role === 'PARENT' && hasOwnStudentProfile && item.href.startsWith('/student/')) return true;
+    return false;
+  });
   const firstName = user?.profile?.firstName ?? user?.email?.split('@')[0] ?? '?';
   const initials = firstName[0]?.toUpperCase() ?? '?';
 

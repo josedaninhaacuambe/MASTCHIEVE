@@ -15,7 +15,7 @@ export class FinancialController {
   constructor(private service: FinancialService) {}
 
   @Get('me')
-  @Roles('STUDENT')
+  @Roles('STUDENT', 'PARENT')
   @ApiOperation({ summary: 'Pagamentos do atleta autenticado' })
   getMyPayments(@CurrentUser('id') userId: string, @Query() q: any) {
     return this.service.getMyPayments(userId, q);

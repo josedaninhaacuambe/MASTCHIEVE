@@ -11,11 +11,12 @@ interface Guardian {
   firstName: string;
   lastName: string;
   phone: string;
+  email: string;
   relationship: string;
   isPrimary: boolean;
 }
 
-const emptyGuardian = (): Guardian => ({ firstName: '', lastName: '', phone: '', relationship: '', isPrimary: false });
+const emptyGuardian = (): Guardian => ({ firstName: '', lastName: '', phone: '', email: '', relationship: '', isPrimary: false });
 
 const genderOptions = [
   { value: 'MALE', label: 'Masculino' },
@@ -104,7 +105,7 @@ export default function NewStudentPage() {
         ...(guardians.length && {
           guardians: guardians
             .filter((g) => g.firstName.trim() && g.lastName.trim() && g.phone.trim())
-            .map((g) => ({ ...g, relationship: g.relationship || undefined })),
+            .map((g) => ({ ...g, email: g.email.trim() || undefined, relationship: g.relationship || undefined })),
         }),
       };
       const res = await api.post('/students', payload);
@@ -119,11 +120,7 @@ export default function NewStudentPage() {
     },
     onSuccess: (data) => {
       const studentId = data?.student?.id;
-      if (form.email && data?.email && data.email !== form.email) {
-        toast.success('Atleta criado com sucesso', `O email "${form.email}" já estava em uso — foi gerado um email de acesso automático para ${form.firstName} ${form.lastName}.`);
-      } else {
-        toast.success('Atleta criado com sucesso', `${form.firstName} ${form.lastName}`);
-      }
+      toast.success('Atleta criado com sucesso', `${form.firstName} ${form.lastName}`);
       router.push(studentId ? `/students/${studentId}` : '/students');
     },
     onError: (e: any) => toast.error('Erro ao criar atleta', e?.response?.data?.message ?? 'Tenta novamente'),
@@ -182,9 +179,17 @@ export default function NewStudentPage() {
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Email (acesso à app)">
-            <input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} className={inputCls} placeholder="atleta@email.com" />
-          </Field>
+          {guardians.length === 0 ? (
+            <Field label="Email (acesso à app)">
+              <input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} className={inputCls} placeholder="atleta@email.com" />
+            </Field>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Email (acesso à app)</label>
+              <div className={`${inputCls} bg-gray-50 text-gray-400`}>Não aplicável — menor sem conta própria</div>
+              <p className="text-xs text-gray-400 mt-1">O acesso é feito pela conta do encarregado, na secção abaixo.</p>
+            </div>
+          )}
           <Field label="Telefone">
             <input value={form.phone} onChange={(e) => set('phone', e.target.value)} className={inputCls} placeholder="+351 9XX XXX XXX" />
           </Field>
@@ -239,6 +244,12 @@ export default function NewStudentPage() {
                 <input value={g.relationship} onChange={(e) => setGuardian(i, 'relationship', e.target.value)} className={inputCls} placeholder="Mãe, Pai, Tutor..." />
               </Field>
             </div>
+            <Field label="Email (acesso ao painel do encarregado)">
+              <input type="email" value={g.email} onChange={(e) => setGuardian(i, 'email', e.target.value)} className={inputCls} placeholder="encarregado@email.com" />
+              <p className="text-xs text-gray-400 mt-1">
+                Se já existir uma conta com este email (ex.: outro filho, ou o próprio encarregado como atleta), é reutilizada — não cria uma conta duplicada.
+              </p>
+            </Field>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
