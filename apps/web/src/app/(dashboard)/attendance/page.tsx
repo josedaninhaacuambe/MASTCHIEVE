@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from '@/lib/toast';
+import SessaoInstrutores from '@/components/attendance/SessaoInstrutores';
+import ConvidadosPainel from '@/components/attendance/ConvidadosPainel';
 import { getInitials, formatDate, cn } from '@/lib/utils';
 import {
   ClipboardList, ChevronRight, CheckCircle, XCircle, Clock, AlertCircle,
@@ -204,7 +206,7 @@ function Step3({ cls, session, onBack }: { cls: any; session: any; onBack: () =>
     queryFn: async () => { const { data } = await api.get(`/classes/${cls.id}`); return data.data; },
   });
 
-  const { data: existing } = useQuery({
+  const { data: existing, refetch: refetchExisting } = useQuery({
     queryKey: ['session-attendance', session.id],
     queryFn: async () => { const { data } = await api.get(`/attendance/sessions/${session.id}`); return data.data ?? []; },
   });
@@ -216,7 +218,7 @@ function Step3({ cls, session, onBack }: { cls: any; session: any; onBack: () =>
   useEffect(() => {
     if (existing && existing.length > 0 && Object.keys(attendance).length === 0) {
       const init: Record<string, AttendanceStatus> = {};
-      existing.forEach((r: any) => { init[r.studentId] = r.status; });
+      existing.filter((r: any) => !r.isConvidado).forEach((r: any) => { init[r.studentId] = r.status; });
       setAttendance(init);
     }
   }, [existing]);
@@ -279,6 +281,11 @@ function Step3({ cls, session, onBack }: { cls: any; session: any; onBack: () =>
         </div>
       </div>
 
+      <SessaoInstrutores sessionId={session.id} sugeridos={[
+        ...(classDetail?.instructorId ? [classDetail.instructorId] : []),
+        ...((classDetail?.instrutores ?? []).map((i: any) => i.instructorId).filter((id: string) => id !== classDetail?.instructorId)),
+      ]} />
+
       <div className="space-y-2">
         {students.map((student: any) => {
           const status = attendance[student.id];
@@ -308,6 +315,8 @@ function Step3({ cls, session, onBack }: { cls: any; session: any; onBack: () =>
           );
         })}
       </div>
+
+      <ConvidadosPainel sessionId={session.id} dataSessao={session.sessionDate} registos={existing ?? []} onChange={() => refetchExisting()} />
 
       <button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || totalMarked === 0}
         className="w-full flex items-center justify-center gap-2 bg-mastchieve-600 hover:bg-mastchieve-700 text-white py-3 rounded-xl font-medium transition disabled:opacity-50">

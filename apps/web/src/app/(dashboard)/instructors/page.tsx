@@ -32,6 +32,26 @@ interface Instructor {
   user: { id: string; email: string; lastLoginAt?: string; isActive: boolean };
   _count?: { feedbacks: number };
   unidade?: { id: string; nome: string; codigo: string } | null;
+  unidades?: { isPrimary: boolean; unidade: { id: string; nome: string; codigo: string } }[];
+  avatarUrl?: string | null;
+}
+
+const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/api\/v1\/?$/, '');
+const avatarSrc = (url?: string | null) => (!url ? null : /^https?:\/\//i.test(url) ? url : `${API_ORIGIN}${url}`);
+const AVATAR_TIPOS = ['image/jpeg', 'image/png', 'image/webp'];
+const AVATAR_MAX_MB = 5;
+
+/** Nomes das unidades do instrutor, a principal primeiro. */
+function nomesUnidades(inst: Instructor) {
+  const us = [...(inst.unidades ?? [])].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary));
+  if (us.length) return us.map((u) => u.unidade.nome).join(' · ');
+  return inst.unidade?.nome ?? null;
+}
+
+function InstAvatar({ inst, className, fallbackClass }: { inst: Instructor; className: string; fallbackClass: string }) {
+  const src = avatarSrc(inst.avatarUrl);
+  if (src) return <img src={src} alt={`${inst.firstName} ${inst.lastName}`} className={cn(className, 'object-cover')} />;
+  return <div className={cn(className, fallbackClass)}>{getInitials(inst.firstName, inst.lastName)}</div>;
 }
 
 interface InstructorStats {
@@ -145,9 +165,8 @@ function DetailDrawer({
             </div>
           ) : inst && (
             <div className="flex items-start gap-4">
-              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-white text-xl font-bold flex-shrink-0 border border-white/30">
-                {getInitials(inst.firstName, inst.lastName)}
-              </div>
+              <InstAvatar inst={inst} className="w-16 h-16 rounded-2xl flex-shrink-0 border border-white/30"
+                fallbackClass="bg-white/20 flex items-center justify-center text-white text-xl font-bold" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-xl font-bold">{inst.firstName} {inst.lastName}</h2>
@@ -159,7 +178,7 @@ function DetailDrawer({
                 <p className="text-blue-100 text-sm mt-0.5">{inst.user?.email}</p>
                 <div className="flex items-center gap-1.5 mt-1.5">
                   <Building2 className="w-3.5 h-3.5 text-blue-100" />
-                  <span className="text-blue-100 text-xs">{inst.unidade?.nome ?? 'Sem unidade atribuída'}</span>
+                  <span className="text-blue-100 text-xs">{nomesUnidades(inst) ?? 'Sem unidade atribuída'}</span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-1.5">
                   <span className={cn('w-2 h-2 rounded-full', activity.dot)} />
@@ -351,6 +370,55 @@ function EditModal({
     specializations: (instructor.specializations ?? []).join(', '),
     unidadeId: instructor.unidade?.id ?? '',
   });
+  const [unidadeIds, setUnidadeIds] = useState<string[]>(
+    instructor.unidades?.length ? instructor.unidades.map((u) => u.unidade.id) : instructor.unidade ? [instructor.unidade.id] : [],
+  );
+  const [avatar, setAvatar] = useState<string | null>(instructor.avatarUrl ?? null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [aEnviarFoto, setAEnviarFoto] = useState(false);
+
+  const toggleUnidade = (id: string) => {
+    const next = unidadeIds.includes(id) ? unidadeIds.filter((x) => x !== id) : [...unidadeIds, id];
+    setUnidadeIds(next);
+    setForm((f) => ({ ...f, unidadeId: next.includes(f.unidadeId) ? f.unidadeId : next[0] ?? '' }));
+  };
+
+  const escolherFoto = async (file?: File) => {
+    if (!file) return;
+    if (!AVATAR_TIPOS.includes(file.type)) { toast.error('Formato inválido', 'Use JPG, PNG ou WEBP'); return; }
+    if (file.size > AVATAR_MAX_MB * 1024 * 1024) { toast.error('Ficheiro grande demais', `Máximo ${AVATAR_MAX_MB} MB`); return; }
+    const local = URL.createObjectURL(file);
+    setPreview(local);
+    setAEnviarFoto(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const { data } = await api.post(`/instructors/${instructor.id}/avatar`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setAvatar((data.data ?? data).avatarUrl ?? null);
+      toast.success('Fotografia actualizada');
+      qc.invalidateQueries({ queryKey: ['instructors'] });
+      qc.invalidateQueries({ queryKey: ['instructor-detail', instructor.id] });
+    } catch (e: any) {
+      toast.error('Erro ao enviar fotografia', e?.response?.data?.message);
+    } finally {
+      setPreview(null);
+      URL.revokeObjectURL(local);
+      setAEnviarFoto(false);
+    }
+  };
+
+  const removerFoto = async () => {
+    if (!confirm('Remover a fotografia do instrutor?')) return;
+    try {
+      await api.delete(`/instructors/${instructor.id}/avatar`);
+      setAvatar(null);
+      toast.success('Fotografia removida');
+      qc.invalidateQueries({ queryKey: ['instructors'] });
+      qc.invalidateQueries({ queryKey: ['instructor-detail', instructor.id] });
+    } catch (e: any) {
+      toast.error('Erro ao remover fotografia', e?.response?.data?.message);
+    }
+  };
   const { data: unidades = [] } = useQuery<{ id: string; nome: string }[]>({
     queryKey: ['unidades'],
     queryFn: async () => { const { data } = await api.get('/unidades'); return data.data ?? data; },
@@ -361,6 +429,7 @@ function EditModal({
     mutationFn: () => api.put(`/instructors/${instructor.id}`, {
       ...form,
       unidadeId: form.unidadeId || undefined,
+      unidadeIds,
       specializations: form.specializations.split(',').map((s) => s.trim()).filter(Boolean),
     }),
     onSuccess: () => {
@@ -375,7 +444,7 @@ function EditModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-gray-900">Editar instrutor</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 transition">
@@ -398,15 +467,45 @@ function EditModal({
               </div>
             ))}
           </div>
+          <div className="flex items-center gap-4">
+            {preview || avatarSrc(avatar)
+              ? <img src={preview ?? avatarSrc(avatar)!} alt="" className={cn('w-16 h-16 rounded-2xl object-cover border border-gray-200', aEnviarFoto && 'opacity-50')} />
+              : <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold">{getInitials(instructor.firstName, instructor.lastName)}</div>}
+            <div className="space-y-1.5">
+              <label className="inline-block text-xs font-medium bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100 cursor-pointer">
+                {aEnviarFoto ? 'A enviar...' : avatar ? 'Substituir fotografia' : 'Carregar fotografia'}
+                <input type="file" accept={AVATAR_TIPOS.join(',')} className="hidden" disabled={aEnviarFoto}
+                  onChange={(e) => { escolherFoto(e.target.files?.[0]); e.target.value = ''; }} />
+              </label>
+              {avatar && !aEnviarFoto && (
+                <button type="button" onClick={removerFoto} className="block text-xs text-red-500 hover:underline">Remover fotografia</button>
+              )}
+              <p className="text-[11px] text-gray-400">JPG, PNG ou WEBP · até {AVATAR_MAX_MB} MB</p>
+            </div>
+          </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Unidade</label>
-            <select
-              value={form.unidadeId}
-              onChange={(e) => setForm((f) => ({ ...f, unidadeId: e.target.value }))}
-              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400">
-              <option value="">Sem unidade atribuída</option>
-              {unidades.map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
-            </select>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Unidades <span className="text-gray-400 font-normal">(pode dar aulas em várias)</span></label>
+            <div className="space-y-1.5">
+              {unidades.map((u) => {
+                const sel = unidadeIds.includes(u.id);
+                return (
+                  <div key={u.id} className="flex items-center justify-between border border-gray-200 rounded-xl px-3 py-2">
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input type="checkbox" className="accent-blue-600" checked={sel} onChange={() => toggleUnidade(u.id)} />
+                      {u.nome}
+                    </label>
+                    {sel && (
+                      <label className="flex items-center gap-1 text-xs text-gray-500">
+                        <input type="radio" name="unidade-principal" className="accent-blue-600" checked={form.unidadeId === u.id}
+                          onChange={() => setForm((f) => ({ ...f, unidadeId: u.id }))} />
+                        Principal
+                      </label>
+                    )}
+                  </div>
+                );
+              })}
+              {unidades.length === 0 && <p className="text-xs text-gray-400">Sem unidades configuradas</p>}
+            </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Telemóvel</label>
@@ -563,9 +662,8 @@ function InstructorCard({
       {/* Header */}
       <div className="flex items-start gap-3">
         <div className="relative flex-shrink-0">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold text-sm shadow-sm">
-            {getInitials(inst.firstName, inst.lastName)}
-          </div>
+          <InstAvatar inst={inst} className="w-12 h-12 rounded-2xl shadow-sm"
+            fallbackClass="bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm" />
           <span className={cn('absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white', activity.dot)} />
         </div>
 
@@ -582,8 +680,8 @@ function InstructorCard({
           <div className="text-xs text-gray-400 mt-0.5 truncate">{inst.user?.email}</div>
           <div className="flex items-center gap-1.5 mt-1">
             <Building2 className="w-3 h-3 text-gray-400 flex-shrink-0" />
-            <span className={cn('text-xs truncate', inst.unidade ? 'text-gray-500' : 'text-amber-600')}>
-              {inst.unidade?.nome ?? 'Sem unidade atribuída'}
+            <span className={cn('text-xs truncate', nomesUnidades(inst) ? 'text-gray-500' : 'text-amber-600')}>
+              {nomesUnidades(inst) ?? 'Sem unidade atribuída'}
             </span>
           </div>
           <div className="text-xs text-gray-400 mt-0.5">{activity.label}</div>

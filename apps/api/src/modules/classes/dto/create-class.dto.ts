@@ -28,9 +28,15 @@ export class CreateClassDto {
 
   @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() moduleIds?: string[];
 
-  @ApiProperty() @IsUUID() instructorId: string;
+  @ApiProperty({ description: 'Instrutor principal' }) @IsUUID() instructorId: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'Instrutores auxiliares (M:N, podem ser de qualquer unidade)' })
+  @IsOptional() @IsArray() @IsUUID('all', { each: true })
+  instructorIds?: string[];
 
   @ApiPropertyOptional() @IsOptional() @IsUUID() unidadeId?: string;
+
+  @ApiPropertyOptional({ description: 'Horários [{day,startTime,endTime}]' }) @IsOptional() @IsArray() schedules?: any[];
 }
 
 export class TransferStudentDto {

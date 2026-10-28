@@ -46,6 +46,9 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
     unidadeId: cls.unidadeId ?? '',
   });
   const [moduleIds, setModuleIds] = useState<string[]>(cls.moduleIds ?? []);
+  const [auxiliares, setAuxiliares] = useState<string[]>(
+    (cls.instrutores ?? []).filter((i: any) => i.papel === 'AUXILIAR').map((i: any) => i.instructor.id),
+  );
   const [schedules, setSchedules] = useState<{ day: string; startTime: string; endTime: string }[]>(
     cls.schedules ?? []
   );
@@ -84,6 +87,7 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
       moduleIds,
       unidadeId: form.unidadeId || undefined,
       schedules,
+      instructorIds: auxiliares.filter((id) => id !== form.instructorId),
     }),
     onSuccess: () => { toast.success('Turma actualizada'); onSave(); },
     onError: (e: any) => toast.error('Erro ao actualizar', e?.response?.data?.message),
@@ -145,6 +149,21 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
             ))}
           </select>
         </div>
+        <div className="col-span-2">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Instrutores auxiliares <span className="text-gray-400 font-normal">(opcional)</span></label>
+            <div className="flex flex-wrap gap-1.5">
+              {(instructorsData ?? []).filter((i: any) => i.id !== form.instructorId).map((i: any) => {
+                const sel = auxiliares.includes(i.id);
+                return (
+                  <button key={i.id} type="button"
+                    onClick={() => setAuxiliares((a) => (sel ? a.filter((x) => x !== i.id) : [...a, i.id]))}
+                    className={`text-xs px-2.5 py-1 rounded-xl border transition ${sel ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                    {i.firstName} {i.lastName}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-700 mb-1">Unidade <span className="text-red-400">*</span></label>
           <select value={form.unidadeId} onChange={(e) => setForm((f) => ({ ...f, unidadeId: e.target.value }))}

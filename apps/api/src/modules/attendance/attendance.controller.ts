@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AttendanceService } from './attendance.service';
@@ -6,7 +6,9 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { BulkAttendanceDto, CreateContactoFaltaDto } from './dto/attendance.dto';
+import {
+  BulkAttendanceDto, CreateContactoFaltaDto, HorarioPresencaDto, RegistarConvidadoDto, SessionInstrutoresDto,
+} from './dto/attendance.dto';
 
 @ApiTags('attendance')
 @ApiBearerAuth()
@@ -23,7 +25,49 @@ export class AttendanceController {
     @CurrentUser() user: any,
     @Body() dto: BulkAttendanceDto,
   ) {
-    return this.service.markBulk(sessionId, user, dto.records);
+    return this.service.markBulk(sessionId, user, dto.records, dto.instructorIds);
+  }
+
+  @Get('sessions/:sessionId/instrutores')
+  @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN')
+  @ApiOperation({ summary: 'Instrutores que leccionaram a aula' })
+  getInstrutores(@Param('sessionId') sessionId: string) {
+    return this.service.getInstrutoresSessao(sessionId);
+  }
+
+  @Put('sessions/:sessionId/instrutores')
+  @Roles('ADMIN', 'INSTRUCTOR')
+  @ApiOperation({ summary: 'Definir os instrutores que efectivamente leccionaram a aula (qualquer unidade)' })
+  setInstrutores(@Param('sessionId') sessionId: string, @Body() dto: SessionInstrutoresDto, @CurrentUser() user: any) {
+    return this.service.definirInstrutoresSessao(sessionId, dto.instructorIds, user);
+  }
+
+  @Get('sessions/:sessionId/convidados/candidatos')
+  @Roles('ADMIN', 'INSTRUCTOR')
+  @ApiOperation({ summary: 'Pesquisar atletas de qualquer turma para registar como convidado' })
+  candidatosConvidado(@Param('sessionId') sessionId: string, @Query('search') search: string) {
+    return this.service.pesquisarCandidatosConvidado(sessionId, search);
+  }
+
+  @Post('sessions/:sessionId/convidados')
+  @Roles('ADMIN', 'INSTRUCTOR')
+  @ApiOperation({ summary: 'Registar presença de atleta convidado (não altera a inscrição do atleta)' })
+  registarConvidado(@Param('sessionId') sessionId: string, @Body() dto: RegistarConvidadoDto, @CurrentUser() user: any) {
+    return this.service.registarConvidado(sessionId, user, dto);
+  }
+
+  @Patch(':attendanceId/horario')
+  @Roles('ADMIN', 'INSTRUCTOR')
+  @ApiOperation({ summary: 'Registar/corrigir horas de entrada e saída' })
+  atualizarHorario(@Param('attendanceId') id: string, @Body() dto: HorarioPresencaDto, @CurrentUser() user: any) {
+    return this.service.atualizarHorario(id, user, dto);
+  }
+
+  @Delete('convidados/:attendanceId')
+  @Roles('ADMIN', 'INSTRUCTOR')
+  @ApiOperation({ summary: 'Remover registo de convidado lançado por engano' })
+  removerConvidado(@Param('attendanceId') id: string, @CurrentUser() user: any) {
+    return this.service.removerConvidado(id, user);
   }
 
   @Get('sessions/:sessionId')

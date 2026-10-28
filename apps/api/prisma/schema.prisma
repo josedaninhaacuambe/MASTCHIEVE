@@ -122,6 +122,8 @@ model Instructor {
   athleteReports               AthleteReport[]
   avaliacoesAgendadas          AvaliacaoAgendada[]
   avaliacoesAgendadasAvaliadas Avaliacao[]
+  turmasAtribuidas             ClassInstructor[]
+  sessoesLeccionadas           SessionInstructor[]
 
   @@index([isActive])
   @@map("instructors")
@@ -294,6 +296,8 @@ model Unidade {
   relatoriosMensais    RelatorioMensal[]
   rotinasDiarias       RotinaDiaria[]
   documentos           Document[]
+  sessoesInstrutores   SessionInstructor[]
+  presencasConvidados  Attendance[]
 
   @@map("unidades")
 }
@@ -332,10 +336,11 @@ model Lead {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  unidade           Unidade?           @relation(fields: [unidadeId], references: [id])
-  evento            Evento?            @relation(fields: [eventoId], references: [id])
-  student           Student?
-  mensagensWhatsapp MensagemWhatsapp[]
+  unidade             Unidade?             @relation(fields: [unidadeId], references: [id])
+  evento              Evento?              @relation(fields: [eventoId], references: [id])
+  student             Student?
+  mensagensWhatsapp   MensagemWhatsapp[]
+  eventoParticipacoes EventoParticipante[]
 
   @@index([estado])
   @@index([unidadeId])
@@ -581,11 +586,30 @@ model Class {
   avaliacoesAgendadas   AvaliacaoAgendada[]
   transferenciasOrigem  TransferenciaTurma[] @relation("TransferenciaOrigem")
   transferenciasDestino TransferenciaTurma[] @relation("TransferenciaDestino")
+  instrutores           ClassInstructor[]
+  presencasConvidados   Attendance[]         @relation("AttendanceTurmaOrigem")
 
   @@index([status])
   @@index([instructorId])
   @@index([unidadeId])
   @@map("classes")
+}
+
+// Instrutores atribuídos à turma (M:N). Class.instructorId mantém-se como
+// instrutor principal por compatibilidade; aqui ficam também os auxiliares.
+model ClassInstructor {
+  id           String   @id @default(uuid())
+  classId      String
+  instructorId String
+  papel        String   @default("AUXILIAR") // PRINCIPAL|AUXILIAR
+  criadoEm     DateTime @default(now())
+
+  class      Class      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  instructor Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, instructorId])
+  @@index([instructorId])
+  @@map("class_instructors")
 }
 
 model Enrollment {
@@ -623,26 +647,58 @@ model ClassSession {
   feedbacks   Feedback[]
   checklists  ChecklistProtocolo[]
   avaliacoes  Avaliacao[]
+  instrutores SessionInstructor[]
 
   @@index([classId])
   @@map("class_sessions")
 }
 
-model Attendance {
-  id           String   @id @default(uuid())
-  sessionId    String
-  studentId    String
-  instructorId String
-  status       String   @default("PRESENT")
-  notes        String?  @db.Text
-  markedAt     DateTime @default(now())
+// Instrutor(es) que efectivamente leccionaram a aula — independente da
+// unidade habitual do instrutor (InstructorUnidade não é alterado).
+model SessionInstructor {
+  id             String   @id @default(uuid())
+  sessionId      String
+  instructorId   String
+  unidadeId      String?
+  data           DateTime
+  registadoPorId String?
+  criadoEm       DateTime @default(now())
 
   session    ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  student    Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  instructor Instructor   @relation(fields: [instructorId], references: [id])
+  instructor Instructor   @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  unidade    Unidade?     @relation(fields: [unidadeId], references: [id], onDelete: SetNull)
+
+  @@unique([sessionId, instructorId])
+  @@index([instructorId])
+  @@index([data])
+  @@map("session_instructors")
+}
+
+model Attendance {
+  id            String    @id @default(uuid())
+  sessionId     String
+  studentId     String
+  instructorId  String
+  status        String    @default("PRESENT")
+  notes         String?   @db.Text
+  markedAt      DateTime  @default(now())
+  // Convidado: atleta que treinou nesta aula sem estar inscrito na turma.
+  // A inscrição (Enrollment) do atleta não é alterada.
+  isConvidado   Boolean   @default(false)
+  turmaOrigemId String?
+  unidadeId     String?
+  horaEntrada   DateTime?
+  horaSaida     DateTime?
+
+  session     ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student     Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  instructor  Instructor   @relation(fields: [instructorId], references: [id])
+  turmaOrigem Class?       @relation("AttendanceTurmaOrigem", fields: [turmaOrigemId], references: [id], onDelete: SetNull)
+  unidade     Unidade?     @relation(fields: [unidadeId], references: [id], onDelete: SetNull)
 
   @@unique([sessionId, studentId])
   @@index([studentId])
+  @@index([isConvidado])
   @@map("attendances")
 }
 
@@ -903,28 +959,105 @@ model Incidente {
 // ─── Eventos / Open Day (SOP 07) ─────────────────────────────────────────────
 
 model Evento {
-  id                 String   @id @default(uuid())
-  tipo               String   @default("OPEN_DAY") // OPEN_DAY|COMPETICAO|OUTRO
-  nome               String
-  data               DateTime
-  unidadeId          String?
-  programa           String?  @db.Text
-  capacidade         Int?
-  estado             String   @default("PLANEADO") // PLANEADO|REALIZADO|CANCELADO
-  notas              String?  @db.Text
-  checklistMateriais String?  @db.Text // JSON: [{texto, checked}]
-  relatorioPos       String?  @db.Text
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  tipo                String   @default("OPEN_DAY") // OPEN_DAY|COMPETICAO|OUTRO
+  nome                String
+  data                DateTime
+  unidadeId           String?
+  programa            String?  @db.Text
+  capacidade          Int?
+  estado              String   @default("PLANEADO") // PLANEADO|REALIZADO|CANCELADO
+  notas               String?  @db.Text
+  checklistMateriais  String?  @db.Text // JSON: [{texto, checked}]
+  relatorioPos        String?  @db.Text
+  descricao           String?  @db.Text
+  hora                String?
+  local               String?
+  // Formulário público de pré-inscrição
+  formularioTipo      String   @default("INDIVIDUAL") // INDIVIDUAL (Open Day) | ESCOLA (voucher escolas)
+  formularioCampos    String?  @db.Text // JSON: { campos: string[], horarios?: string[] }
+  inscricoesAbertas   Boolean  @default(false)
+  tokenPublico        String?  @unique
+  linkInscricaoAtleta String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   unidade       Unidade?             @relation(fields: [unidadeId], references: [id])
   certificados  Certificado[]
   leads         Lead[]
   participantes EventoParticipante[]
+  inscricoes    EventoInscricao[]
+  comunicacoes  EventoComunicacao[]
 
   @@index([tipo])
   @@index([estado])
   @@map("eventos")
+}
+
+// Uma submissão do formulário público. INDIVIDUAL → 1 participante;
+// ESCOLA → 1 responsável com N alunos (cada aluno é um EventoParticipante).
+model EventoInscricao {
+  id               String   @id @default(uuid())
+  eventoId         String
+  tipo             String   @default("INDIVIDUAL") // INDIVIDUAL|ESCOLA
+  responsavelNome  String
+  contacto         String?
+  email            String?
+  dados            String?  @db.Text // JSON com as respostas do formulário
+  declaracaoAceite Boolean  @default(false)
+  submetidoEm      DateTime @default(now())
+
+  evento        Evento               @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  participantes EventoParticipante[]
+
+  @@index([eventoId])
+  @@map("evento_inscricoes")
+}
+
+model EventoComunicacao {
+  id                  String   @id @default(uuid())
+  eventoId            String
+  titulo              String
+  mensagem            String   @db.Text
+  videoUrl            String?
+  galeriaUrl          String?
+  proximasActividades String?  @db.Text
+  linkInscricao       String?
+  canais              String // JSON: ["WHATSAPP","EMAIL"]
+  filtroEstados       String?  @db.Text // JSON: estados dos participantes incluídos
+  totalDestinatarios  Int      @default(0)
+  totalWhatsapp       Int      @default(0)
+  totalEmail          Int      @default(0)
+  totalSemContacto    Int      @default(0)
+  criadoPorId         String
+  createdAt           DateTime @default(now())
+
+  evento Evento                   @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  envios EventoComunicacaoEnvio[]
+
+  @@index([eventoId])
+  @@map("evento_comunicacoes")
+}
+
+// Estado por destinatário. WhatsApp fica EM_FILA até ser enviado manualmente
+// na caixa de saída; SEM_CONTACTO nunca conta como recebido.
+model EventoComunicacaoEnvio {
+  id                 String   @id @default(uuid())
+  comunicacaoId      String
+  participanteId     String
+  canal              String // WHATSAPP|EMAIL|NENHUM
+  destino            String?
+  estado             String // EM_FILA|ENVIADO|FALHOU|SEM_CONTACTO
+  mensagemWhatsappId String?
+  erro               String?  @db.Text
+  createdAt          DateTime @default(now())
+
+  comunicacao  EventoComunicacao  @relation(fields: [comunicacaoId], references: [id], onDelete: Cascade)
+  participante EventoParticipante @relation(fields: [participanteId], references: [id], onDelete: Cascade)
+
+  @@index([comunicacaoId])
+  @@index([participanteId])
+  @@map("evento_comunicacao_envios")
 }
 
 // ─── Competições (SOP 08) ─────────────────────────────────────────────────────
@@ -1135,19 +1268,35 @@ model AtendimentoEncarregado {
 }
 
 model EventoParticipante {
-  id          String  @id @default(uuid())
-  eventoId    String
-  studentId   String?
-  nome        String?
-  contacto    String?
-  presente    Boolean @default(false)
-  pagamentoId String?
+  id                String    @id @default(uuid())
+  eventoId          String
+  studentId         String?
+  nome              String?
+  contacto          String?
+  presente          Boolean   @default(false)
+  pagamentoId       String?
+  email             String?
+  // Preencher o formulário nunca marca presença: PRESENTE só pelo staff.
+  estado            String    @default("PRE_INSCRITO") // PRE_INSCRITO|CONFIRMADO|PRESENTE|AUSENTE|CANCELADO
+  origem            String    @default("MANUAL") // MANUAL|PRE_INSCRICAO|WALK_IN
+  inscricaoId       String?
+  dataNascimento    DateTime?
+  dadosFormulario   String?   @db.Text // JSON: respostas específicas deste participante
+  autorizacaoImagem Boolean?
+  leadId            String?
+  submetidoEm       DateTime?
+  createdAt         DateTime  @default(now())
 
-  evento    Evento   @relation(fields: [eventoId], references: [id], onDelete: Cascade)
-  student   Student? @relation(fields: [studentId], references: [id])
-  pagamento Payment? @relation(fields: [pagamentoId], references: [id])
+  evento    Evento                   @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  student   Student?                 @relation(fields: [studentId], references: [id])
+  pagamento Payment?                 @relation(fields: [pagamentoId], references: [id])
+  inscricao EventoInscricao?         @relation(fields: [inscricaoId], references: [id], onDelete: SetNull)
+  lead      Lead?                    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  envios    EventoComunicacaoEnvio[]
 
   @@index([eventoId])
+  @@index([estado])
+  @@index([inscricaoId])
   @@map("evento_participantes")
 }
 

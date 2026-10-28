@@ -18,13 +18,55 @@ export class ClassesService {
     if (funcionario) await this.certificacoesService.assertCertificacoesValidas(funcionario.id);
   }
 
+  /**
+   * Sincroniza a relação M:N turma↔instrutores. O principal fica também em
+   * Class.instructorId (compatibilidade). Se `auxiliares` não vier, mantém
+   * os auxiliares existentes e só troca o principal.
+   */
+  private async syncInstrutores(classId: string, principalId: string, auxiliares?: string[]) {
+    const auxSet = new Set((auxiliares ?? []).filter((i) => i && i !== principalId));
+    await this.prisma.$transaction(async (tx) => {
+      if (auxiliares) {
+        await tx.classInstructor.deleteMany({
+          where: { classId, instructorId: { notIn: [principalId, ...auxSet] } },
+        });
+      } else {
+        await tx.classInstructor.deleteMany({ where: { classId, papel: 'PRINCIPAL', instructorId: { not: principalId } } });
+      }
+      await tx.classInstructor.upsert({
+        where: { classId_instructorId: { classId, instructorId: principalId } },
+        create: { classId, instructorId: principalId, papel: 'PRINCIPAL' },
+        update: { papel: 'PRINCIPAL' },
+      });
+      for (const instructorId of auxSet) {
+        await tx.classInstructor.upsert({
+          where: { classId_instructorId: { classId, instructorId } },
+          create: { classId, instructorId, papel: 'AUXILIAR' },
+          update: { papel: 'AUXILIAR' },
+        });
+      }
+    });
+  }
+
+  /** O instrutor (por userId) está atribuído à turma, como principal ou auxiliar? */
+  async isInstrutorDaTurma(classId: string, userId: string) {
+    const instructor = await this.prisma.instructor.findUnique({ where: { userId }, select: { id: true } });
+    if (!instructor) return false;
+    const n = await this.prisma.class.count({
+      where: { id: classId, OR: [{ instructorId: instructor.id }, { instrutores: { some: { instructorId: instructor.id } } }] },
+    });
+    return n > 0;
+  }
+
   async findAll(query: any) {
     const page = Math.max(1, parseInt(query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(query.limit) || 20));
     const where: any = {};
     if (query.level) where.level = query.level;
     if (query.status) where.status = query.status;
-    if (query.instructorId) where.instructorId = query.instructorId;
+    if (query.instructorId) {
+      where.OR = [{ instructorId: query.instructorId }, { instrutores: { some: { instructorId: query.instructorId } } }];
+    }
     if (query.search) where.name = { contains: query.search };
 
     const [data, total] = await Promise.all([
@@ -35,6 +77,7 @@ export class ClassesService {
         orderBy: { name: 'asc' },
         include: {
           instructor: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+          instrutores: { orderBy: { papel: 'desc' }, select: { papel: true, instructor: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
           enrollments: { where: { isActive: true }, select: { id: true } },
         },
       }),
@@ -60,6 +103,7 @@ export class ClassesService {
         instructor: {
           select: { id: true, firstName: true, lastName: true, avatarUrl: true, specializations: true, bio: true },
         },
+        instrutores: { orderBy: { papel: 'desc' }, select: { papel: true, instructor: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
         enrollments: {
           where: { isActive: true },
           include: {
@@ -71,7 +115,10 @@ export class ClassesService {
         sessions: {
           take: 10,
           orderBy: { sessionDate: 'desc' },
-          select: { id: true, sessionDate: true, startTime: true, endTime: true, topic: true },
+          select: {
+            id: true, sessionDate: true, startTime: true, endTime: true, topic: true,
+            instrutores: { select: { instructor: { select: { id: true, firstName: true, lastName: true } } } },
+          },
         },
       },
     });
@@ -86,14 +133,17 @@ export class ClassesService {
 
   async create(dto: any, actorUserId?: string) {
     await this.assertInstrutorCertificado(dto.instructorId);
+    const { instructorIds, ...rest } = dto;
+    for (const aux of instructorIds ?? []) await this.assertInstrutorCertificado(aux);
     const cls = await this.prisma.class.create({
       data: {
-        ...dto,
+        ...rest,
         schedules: typeof dto.schedules === 'string' ? dto.schedules : JSON.stringify(dto.schedules || []),
         moduleIds: dto.moduleIds ? (typeof dto.moduleIds === 'string' ? dto.moduleIds : JSON.stringify(dto.moduleIds)) : undefined,
       },
       include: { instructor: { select: { firstName: true, lastName: true } } },
     });
+    await this.syncInstrutores(cls.id, cls.instructorId, instructorIds ?? []);
 
     if (actorUserId) {
       await this.audit.log({
@@ -101,7 +151,7 @@ export class ClassesService {
         action: 'CLASS_CRIADA',
         entity: 'Class',
         entityId: cls.id,
-        newValues: { name: cls.name, instructorId: cls.instructorId },
+        newValues: { name: cls.name, instructorId: cls.instructorId, instructorIds: instructorIds ?? [] },
       });
     }
 
@@ -112,14 +162,18 @@ export class ClassesService {
     const existing = await this.findOne(id);
 
     if (actorRole === 'INSTRUCTOR') {
-      const instructor = await this.prisma.instructor.findUnique({ where: { userId: actorUserId } });
-      if (!instructor || existing.instructorId !== instructor.id) {
+      if (!actorUserId || !(await this.isInstrutorDaTurma(id, actorUserId))) {
         throw new ForbiddenException('Só podes editar as tuas próprias turmas');
       }
+      // A atribuição de instrutores é decisão da gestão.
+      delete dto.instructorId;
+      delete dto.instructorIds;
     }
 
     if (dto.instructorId) await this.assertInstrutorCertificado(dto.instructorId);
-    const data: any = { ...dto };
+    const { instructorIds, ...rest } = dto;
+    for (const aux of instructorIds ?? []) await this.assertInstrutorCertificado(aux);
+    const data: any = { ...rest };
     if (dto.schedules && typeof dto.schedules !== 'string') {
       data.schedules = JSON.stringify(dto.schedules);
     }
@@ -127,6 +181,9 @@ export class ClassesService {
       data.moduleIds = JSON.stringify(dto.moduleIds);
     }
     const updated = await this.prisma.class.update({ where: { id }, data });
+    if (dto.instructorId || instructorIds) {
+      await this.syncInstrutores(id, updated.instructorId, instructorIds);
+    }
 
     if (actorUserId) {
       await this.audit.log({
@@ -134,8 +191,14 @@ export class ClassesService {
         action: 'CLASS_ATUALIZADA',
         entity: 'Class',
         entityId: id,
-        oldValues: { name: existing.name, maxStudents: existing.maxStudents, status: existing.status },
-        newValues: { name: updated.name, maxStudents: updated.maxStudents, status: updated.status },
+        oldValues: {
+          name: existing.name, maxStudents: existing.maxStudents, status: existing.status,
+          instructorIds: existing.instrutores.map((i) => i.instructor.id),
+        },
+        newValues: {
+          name: updated.name, maxStudents: updated.maxStudents, status: updated.status,
+          instructorId: updated.instructorId, instructorIds,
+        },
       });
     }
 
@@ -289,7 +352,10 @@ export class ClassesService {
     const instructor = await this.prisma.instructor.findUnique({ where: { userId } });
     if (!instructor) return [];
     return this.prisma.class.findMany({
-      where: { instructorId: instructor.id, status: 'ACTIVE' },
+      where: {
+        status: 'ACTIVE',
+        OR: [{ instructorId: instructor.id }, { instrutores: { some: { instructorId: instructor.id } } }],
+      },
       orderBy: { name: 'asc' },
     });
   }
@@ -298,7 +364,10 @@ export class ClassesService {
     const sessions = await this.prisma.classSession.findMany({
       where: { classId },
       orderBy: { sessionDate: 'desc' },
-      select: { id: true, sessionDate: true, startTime: true, endTime: true, topic: true, notes: true },
+      select: {
+        id: true, sessionDate: true, startTime: true, endTime: true, topic: true, notes: true,
+        instrutores: { select: { instructor: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
+      },
     });
     return { data: sessions };
   }

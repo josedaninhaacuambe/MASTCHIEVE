@@ -32,6 +32,9 @@ export function middleware(request: NextRequest) {
   const isAuthenticated = !!role;
 
   // Public paths — always accessible
+  // Formulário público de pré-inscrição em eventos (/evento/<token>)
+  if (pathname.startsWith('/evento/')) return NextResponse.next();
+
   if (PUBLIC_PATHS.includes(pathname)) {
     // If authenticated non-visitor tries to access /login or /register → redirect to dashboard
     if (isAuthenticated && role !== 'VISITOR' && (pathname === '/login' || pathname === '/register')) {

@@ -7,6 +7,8 @@ import api from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { formatDate, getInitials, cn } from '@/lib/utils';
 import AvaliacaoModal from '@/components/avaliacoes/AvaliacaoModal';
+import SessaoInstrutores from '@/components/attendance/SessaoInstrutores';
+import ConvidadosPainel from '@/components/attendance/ConvidadosPainel';
 import {
   ArrowLeft, ChevronRight, CheckCircle, XCircle, Clock,
   AlertCircle, Save, ClipboardList, Users, BarChart3, RefreshCw, Brain,
@@ -48,14 +50,17 @@ export default function SessionAttendancePage() {
         api.get(`/attendance/sessions/${sessionId}`),
         api.get(`/classes/${classId}`),
       ]);
-      return { attendance: attRes.data.data, class: classRes.data.data };
+      const att = attRes.data.data ?? attRes.data;
+      // A API devolve a lista de registos (array); mantém compatibilidade com { records }.
+      const records: any[] = Array.isArray(att) ? att : att?.records ?? [];
+      return { records, class: classRes.data.data ?? classRes.data };
     },
     staleTime: 30_000,
   });
 
   // Seed local state from existing attendance records
   useEffect(() => {
-    const existing: any[] = sessionData?.attendance?.records ?? [];
+    const existing: any[] = (sessionData?.records ?? []).filter((r: any) => !r.isConvidado);
     if (existing.length > 0) {
       const statusMap: Record<string, Status> = {};
       const notesMap: Record<string, string>  = {};
@@ -87,7 +92,12 @@ export default function SessionAttendancePage() {
   });
 
   const cls     = sessionData?.class;
-  const session = cls?.sessions?.find((s: any) => s.id === sessionId) ?? sessionData?.attendance?.session;
+  const session = cls?.sessions?.find((s: any) => s.id === sessionId);
+  const registos: any[] = sessionData?.records ?? [];
+  const instrutoresTurma: string[] = [
+    ...(cls?.instructorId ? [cls.instructorId] : []),
+    ...((cls?.instrutores ?? []).map((i: any) => i.instructorId).filter((id: string) => id !== cls?.instructorId)),
+  ];
   const enrolled: any[] = cls?.enrollments ?? [];
 
   // Mark all at once
@@ -175,6 +185,8 @@ export default function SessionAttendancePage() {
           </div>
         </div>
       </div>
+
+      <SessaoInstrutores sessionId={sessionId} sugeridos={instrutoresTurma} />
 
       {/* Quick actions */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -272,6 +284,9 @@ export default function SessionAttendancePage() {
           </div>
         )}
       </div>
+
+      <ConvidadosPainel sessionId={sessionId} dataSessao={session?.sessionDate} registos={registos}
+        onChange={() => qc.invalidateQueries({ queryKey: ['session-attendance', sessionId] })} />
 
       {/* Save bar */}
       <div className="sticky bottom-4 flex items-center justify-between bg-white border border-gray-200 rounded-2xl shadow-lg px-5 py-3">

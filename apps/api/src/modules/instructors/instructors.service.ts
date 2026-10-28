@@ -1,9 +1,39 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { unlink } from 'fs/promises';
+import { join } from 'path';
 import { PrismaService } from '../../config/prisma/prisma.service';
+import { AuditService } from '../../common/audit/audit.service';
+
+const GESTAO_ROLES = ['ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN'];
+// Campos que um instrutor pode alterar no próprio perfil.
+const CAMPOS_PROPRIO_PERFIL = ['firstName', 'lastName', 'phone', 'bio', 'specializations'];
 
 @Injectable()
 export class InstructorsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private audit: AuditService) {}
+
+  /** Instrutor só gere o próprio perfil; staff de gestão gere qualquer um. */
+  private async assertPodeGerir(id: string, actor: { id: string; role: string }) {
+    if (GESTAO_ROLES.includes(actor.role)) return;
+    const own = await this.prisma.instructor.findUnique({ where: { userId: actor.id }, select: { id: true } });
+    if (!own || own.id !== id) throw new ForbiddenException('Só podes alterar o teu próprio perfil');
+  }
+
+  /** Lista leve de todos os instrutores activos, de todas as unidades. */
+  async options() {
+    const rows = await this.prisma.instructor.findMany({
+      where: { isActive: true },
+      orderBy: { firstName: 'asc' },
+      select: {
+        id: true, firstName: true, lastName: true, avatarUrl: true,
+        unidades: { select: { isPrimary: true, unidade: { select: { id: true, nome: true, codigo: true } } } },
+      },
+    });
+    return rows.map((i) => ({
+      ...i,
+      unidades: i.unidades.map((u) => ({ ...u.unidade, isPrimary: u.isPrimary })),
+    }));
+  }
 
   async findAll(query: any) {
     const page = Math.max(1, parseInt(query.page) || 1);
@@ -29,6 +59,10 @@ export class InstructorsService {
             where: { status: 'ACTIVE' },
             select: { id: true, name: true, level: true },
           },
+          turmasAtribuidas: {
+            where: { class: { status: 'ACTIVE' } },
+            select: { papel: true, class: { select: { id: true, name: true, level: true } } },
+          },
           unidades: { include: { unidade: { select: { id: true, nome: true, codigo: true } } } },
           _count: { select: { feedbacks: true } },
         },
@@ -39,10 +73,16 @@ export class InstructorsService {
     return {
       data: data.map((i) => {
         const primary = i.unidades.find((u) => u.isPrimary) ?? i.unidades[0];
+        const classes = [...i.classes];
+        for (const t of i.turmasAtribuidas) {
+          if (!classes.some((c) => c.id === t.class.id)) classes.push(t.class);
+        }
         return {
           ...i,
+          classes,
+          turmasAtribuidas: undefined,
           specializations: (() => { try { return JSON.parse(i.specializations); } catch { return []; } })(),
-          classCount: i.classes.length,
+          classCount: classes.length,
           feedbackCount: i._count.feedbacks,
           unidade: primary?.unidade ?? null,
         };
@@ -87,28 +127,85 @@ export class InstructorsService {
     };
   }
 
-  async update(id: string, dto: any) {
+  async update(id: string, dto: any, actor?: { id: string; role: string }) {
+    if (actor) await this.assertPodeGerir(id, actor);
     await this.findOne(id);
-    const data: any = { ...dto };
-    if (Array.isArray(dto.specializations)) {
-      data.specializations = JSON.stringify(dto.specializations);
+    let data: any = { ...dto };
+    if (actor && !GESTAO_ROLES.includes(actor.role)) {
+      data = Object.fromEntries(Object.entries(data).filter(([k]) => CAMPOS_PROPRIO_PERFIL.includes(k)));
+    }
+    if (Array.isArray(data.specializations)) {
+      data.specializations = JSON.stringify(data.specializations);
     }
     delete data._count;
     delete data.unidades;
     delete data.unidade;
-    const unidadeId = data.unidadeId;
+    delete data.avatarUrl; // gerido apenas pelos endpoints /avatar
+    const unidadeId: string | undefined = data.unidadeId;
+    const unidadeIds: string[] | undefined = Array.isArray(data.unidadeIds) ? data.unidadeIds : undefined;
     delete data.unidadeId;
+    delete data.unidadeIds;
 
     const updated = await this.prisma.instructor.update({ where: { id }, data });
 
-    if (unidadeId) {
-      await this.prisma.instructorUnidade.deleteMany({ where: { instrutorId: id } });
-      await this.prisma.instructorUnidade.create({
-        data: { instrutorId: id, unidadeId, isPrimary: true },
-      });
+    // Um instrutor pode estar ligado a várias unidades; unidadeId é a principal.
+    if (unidadeId || unidadeIds) {
+      const todas = Array.from(new Set([...(unidadeIds ?? []), ...(unidadeId ? [unidadeId] : [])]));
+      const principal = unidadeId ?? todas[0];
+      await this.prisma.$transaction([
+        this.prisma.instructorUnidade.deleteMany({ where: { instrutorId: id, unidadeId: { notIn: todas } } }),
+        ...todas.map((uid) =>
+          this.prisma.instructorUnidade.upsert({
+            where: { instrutorId_unidadeId: { instrutorId: id, unidadeId: uid } },
+            create: { instrutorId: id, unidadeId: uid, isPrimary: uid === principal },
+            update: { isPrimary: uid === principal },
+          }),
+        ),
+      ]);
     }
 
     return updated;
+  }
+
+  async setAvatar(id: string, file: Express.Multer.File, actor: { id: string; role: string }) {
+    try {
+      await this.assertPodeGerir(id, actor);
+    } catch (e) {
+      await this.apagarFicheiro(`/uploads/${file.filename}`);
+      throw e;
+    }
+    const inst = await this.prisma.instructor.findUnique({ where: { id }, select: { avatarUrl: true } });
+    if (!inst) {
+      await this.apagarFicheiro(`/uploads/${file.filename}`);
+      throw new NotFoundException('Instrutor não encontrado');
+    }
+    const avatarUrl = `/uploads/${file.filename}`;
+    const updated = await this.prisma.instructor.update({ where: { id }, data: { avatarUrl }, select: { id: true, avatarUrl: true } });
+    if (inst.avatarUrl && inst.avatarUrl !== avatarUrl) await this.apagarFicheiro(inst.avatarUrl);
+    await this.audit.log({
+      userId: actor.id, action: 'INSTRUTOR_FOTO_ATUALIZADA', entity: 'Instructor', entityId: id,
+      oldValues: { avatarUrl: inst.avatarUrl }, newValues: { avatarUrl },
+    });
+    return updated;
+  }
+
+  async removeAvatar(id: string, actor: { id: string; role: string }) {
+    await this.assertPodeGerir(id, actor);
+    const inst = await this.prisma.instructor.findUnique({ where: { id }, select: { avatarUrl: true } });
+    if (!inst) throw new NotFoundException('Instrutor não encontrado');
+    const updated = await this.prisma.instructor.update({ where: { id }, data: { avatarUrl: null }, select: { id: true, avatarUrl: true } });
+    if (inst.avatarUrl) await this.apagarFicheiro(inst.avatarUrl);
+    await this.audit.log({
+      userId: actor.id, action: 'INSTRUTOR_FOTO_REMOVIDA', entity: 'Instructor', entityId: id,
+      oldValues: { avatarUrl: inst.avatarUrl },
+    });
+    return updated;
+  }
+
+  /** Só apaga ficheiros guardados localmente em /uploads (nunca URLs externas). */
+  private async apagarFicheiro(url: string) {
+    if (!url?.startsWith('/uploads/') || url.includes('..')) return;
+    await unlink(join(process.cwd(), url.replace(/^\//, ''))).catch(() => {});
   }
 
   async toggleActive(id: string) {

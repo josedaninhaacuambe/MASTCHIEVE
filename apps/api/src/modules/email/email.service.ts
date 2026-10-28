@@ -27,12 +27,14 @@ export class EmailService {
     });
   }
 
-  private async safeSend(mailOptions: nodemailer.SendMailOptions, successLog: string) {
+  private async safeSend(mailOptions: nodemailer.SendMailOptions, successLog: string): Promise<boolean> {
     try {
       await this.transporter.sendMail(mailOptions);
       this.logger.log(successLog);
+      return true;
     } catch (err: any) {
       this.logger.error(`Falha ao enviar email para ${mailOptions.to}: ${err?.message || err}`);
+      return false;
     }
   }
 
@@ -245,12 +247,13 @@ export class EmailService {
     }, `Boas-vindas atleta email sent to ${to}`);
   }
 
-  async sendComunicacao(to: string, titulo: string, descricao: string, link?: string | null) {
+  /** Devolve true só se o email foi efectivamente aceite pelo servidor SMTP. */
+  async sendComunicacao(to: string, titulo: string, descricao: string, link?: string | null, linkTexto = 'Saber mais'): Promise<boolean> {
     if (!process.env.SMTP_USER || process.env.SMTP_USER === 'noreply@mastchieve.com') {
       this.logger.warn(`[EMAIL SKIPPED] Comunicação to ${to} — SMTP not configured`);
-      return;
+      return false;
     }
-    await this.safeSend({
+    return this.safeSend({
       from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
       to,
       subject: `📣 ${titulo} — Mastchieve`,
@@ -262,7 +265,7 @@ export class EmailService {
           <div style="padding: 32px; background: #f9fafb; border-radius: 0 0 12px 12px;">
             <h2 style="color: #111827; margin-top: 0;">${escapeHtml(titulo)}</h2>
             <p style="color: #6b7280; white-space: pre-line;">${escapeHtml(descricao)}</p>
-            ${link ? `<a href="${escapeHtml(link)}" style="display: inline-block; background: #1A56DB; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px;">Saber mais</a>` : ''}
+            ${link ? `<a href="${escapeHtml(link)}" style="display: inline-block; background: #1A56DB; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px;">${escapeHtml(linkTexto)}</a>` : ''}
           </div>
         </div>
       `,
