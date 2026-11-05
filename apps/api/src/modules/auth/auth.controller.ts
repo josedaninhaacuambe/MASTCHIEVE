@@ -18,7 +18,7 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  @ApiOperation({ summary: 'Registar novo utilizador (admin/privilegiado)' })
+  @ApiOperation({ summary: 'Registo público de atleta, instrutor ou visitante' })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }

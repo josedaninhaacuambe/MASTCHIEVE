@@ -6,6 +6,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { InstructorsService } from './instructors.service';
+import { CreateInstructorDto } from './dto/create-instructor.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -36,9 +37,20 @@ export class InstructorsController {
   @Get(':id') @Roles('ADMIN', 'ASSISTENTE_ADMIN') @ApiOperation({ summary: 'Detalhes do instrutor' })
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
 
-  @Put(':id') @Roles('ADMIN', 'INSTRUCTOR') @ApiOperation({ summary: 'Atualizar instrutor' })
+  @Post() @Roles('ADMIN', 'ASSISTENTE_ADMIN') @ApiOperation({ summary: 'Registar novo instrutor (cria a conta sem palavra-passe conhecida)' })
+  create(@Body() dto: CreateInstructorDto, @CurrentUser() user: any) {
+    return this.service.create(dto, user);
+  }
+
+  @Put(':id') @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'INSTRUCTOR') @ApiOperation({ summary: 'Atualizar instrutor' })
   update(@Param('id') id: string, @Body() dto: any, @CurrentUser() user: any) {
     return this.service.update(id, dto, user);
+  }
+
+  @Post(':id/acesso') @Roles('ADMIN', 'ASSISTENTE_ADMIN')
+  @ApiOperation({ summary: 'Gerar link individual e temporário para o instrutor definir a palavra-passe' })
+  gerarAcesso(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.gerarAcesso(id, user);
   }
 
   @Post(':id/avatar') @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'INSTRUCTOR')
@@ -64,6 +76,6 @@ export class InstructorsController {
     return this.service.sendNotification(id, dto.title, dto.body);
   }
 
-  @Get(':id/stats') @Roles('ADMIN') @ApiOperation({ summary: 'Estatísticas do instrutor' })
+  @Get(':id/stats') @Roles('ADMIN', 'ASSISTENTE_ADMIN') @ApiOperation({ summary: 'Estatísticas do instrutor' })
   getStats(@Param('id') id: string) { return this.service.getStats(id); }
 }

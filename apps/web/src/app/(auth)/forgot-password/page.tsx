@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
 import api from '@/lib/api';
@@ -15,6 +15,17 @@ export default function ForgotPasswordPage() {
   const [newPass, setNewPass] = useState('');
   const [confirm, setConfirm] = useState('');
   const [devToken, setDevToken] = useState<string | null>(null);
+  const [tokenDoLink, setTokenDoLink] = useState(false);
+
+  // Link recebido por email ou enviado pela escola: /forgot-password?token=...
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('token');
+    if (!t) return;
+    setToken(t);
+    setTokenDoLink(true);
+    setStep('reset');
+    window.history.replaceState(null, '', window.location.pathname); // não deixar o token no histórico
+  }, []);
 
   const forgotMutation = useMutation({
     mutationFn: () => api.post('/users/forgot-password', { email }),
@@ -124,15 +135,19 @@ export default function ForgotPasswordPage() {
             <>
               <div className="mb-6">
                 <h1 className="text-2xl font-bold text-gray-900">Nova palavra-passe</h1>
-                <p className="text-gray-500 text-sm mt-1">Introduza o token recebido e defina a sua nova palavra-passe.</p>
+                <p className="text-gray-500 text-sm mt-1">
+                  {tokenDoLink ? 'Defina a palavra-passe com que vai entrar no sistema.' : 'Introduza o token recebido e defina a sua nova palavra-passe.'}
+                </p>
               </div>
               <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">Token de reset</label>
-                  <input value={token} onChange={e => setToken(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-                    placeholder="Token recebido por email" />
-                </div>
+                {!tokenDoLink && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">Token de reset</label>
+                    <input value={token} onChange={e => setToken(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                      placeholder="Token recebido por email" />
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">Nova palavra-passe</label>
                   <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)}
@@ -148,14 +163,14 @@ export default function ForgotPasswordPage() {
                 </div>
                 <button
                   onClick={() => resetMutation.mutate()}
-                  disabled={!token || newPass.length < 6 || mismatch || resetMutation.isPending}
+                  disabled={!token || newPass.length < 6 || newPass !== confirm || resetMutation.isPending}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl text-sm font-semibold transition disabled:opacity-50">
                   {resetMutation.isPending ? 'A redefinir...' : 'Redefinir palavra-passe'}
                 </button>
                 {resetMutation.isError && (
                   <div className="flex items-center gap-2 text-red-600 text-xs bg-red-50 p-3 rounded-xl">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    Token inválido ou expirado.
+                    {tokenDoLink ? 'Este link é inválido ou expirou. Peça um novo à escola.' : 'Token inválido ou expirado.'}
                   </div>
                 )}
               </div>

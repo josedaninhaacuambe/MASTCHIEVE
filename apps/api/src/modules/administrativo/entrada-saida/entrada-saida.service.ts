@@ -4,10 +4,19 @@ import { AuditService } from '../../../common/audit/audit.service';
 import { CreatePessoaAutorizadaDto } from './dto/create-pessoa-autorizada.dto';
 import { CreateRegistoDto } from './dto/create-registo.dto';
 import { BulkRegistoDto } from './dto/create-registo-bulk.dto';
+import { validarHoraManual } from './hora-manual.util';
 
 @Injectable()
 export class EntradaSaidaService {
   constructor(private prisma: PrismaService, private audit: AuditService) {}
+
+  private lerHoraManual(valor?: string): Date | undefined {
+    if (!valor) return undefined;
+    const hora = new Date(valor);
+    const erro = validarHoraManual(hora);
+    if (erro) throw new BadRequestException(erro);
+    return hora;
+  }
 
   async findPessoasAutorizadas(studentId: string) {
     return this.prisma.pessoaAutorizada.findMany({
@@ -58,13 +67,11 @@ export class EntradaSaidaService {
   async createRegisto(dto: CreateRegistoDto, actorUserId: string) {
     const student = await this.prisma.student.findUnique({ where: { id: dto.studentId } });
     if (!student) throw new NotFoundException('Atleta não encontrado');
+    const dataHora = this.lerHoraManual(dto.dataHora);
 
     if (dto.tipo === 'SAIDA' || dto.tipo === 'CANCELAMENTO') {
       if (dto.tipo === 'CANCELAMENTO' && !dto.justificativa?.trim()) {
         throw new BadRequestException('Cancelamento de entrada exige uma justificação');
-      }
-      if (dto.tipo === 'SAIDA' && !dto.pessoaAutorizadaId && !dto.justificativa?.trim()) {
-        throw new BadRequestException('Saída exige uma pessoa autorizada válida ou uma justificação');
       }
       if (dto.pessoaAutorizadaId) {
         const pessoa = await this.prisma.pessoaAutorizada.findUnique({ where: { id: dto.pessoaAutorizadaId } });
@@ -79,18 +86,17 @@ export class EntradaSaidaService {
         studentId: dto.studentId,
         tipo: dto.tipo,
         pessoaAutorizadaId: dto.pessoaAutorizadaId,
-        justificativa: dto.justificativa,
+        justificativa: dto.justificativa?.trim() || undefined,
         registadoPorId: actorUserId,
+        ...(dataHora && { dataHora }),
       },
     });
-    await this.audit.log({ userId: actorUserId, action: 'REGISTO_ENTRADA_SAIDA_CRIADO', entity: 'RegistoEntradaSaidaAluno', entityId: registo.id, newValues: { tipo: dto.tipo, studentId: dto.studentId } });
+    await this.audit.log({ userId: actorUserId, action: 'REGISTO_ENTRADA_SAIDA_CRIADO', entity: 'RegistoEntradaSaidaAluno', entityId: registo.id, newValues: { tipo: dto.tipo, studentId: dto.studentId, ...(dataHora && { horaManual: true, dataHora }) } });
     return registo;
   }
 
   async createRegistoBulk(dto: BulkRegistoDto, actorUserId: string) {
-    if (dto.tipo === 'SAIDA' && !dto.justificativa?.trim()) {
-      throw new BadRequestException('Saída em grupo exige uma justificação partilhada');
-    }
+    const dataHora = this.lerHoraManual(dto.dataHora);
 
     const studentIds = [...new Set(dto.studentIds)];
     const students = await this.prisma.student.findMany({ where: { id: { in: studentIds } }, select: { id: true } });
@@ -106,8 +112,9 @@ export class EntradaSaidaService {
           data: {
             studentId,
             tipo: dto.tipo,
-            justificativa: dto.tipo === 'SAIDA' ? dto.justificativa : undefined,
+            justificativa: dto.tipo === 'SAIDA' ? dto.justificativa?.trim() || undefined : undefined,
             registadoPorId: actorUserId,
+            ...(dataHora && { dataHora }),
           },
         }),
       ),
@@ -117,7 +124,7 @@ export class EntradaSaidaService {
       userId: actorUserId,
       action: 'REGISTO_ENTRADA_SAIDA_BULK_CRIADO',
       entity: 'RegistoEntradaSaidaAluno',
-      newValues: { tipo: dto.tipo, count: registos.length, studentIds },
+      newValues: { tipo: dto.tipo, count: registos.length, studentIds, ...(dataHora && { horaManual: true, dataHora }) },
     });
 
     return { count: registos.length, tipo: dto.tipo };

@@ -1,16 +1,24 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, ConflictException } from '@nestjs/common';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
+import { randomBytes } from 'crypto';
+import * as bcrypt from 'bcryptjs';
+import { isEmail } from 'class-validator';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
+import { EmailService } from '../email/email.service';
+import { gerarTokenReset, VALIDADE_CONVITE_MS } from '../../common/utils/reset-token.util';
+import { CreateInstructorDto } from './dto/create-instructor.dto';
 
 const GESTAO_ROLES = ['ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN'];
 // Campos que um instrutor pode alterar no próprio perfil.
 const CAMPOS_PROPRIO_PERFIL = ['firstName', 'lastName', 'phone', 'bio', 'specializations'];
+// Campos que o staff de gestão pode alterar; email e unidades são tratados à parte.
+const CAMPOS_GESTAO = [...CAMPOS_PROPRIO_PERFIL, 'email', 'unidadeId', 'unidadeIds'];
 
 @Injectable()
 export class InstructorsService {
-  constructor(private prisma: PrismaService, private audit: AuditService) {}
+  constructor(private prisma: PrismaService, private audit: AuditService, private email: EmailService) {}
 
   /** Instrutor só gere o próprio perfil; staff de gestão gere qualquer um. */
   private async assertPodeGerir(id: string, actor: { id: string; role: string }) {
@@ -129,24 +137,26 @@ export class InstructorsService {
 
   async update(id: string, dto: any, actor?: { id: string; role: string }) {
     if (actor) await this.assertPodeGerir(id, actor);
-    await this.findOne(id);
-    let data: any = { ...dto };
-    if (actor && !GESTAO_ROLES.includes(actor.role)) {
-      data = Object.fromEntries(Object.entries(data).filter(([k]) => CAMPOS_PROPRIO_PERFIL.includes(k)));
+    const atual = await this.findOne(id);
+    const permitidos = !actor || GESTAO_ROLES.includes(actor.role) ? CAMPOS_GESTAO : CAMPOS_PROPRIO_PERFIL;
+    const data: any = Object.fromEntries(Object.entries(dto ?? {}).filter(([k]) => permitidos.includes(k)));
+    for (const campo of ['firstName', 'lastName']) {
+      if (campo in data && !String(data[campo] ?? '').trim()) throw new BadRequestException('O nome e o apelido são obrigatórios');
     }
     if (Array.isArray(data.specializations)) {
       data.specializations = JSON.stringify(data.specializations);
     }
-    delete data._count;
-    delete data.unidades;
-    delete data.unidade;
-    delete data.avatarUrl; // gerido apenas pelos endpoints /avatar
+    const novoEmail = typeof data.email === 'string' ? data.email.trim().toLowerCase() : undefined;
+    delete data.email;
+    const mudaEmail = !!novoEmail && novoEmail !== atual.user.email.toLowerCase();
+    if (mudaEmail) await this.assertEmailDeInstrutor(atual.userId, novoEmail!);
     const unidadeId: string | undefined = data.unidadeId;
     const unidadeIds: string[] | undefined = Array.isArray(data.unidadeIds) ? data.unidadeIds : undefined;
     delete data.unidadeId;
     delete data.unidadeIds;
 
     const updated = await this.prisma.instructor.update({ where: { id }, data });
+    if (mudaEmail) await this.prisma.user.update({ where: { id: atual.userId }, data: { email: novoEmail } });
 
     // Um instrutor pode estar ligado a várias unidades; unidadeId é a principal.
     if (unidadeId || unidadeIds) {
@@ -164,7 +174,92 @@ export class InstructorsService {
       ]);
     }
 
+    if (actor) {
+      await this.audit.log({
+        userId: actor.id, action: 'INSTRUTOR_ATUALIZADO', entity: 'Instructor', entityId: id,
+        oldValues: { firstName: atual.firstName, lastName: atual.lastName, email: atual.user.email },
+        newValues: { firstName: updated.firstName, lastName: updated.lastName, email: mudaEmail ? novoEmail : atual.user.email },
+      });
+    }
+
     return updated;
+  }
+
+  /** O email é o login: só muda em contas de instrutor e nunca para um email já usado. */
+  private async assertEmailDeInstrutor(userId: string, email: string) {
+    if (!isEmail(email)) throw new BadRequestException('Email inválido');
+    const conta = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (conta?.role !== 'INSTRUCTOR') throw new ForbiddenException('O email desta conta só pode ser alterado na Gestão de Utilizadores');
+    const emUso = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (emUso && emUso.id !== userId) throw new ConflictException('Este email já está em uso');
+  }
+
+  /** Cria a conta com uma palavra-passe aleatória que ninguém conhece; o acesso é dado por gerarAcesso. */
+  async create(dto: CreateInstructorDto, actor: { id: string; role: string }) {
+    const email = dto.email.trim().toLowerCase();
+    const firstName = dto.firstName.trim();
+    const lastName = dto.lastName.trim();
+    if (!firstName || !lastName) throw new BadRequestException('O nome e o apelido são obrigatórios');
+    if (await this.prisma.user.findUnique({ where: { email }, select: { id: true } })) {
+      throw new ConflictException('Este email já está em uso');
+    }
+
+    const unidades = Array.from(new Set([...(dto.unidadeIds ?? []), ...(dto.unidadeId ? [dto.unidadeId] : [])]));
+    const principal = dto.unidadeId ?? unidades[0];
+    if (unidades.length && (await this.prisma.unidade.count({ where: { id: { in: unidades } } })) !== unidades.length) {
+      throw new BadRequestException('Unidade inválida');
+    }
+
+    const password = await bcrypt.hash(randomBytes(32).toString('hex'), 12);
+    const inst = await this.prisma.instructor.create({
+      data: {
+        firstName,
+        lastName,
+        phone: dto.phone?.trim() || undefined,
+        specializations: '[]',
+        user: { create: { email, password, role: 'INSTRUCTOR' } },
+        unidades: { create: unidades.map((unidadeId) => ({ unidadeId, isPrimary: unidadeId === principal })) },
+      },
+    });
+    await this.audit.log({
+      userId: actor.id, action: 'INSTRUTOR_CRIADO', entity: 'Instructor', entityId: inst.id,
+      newValues: { firstName, lastName, email, unidades },
+    });
+    return this.findOne(inst.id);
+  }
+
+  /**
+   * Link individual para o instrutor definir a própria palavra-passe.
+   * Só para contas de instrutor: não pode servir para entrar em contas com mais permissões.
+   */
+  async gerarAcesso(id: string, actor: { id: string; role: string }) {
+    const inst = await this.prisma.instructor.findUnique({
+      where: { id },
+      select: { firstName: true, isActive: true, user: { select: { id: true, email: true, role: true, isActive: true } } },
+    });
+    if (!inst) throw new NotFoundException('Instrutor não encontrado');
+    if (inst.user.role !== 'INSTRUCTOR') throw new ForbiddenException('Esta conta não tem o perfil de instrutor');
+    if (!inst.isActive || !inst.user.isActive) throw new BadRequestException('Activa o instrutor antes de lhe dar acesso');
+
+    const { token, armazenado, expiraEm } = gerarTokenReset(VALIDADE_CONVITE_MS);
+    await this.prisma.user.update({ where: { id: inst.user.id }, data: { refreshToken: armazenado } });
+
+    const appUrl = (process.env.APP_URL ?? process.env.FRONTEND_URL ?? 'http://localhost:4300').replace(/\/$/, '');
+    // false quando o SMTP não está configurado ou falhou: nunca se assume que o email chegou
+    const emailEnviado = await this.email.sendComunicacao(
+      inst.user.email,
+      'Acesso à plataforma Mastchieve',
+      `Olá ${inst.firstName}! Define a tua palavra-passe através deste link, válido durante 72 horas. Depois entra com o email ${inst.user.email}.`,
+      `${appUrl}/forgot-password?token=${token}`,
+      'Definir palavra-passe',
+    ).catch(() => false);
+
+    // O token nunca vai para a auditoria
+    await this.audit.log({
+      userId: actor.id, action: 'INSTRUTOR_ACESSO_GERADO', entity: 'Instructor', entityId: id,
+      newValues: { email: inst.user.email, emailEnviado, expiraEm },
+    });
+    return { token, email: inst.user.email, expiraEm, emailEnviado };
   }
 
   async setAvatar(id: string, file: Express.Multer.File, actor: { id: string; role: string }) {

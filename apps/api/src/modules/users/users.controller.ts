@@ -1,5 +1,6 @@
 import { Controller, Get, Patch, Delete, Param, Query, Body, UseGuards, Post } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { IsString, IsOptional, MinLength, IsEmail, IsArray, ArrayMinSize } from 'class-validator';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -67,6 +68,8 @@ export class UsersController {
   }
 
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ short: { limit: 2, ttl: 1000 }, medium: { limit: 5, ttl: 60000 } })
   @Post('forgot-password')
   @ApiOperation({ summary: 'Solicitar redefinição de senha' })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -74,6 +77,8 @@ export class UsersController {
   }
 
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ short: { limit: 2, ttl: 1000 }, medium: { limit: 10, ttl: 60000 } })
   @Post('reset-password')
   @ApiOperation({ summary: 'Redefinir senha com token' })
   resetPassword(@Body() dto: ResetPasswordDto) {

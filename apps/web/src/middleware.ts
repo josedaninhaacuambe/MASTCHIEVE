@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 // Routes accessible without any authentication
 const PUBLIC_PATHS = [
-  '/', '/login', '/register',
+  '/', '/login', '/register', '/forgot-password',
   '/newsletter', '/open-day', '/programa-anual', '/treinador-cliente', '/video-inducao',
 ];
 

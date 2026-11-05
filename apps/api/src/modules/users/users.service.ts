@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma/prisma.service';
+import { EmailService } from '../email/email.service';
+import { gerarTokenReset, prefixoReset, tokenResetValido, VALIDADE_RECUPERACAO_MS } from '../../common/utils/reset-token.util';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private email: EmailService) {}
 
   async findAll(query: any) {
     const { page = 1, limit = 20, role, search } = query;
@@ -209,17 +211,25 @@ export class UsersService {
   async forgotPassword(email: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     // Always return success to prevent user enumeration
-    if (!user) return { message: 'Se o email existir, receberá as instruções em breve' };
-    const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    if (!user || !user.isActive) return { message: 'Se o email existir, receberá as instruções em breve' };
+    const { token, armazenado } = gerarTokenReset(VALIDADE_RECUPERACAO_MS);
     // Store token (using refreshToken field as reset token for simplicity)
-    await this.prisma.user.update({ where: { id: user.id }, data: { refreshToken: `reset:${token}` } });
-    // In production this would send an email; for now return token in dev
+    await this.prisma.user.update({ where: { id: user.id }, data: { refreshToken: armazenado } });
+    // Sem await: o tempo de resposta não pode revelar se o email existe
+    const appUrl = (process.env.APP_URL ?? process.env.FRONTEND_URL ?? 'http://localhost:4300').replace(/\/$/, '');
+    this.email.sendComunicacao(
+      user.email,
+      'Recuperar acesso',
+      'Recebemos um pedido para redefinir a sua palavra-passe. O link é válido durante 1 hora. Se não fez este pedido, ignore este email.',
+      `${appUrl}/forgot-password?token=${token}`,
+      'Definir nova palavra-passe',
+    ).catch(() => false);
     return { message: 'Se o email existir, receberá as instruções em breve', devToken: process.env.NODE_ENV === 'development' ? token : undefined };
   }
 
   async resetPassword(token: string, newPassword: string) {
-    const user = await this.prisma.user.findFirst({ where: { refreshToken: `reset:${token}` } });
-    if (!user) throw new BadRequestException('Token inválido ou expirado');
+    const user = await this.prisma.user.findFirst({ where: { refreshToken: { startsWith: prefixoReset(token) } } });
+    if (!user || !tokenResetValido(user.refreshToken, token)) throw new BadRequestException('Token inválido ou expirado');
     const hashed = await bcrypt.hash(newPassword, 12);
     await this.prisma.user.update({ where: { id: user.id }, data: { password: hashed, refreshToken: null } });
     return { message: 'Palavra-passe redefinida com sucesso' };

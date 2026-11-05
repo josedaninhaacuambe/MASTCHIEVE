@@ -5,12 +5,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { getInitials, formatDate, cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
+import { useAuthStore } from '@/stores/auth.store';
 import {
   GraduationCap, Search, BookOpen, Users, MessageSquare,
   ChevronRight, X, Edit2, Bell, Power, PowerOff,
   Mail, Phone, Calendar, Star, TrendingUp, Activity,
   CheckCircle, XCircle, BarChart3, Award, Zap, Filter,
-  Plus, Eye, ArrowUpDown, Shield, Building2, AlertCircle, RefreshCw,
+  Plus, Eye, ArrowUpDown, Shield, Building2, AlertCircle, RefreshCw, KeyRound, Copy,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -128,12 +129,16 @@ function DetailDrawer({
   onEdit,
   onNotify,
   onToggle,
+  onAcesso,
+  eAdmin,
 }: {
   instructorId: string;
   onClose: () => void;
   onEdit: (inst: Instructor) => void;
   onNotify: (inst: Instructor) => void;
   onToggle: (id: string, current: boolean) => void;
+  onAcesso: (inst: Instructor) => void;
+  eAdmin: boolean;
 }) {
   const { data: inst, isLoading } = useQuery<Instructor>({
     queryKey: ['instructor-detail', instructorId],
@@ -197,26 +202,34 @@ function DetailDrawer({
         {inst && (
           <>
             {/* Action buttons */}
-            <div className="flex gap-2 p-4 border-b border-gray-100 bg-gray-50">
+            <div className="flex flex-wrap gap-2 p-4 border-b border-gray-100 bg-gray-50">
               <button onClick={() => onEdit(inst)}
                 className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition">
                 <Edit2 className="w-3.5 h-3.5" /> Editar
               </button>
-              <button onClick={() => onNotify(inst)}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-xl hover:bg-violet-50 hover:border-violet-200 hover:text-violet-700 transition">
-                <Bell className="w-3.5 h-3.5" /> Notificar
+              <button onClick={() => onAcesso(inst)}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-xl hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700 transition">
+                <KeyRound className="w-3.5 h-3.5" /> Acesso
               </button>
+              {eAdmin && (
+                <button onClick={() => onNotify(inst)}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-xl hover:bg-violet-50 hover:border-violet-200 hover:text-violet-700 transition">
+                  <Bell className="w-3.5 h-3.5" /> Notificar
+                </button>
+              )}
               <button onClick={() => inst?.user?.email && window.open(`mailto:${inst.user.email}`)}
                 className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-xl hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition">
                 <Mail className="w-3.5 h-3.5" /> Email
               </button>
-              <button onClick={() => onToggle(inst.id, inst.isActive)}
-                className={cn('flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl border transition',
-                  inst.isActive
-                    ? 'bg-white border-red-200 text-red-600 hover:bg-red-50'
-                    : 'bg-white border-green-200 text-green-600 hover:bg-green-50')}>
-                {inst.isActive ? <><PowerOff className="w-3.5 h-3.5" /> Desativar</> : <><Power className="w-3.5 h-3.5" /> Ativar</>}
-              </button>
+              {eAdmin && (
+                <button onClick={() => onToggle(inst.id, inst.isActive)}
+                  className={cn('flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl border transition',
+                    inst.isActive
+                      ? 'bg-white border-red-200 text-red-600 hover:bg-red-50'
+                      : 'bg-white border-green-200 text-green-600 hover:bg-green-50')}>
+                  {inst.isActive ? <><PowerOff className="w-3.5 h-3.5" /> Desativar</> : <><Power className="w-3.5 h-3.5" /> Ativar</>}
+                </button>
+              )}
             </div>
 
             <div className="p-5 space-y-6 flex-1">
@@ -365,6 +378,7 @@ function EditModal({
   const [form, setForm] = useState({
     firstName: instructor.firstName,
     lastName: instructor.lastName,
+    email: instructor.user?.email ?? '',
     phone: instructor.phone ?? '',
     bio: instructor.bio ?? '',
     specializations: (instructor.specializations ?? []).join(', '),
@@ -467,6 +481,16 @@ function EditModal({
               </div>
             ))}
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Email de acesso</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+            />
+            <p className="text-[11px] text-gray-400 mt-1">É com este email que o instrutor entra no sistema.</p>
+          </div>
           <div className="flex items-center gap-4">
             {preview || avatarSrc(avatar)
               ? <img src={preview ?? avatarSrc(avatar)!} alt="" className={cn('w-16 h-16 rounded-2xl object-cover border border-gray-200', aEnviarFoto && 'opacity-50')} />
@@ -544,11 +568,181 @@ function EditModal({
           </button>
           <button
             onClick={() => mutation.mutate()}
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || !form.firstName.trim() || !form.lastName.trim() || !form.email.trim()}
             className="flex-1 px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition">
             {mutation.isPending ? 'A guardar...' : 'Guardar alterações'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Novo instrutor ───────────────────────────────────────────────────────────
+function NovoInstrutorModal({ onClose, onCriado }: { onClose: () => void; onCriado: (inst: Instructor) => void }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '' });
+  const [unidadeIds, setUnidadeIds] = useState<string[]>([]);
+  const { data: unidades = [] } = useQuery<{ id: string; nome: string }[]>({
+    queryKey: ['unidades'],
+    queryFn: async () => { const { data } = await api.get('/unidades'); return data.data ?? data; },
+    staleTime: 300_000,
+  });
+
+  const mutation = useMutation({
+    mutationFn: () => api.post('/instructors', {
+      firstName: form.firstName,
+      lastName: form.lastName,
+      email: form.email,
+      phone: form.phone || undefined,
+      unidadeIds,
+    }),
+    onSuccess: (res) => {
+      toast.success('Instrutor registado');
+      qc.invalidateQueries({ queryKey: ['instructors'] });
+      onCriado(res.data.data);
+    },
+    onError: (e: any) => toast.error('Erro ao registar instrutor', e?.response?.data?.message),
+  });
+
+  const campo = 'w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400';
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[92vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-gray-900">Novo instrutor</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 transition">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Primeiro nome*</label>
+              <input value={form.firstName} onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))} className={campo} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Apelido*</label>
+              <input value={form.lastName} onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))} className={campo} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Email de acesso*</label>
+            <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={campo} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Telemóvel</label>
+            <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+258 84 000 0000" className={campo} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Unidades</label>
+            <div className="space-y-1.5">
+              {unidades.map((u) => (
+                <label key={u.id} className="flex items-center gap-2 text-sm text-gray-700 border border-gray-200 rounded-xl px-3 py-2">
+                  <input type="checkbox" className="accent-blue-600" checked={unidadeIds.includes(u.id)}
+                    onChange={() => setUnidadeIds((ids) => (ids.includes(u.id) ? ids.filter((x) => x !== u.id) : [...ids, u.id]))} />
+                  {u.nome}
+                </label>
+              ))}
+              {unidades.length === 0 && <p className="text-xs text-gray-400">Sem unidades configuradas</p>}
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 text-sm font-medium border border-gray-200 rounded-xl hover:bg-gray-50 transition">
+            Cancelar
+          </button>
+          <button
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending || !form.firstName.trim() || !form.lastName.trim() || !form.email.trim()}
+            className="flex-1 px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition">
+            {mutation.isPending ? 'A registar...' : 'Registar instrutor'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Acesso do instrutor ──────────────────────────────────────────────────────
+function AcessoModal({ instructor, onClose }: { instructor: Instructor; onClose: () => void }) {
+  const [acesso, setAcesso] = useState<{ token: string; email: string; expiraEm: string; emailEnviado: boolean } | null>(null);
+  const mutation = useMutation({
+    mutationFn: () => api.post(`/instructors/${instructor.id}/acesso`),
+    onSuccess: (res) => setAcesso(res.data.data),
+    onError: (e: any) => toast.error('Erro ao gerar o acesso', e?.response?.data?.message),
+  });
+
+  const link = acesso ? `${window.location.origin}/forgot-password?token=${acesso.token}` : '';
+  const copiar = async () => {
+    const mensagem = `Olá ${instructor.firstName}! Para entrares na plataforma Mastchieve, define a tua palavra-passe neste link (válido até ${formatDate(acesso!.expiraEm, 'dd/MM/yyyy HH:mm')}): ${link}\nDepois entra com o email: ${acesso!.email}`;
+    try {
+      await navigator.clipboard.writeText(mensagem);
+      toast.success('Mensagem copiada');
+    } catch {
+      toast.error('Não foi possível copiar', 'Selecciona e copia o link manualmente');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Acesso ao sistema</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{instructor.firstName} {instructor.lastName} · {instructor.user?.email}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 transition">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        {!acesso ? (
+          <>
+            <p className="text-sm text-gray-600">
+              Gera um link pessoal, válido durante 72 horas e de utilização única, para o instrutor definir a própria palavra-passe.
+            </p>
+            {instructor.user?.lastLoginAt && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-3">
+                Este instrutor já acedeu ao sistema. O link substitui a palavra-passe actual assim que for usado.
+              </p>
+            )}
+            <div className="flex gap-3 mt-5">
+              <button onClick={onClose} className="flex-1 px-4 py-2.5 text-sm font-medium border border-gray-200 rounded-xl hover:bg-gray-50 transition">
+                Cancelar
+              </button>
+              <button onClick={() => mutation.mutate()} disabled={mutation.isPending}
+                className="flex-1 px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition">
+                {mutation.isPending ? 'A gerar...' : 'Gerar link'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="space-y-3">
+            <p className={cn('text-xs rounded-lg px-3 py-2 border',
+              acesso.emailEnviado ? 'text-green-700 bg-green-50 border-green-100' : 'text-amber-700 bg-amber-50 border-amber-100')}>
+              {acesso.emailEnviado
+                ? `Email enviado para ${acesso.email}. Confirma com o instrutor se o recebeu.`
+                : 'O email não foi enviado. Envia este link directamente ao instrutor.'}
+            </p>
+            <input readOnly value={link} onFocus={(e) => e.target.select()}
+              className="w-full text-xs font-mono border border-gray-200 rounded-xl px-3 py-2 bg-gray-50" />
+            <p className="text-xs text-gray-500">
+              Válido até {formatDate(acesso.expiraEm, 'dd/MM/yyyy HH:mm')}. Envia só a este instrutor: quem tiver o link pode definir a palavra-passe da conta. Este link não volta a ser mostrado.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={onClose} className="flex-1 px-4 py-2.5 text-sm font-medium border border-gray-200 rounded-xl hover:bg-gray-50 transition">
+                Fechar
+              </button>
+              <button onClick={copiar}
+                className="flex-1 px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition flex items-center justify-center gap-2">
+                <Copy className="w-4 h-4" /> Copiar mensagem
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -645,12 +839,16 @@ function InstructorCard({
   onEdit,
   onNotify,
   onToggle,
+  onAcesso,
+  eAdmin,
 }: {
   inst: Instructor;
   onView: () => void;
   onEdit: () => void;
   onNotify: () => void;
   onToggle: () => void;
+  onAcesso: () => void;
+  eAdmin: boolean;
 }) {
   const activity = activityStatus(inst.user?.lastLoginAt);
 
@@ -740,15 +938,23 @@ function InstructorCard({
           className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition">
           <Edit2 className="w-3.5 h-3.5" /> Editar
         </button>
-        <button onClick={onNotify}
-          className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 rounded-lg transition">
-          <Bell className="w-3.5 h-3.5" /> Avisar
+        <button onClick={onAcesso}
+          className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition">
+          <KeyRound className="w-3.5 h-3.5" /> Acesso
         </button>
-        <button onClick={onToggle}
-          className={cn('flex items-center justify-center py-1.5 px-2 rounded-lg transition',
-            inst.isActive ? 'text-red-500 bg-red-50 hover:bg-red-100' : 'text-green-600 bg-green-50 hover:bg-green-100')}>
-          {inst.isActive ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
-        </button>
+        {eAdmin && (
+          <>
+            <button onClick={onNotify} title="Avisar"
+              className="flex items-center justify-center py-1.5 px-2 text-violet-600 bg-violet-50 hover:bg-violet-100 rounded-lg transition">
+              <Bell className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={onToggle}
+              className={cn('flex items-center justify-center py-1.5 px-2 rounded-lg transition',
+                inst.isActive ? 'text-red-500 bg-red-50 hover:bg-red-100' : 'text-green-600 bg-green-50 hover:bg-green-100')}>
+              {inst.isActive ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -763,6 +969,10 @@ export default function InstructorsPage() {
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [editingInst, setEditingInst] = useState<Instructor | null>(null);
   const [notifyingInst, setNotifyingInst] = useState<Instructor | null>(null);
+  const [acessoInst, setAcessoInst] = useState<Instructor | null>(null);
+  const [aCriar, setACriar] = useState(false);
+  const role = useAuthStore((s) => s.user?.role);
+  const eAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['instructors', search, filter],
@@ -810,11 +1020,16 @@ export default function InstructorsPage() {
   return (
     <div className="space-y-6">
       {/* Title + Search */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Instrutores</h1>
           <p className="text-gray-500 text-sm mt-1">Equipa docente e estatísticas de desempenho</p>
         </div>
+        <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={() => setACriar(true)}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition">
+          <Plus className="w-4 h-4" /> Novo instrutor
+        </button>
         <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
           <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <input
@@ -828,6 +1043,7 @@ export default function InstructorsPage() {
               <X className="w-3.5 h-3.5" />
             </button>
           )}
+        </div>
         </div>
       </div>
 
@@ -918,6 +1134,8 @@ export default function InstructorsPage() {
               onEdit={() => setEditingInst(inst)}
               onNotify={() => setNotifyingInst(inst)}
               onToggle={() => toggleMutation.mutate(inst.id)}
+              onAcesso={() => setAcessoInst(inst)}
+              eAdmin={eAdmin}
             />
           ))}
       </div>
@@ -941,10 +1159,14 @@ export default function InstructorsPage() {
             toggleMutation.mutate(id);
             setViewingId(null);
           }}
+          onAcesso={(inst) => { setViewingId(null); setAcessoInst(inst); }}
+          eAdmin={eAdmin}
         />
       )}
       {editingInst && <EditModal instructor={editingInst} onClose={() => setEditingInst(null)} />}
       {notifyingInst && <NotifyModal instructor={notifyingInst} onClose={() => setNotifyingInst(null)} />}
+      {aCriar && <NovoInstrutorModal onClose={() => setACriar(false)} onCriado={(inst) => { setACriar(false); setAcessoInst(inst); }} />}
+      {acessoInst && <AcessoModal instructor={acessoInst} onClose={() => setAcessoInst(null)} />}
     </div>
   );
 }

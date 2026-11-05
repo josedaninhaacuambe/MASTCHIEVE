@@ -17,7 +17,7 @@ export default function EntradaSaidaPage() {
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
-  const [form, setForm] = useState({ studentId: '', tipo: 'ENTRADA', pessoaAutorizadaId: '', justificativa: '' });
+  const [form, setForm] = useState({ studentId: '', tipo: 'ENTRADA', pessoaAutorizadaId: '', justificativa: '', hora: '' });
 
   const load = async () => {
     setLoading(true);
@@ -48,7 +48,7 @@ export default function EntradaSaidaPage() {
   }, [form.studentId]);
 
   const abrirNovo = () => {
-    setForm({ studentId: '', tipo: 'ENTRADA', pessoaAutorizadaId: '', justificativa: '' });
+    setForm({ studentId: '', tipo: 'ENTRADA', pessoaAutorizadaId: '', justificativa: '', hora: '' });
     setShowForm(true);
   };
 
@@ -60,6 +60,7 @@ export default function EntradaSaidaPage() {
         tipo: form.tipo,
         pessoaAutorizadaId: form.tipo === 'SAIDA' ? (form.pessoaAutorizadaId || undefined) : undefined,
         justificativa: form.tipo !== 'ENTRADA' ? (form.justificativa || undefined) : undefined,
+        dataHora: form.hora ? new Date(form.hora).toISOString() : undefined,
       });
       toast.success('Registo criado');
       setShowForm(false);
@@ -71,17 +72,14 @@ export default function EntradaSaidaPage() {
     }
   };
 
-  const saidaValida =
-    form.tipo === 'ENTRADA' ||
-    (form.tipo === 'SAIDA' && (!!form.pessoaAutorizadaId || !!form.justificativa.trim())) ||
-    (form.tipo === 'CANCELAMENTO' && !!form.justificativa.trim());
+  const formValido = form.tipo !== 'CANCELAMENTO' || !!form.justificativa.trim();
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Entrada e Saída dos Alunos</h1>
-          <p className="text-gray-500 text-sm mt-1">Controlo de entradas/saídas — saída exige pessoa autorizada ou justificação</p>
+          <p className="text-gray-500 text-sm mt-1">Controlo de entradas e saídas dos atletas</p>
         </div>
         <div className="flex items-center gap-3">
           <input type="date" value={data} onChange={(e) => setData(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
@@ -127,7 +125,12 @@ export default function EntradaSaidaPage() {
             <tbody className="divide-y divide-gray-100">
               {registos.map((r: any) => (
                 <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-500">{formatDate(r.dataHora, 'dd/MM/yyyy HH:mm')}</td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {formatDate(r.dataHora, 'dd/MM/yyyy HH:mm')}
+                    {Math.abs(new Date(r.dataHora).getTime() - new Date(r.createdAt).getTime()) > 60_000 && (
+                      <span title={`Lançado em ${formatDate(r.createdAt, 'dd/MM/yyyy HH:mm')}`} className="ml-2 px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-xs font-medium">Manual</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 font-medium text-gray-900">{r.student?.firstName} {r.student?.lastName}</td>
                   <td className="px-4 py-3">
                     <span className={cn('px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit',
@@ -173,6 +176,11 @@ export default function EntradaSaidaPage() {
                 </button>
               ))}
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Hora <span className="text-gray-400 font-normal">(opcional)</span></label>
+              <input type="datetime-local" value={form.hora} onChange={(e) => setForm((f) => ({ ...f, hora: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              <p className="text-xs text-gray-400 mt-1">Em branco usa a hora actual. Indica a hora real ao lançar um registo anotado antes (até 7 dias).</p>
+            </div>
             {form.tipo === 'CANCELAMENTO' && (
               <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                 Usa esta opção quando o atleta chegou à escola mas teve de sair antes da aula começar (ex: emergência). A justificação é obrigatória.
@@ -188,21 +196,21 @@ export default function EntradaSaidaPage() {
                       {pessoasAutorizadas.map((p: any) => <option key={p.id} value={p.id}>{p.nome} ({p.parentesco})</option>)}
                     </select>
                     {form.studentId && pessoasAutorizadas.length === 0 && (
-                      <p className="text-xs text-amber-600 mt-1">Sem pessoas autorizadas registadas — indica uma justificação.</p>
+                      <p className="text-xs text-gray-400 mt-1">Sem pessoas autorizadas registadas para este atleta.</p>
                     )}
                   </div>
                 )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Justificação {(form.tipo === 'CANCELAMENTO' || !form.pessoaAutorizadaId) && '*'}
+                    {form.tipo === 'CANCELAMENTO' ? 'Justificação*' : <>Observação <span className="text-gray-400 font-normal">(opcional)</span></>}
                   </label>
-                  <textarea value={form.justificativa} onChange={(e) => setForm((f) => ({ ...f, justificativa: e.target.value }))} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder={form.tipo === 'CANCELAMENTO' ? 'Ex: mal-estar súbito, emergência familiar...' : 'Obrigatória se não houver pessoa autorizada selecionada'} />
+                  <textarea value={form.justificativa} onChange={(e) => setForm((f) => ({ ...f, justificativa: e.target.value }))} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder={form.tipo === 'CANCELAMENTO' ? 'Ex: mal-estar súbito, emergência familiar...' : 'Ex: saiu mais cedo a pedido do encarregado'} />
                 </div>
               </>
             )}
             <div className="flex gap-3 pt-2">
               <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
-              <button onClick={salvar} disabled={!form.studentId || !saidaValida || saving} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
+              <button onClick={salvar} disabled={!form.studentId || !formValido || saving} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">
                 {saving ? 'A registar...' : 'Registar'}
               </button>
             </div>

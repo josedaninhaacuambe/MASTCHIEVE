@@ -1,7 +1,9 @@
-import { IsEmail, IsString, MinLength, IsEnum, IsOptional } from 'class-validator';
+import { IsEmail, IsIn, IsString, MinLength, IsEnum, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export const RoleValues = ['ADMIN', 'INSTRUCTOR', 'STUDENT', 'PARENT', 'FINANCIAL', 'MANAGER', 'VISITOR', 'GESTOR_RH', 'SUPER_ADMIN'] as const;
+// A rota de registo é pública: perfis com mais permissões só são criados por quem já gere o sistema.
+export const PublicRoleValues = ['STUDENT', 'INSTRUCTOR', 'VISITOR'] as const;
 const GenderValues = ['MALE', 'FEMALE', 'OTHER'] as const;
 
 export class RegisterDto {
@@ -14,8 +16,8 @@ export class RegisterDto {
   @MinLength(8)
   password: string;
 
-  @ApiProperty({ enum: RoleValues })
-  @IsEnum(RoleValues)
+  @ApiProperty({ enum: PublicRoleValues })
+  @IsIn(PublicRoleValues, { message: 'Este perfil não está disponível no registo público' })
   role: string;
 
   @ApiProperty()

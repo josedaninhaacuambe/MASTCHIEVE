@@ -18,6 +18,7 @@ export function BulkEntradaSaidaModal({ onClose, onSaved }: BulkEntradaSaidaModa
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [tipo, setTipo] = useState<'ENTRADA' | 'SAIDA'>('ENTRADA');
   const [justificativa, setJustificativa] = useState('');
+  const [hora, setHora] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -49,7 +50,7 @@ export function BulkEntradaSaidaModal({ onClose, onSaved }: BulkEntradaSaidaModa
     setSelected((prev) => (prev.size === students.length ? new Set() : new Set(students.map((s) => s.id))));
   };
 
-  const valido = selected.size > 0 && (tipo === 'ENTRADA' || justificativa.trim().length > 0);
+  const valido = selected.size > 0;
 
   const salvar = async () => {
     setSaving(true);
@@ -57,7 +58,8 @@ export function BulkEntradaSaidaModal({ onClose, onSaved }: BulkEntradaSaidaModa
       const r = await api.post('/entrada-saida/registos/bulk', {
         studentIds: Array.from(selected),
         tipo,
-        justificativa: tipo === 'SAIDA' ? justificativa.trim() : undefined,
+        justificativa: tipo === 'SAIDA' ? justificativa.trim() || undefined : undefined,
+        dataHora: hora ? new Date(hora).toISOString() : undefined,
       });
       toast.success(`${r.data.data?.count ?? selected.size} registos criados`);
       onSaved();
@@ -100,9 +102,15 @@ export function BulkEntradaSaidaModal({ onClose, onSaved }: BulkEntradaSaidaModa
           ))}
         </div>
 
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Hora <span className="text-gray-400 font-normal">(opcional)</span></label>
+          <input type="datetime-local" value={hora} onChange={(e) => setHora(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+          <p className="text-xs text-gray-400 mt-1">Em branco usa a hora actual. Indica a hora real ao lançar um registo anotado antes (até 7 dias).</p>
+        </div>
+
         {tipo === 'SAIDA' && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Justificação (aplicada a todo o grupo)*</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Observação para todo o grupo <span className="text-gray-400 font-normal">(opcional)</span></label>
             <textarea value={justificativa} onChange={(e) => setJustificativa(e.target.value)} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Ex: Fim de aula — recolhidos pelos encarregados no portão" />
             <p className="text-xs text-gray-400 mt-1">Para confirmar uma pessoa autorizada específica por atleta, usa o registo individual.</p>
           </div>

@@ -1,4 +1,4 @@
-import { IsArray, ArrayMinSize, IsString, IsOptional, IsEnum } from 'class-validator';
+import { IsArray, ArrayMinSize, IsString, IsOptional, IsEnum, IsDateString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export const TipoRegistoBulkValues = ['ENTRADA', 'SAIDA'] as const;
@@ -12,6 +12,9 @@ export class BulkRegistoDto {
   @IsEnum(TipoRegistoBulkValues)
   tipo: string;
 
-  @ApiPropertyOptional({ description: 'Obrigatória quando tipo=SAIDA — aplicada a todos os alunos selecionados' })
+  @ApiPropertyOptional({ description: 'Opcional — aplicada a todos os alunos selecionados quando tipo=SAIDA' })
   @IsOptional() @IsString() justificativa?: string;
+
+  @ApiPropertyOptional({ description: 'Hora real do registo, se for lançado mais tarde. Sem valor, usa a hora actual.' })
+  @IsOptional() @IsDateString() dataHora?: string;
 }
