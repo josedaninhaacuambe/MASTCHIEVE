@@ -13,8 +13,8 @@
  *        --backup=/limpeza/backup.sql --confirmar                                            (remove)
  *
  * Regra: mantém-se sempre quem foi cadastrado por um ASSISTENTE_ADMIN (registo STUDENT_CRIADO).
- * O registo do autor só existe desde ~20/08/2026: atletas mais antigos não têm autor e vão
- * para revisão manual em vez de serem marcados para remoção.
+ * Só os dados de teste reconhecidos (nomes/emails do seed) ficam marcados para remoção; os restantes
+ * (sem autor, importados por administradores, auto-registos) vão para revisão manual, comentados.
  */
 const fs = require('fs');
 const path = require('path');
@@ -48,9 +48,6 @@ const EMAILS_SEED = new Set([
 ]);
 const emailDeSeed = (/** @type {string | null | undefined} */ e) =>
   !!e && (EMAILS_SEED.has(e.toLowerCase()) || /@(email|example)\.com$/i.test(e));
-
-// Alertas que impedem a marcação automática: o atleta pode ser real.
-const ALERTAS_RISCO = ['SEM_AUTOR_ANTERIOR_AUDITORIA', 'PAGAMENTOS_PAGOS', 'ACTIVIDADE_DE_ASSISTENTE'];
 
 const data = (/** @type {Date | null | undefined} */ d) => (d ? d.toISOString().slice(0, 16).replace('T', ' ') : '');
 const celula = (/** @type {unknown} */ v) => {
@@ -113,11 +110,9 @@ async function classificar() {
 
     let decisao;
     if (autor?.user.role === 'ASSISTENTE_ADMIN') decisao = 'MANTER';
-    else {
-      // Dados do seed dispensam os alertas de data e pagamentos, mas nunca a actividade de um assistente.
-      const riscos = alertas.filter((a) => ALERTAS_RISCO.includes(a) && !(seed && a !== 'ACTIVIDADE_DE_ASSISTENTE'));
-      decisao = riscos.length ? 'REVER' : 'REMOVER';
-    }
+    else if (!seed) decisao = 'REVER'; // importações de administradores e auto-registos podem ser atletas reais
+    // Dados do seed dispensam os alertas de data e pagamentos, mas nunca a actividade de um assistente.
+    else decisao = alertas.includes('ACTIVIDADE_DE_ASSISTENTE') ? 'REVER' : 'REMOVER';
     return { s, autor, pago, alertas, decisao };
   });
 }
@@ -164,6 +159,17 @@ async function relatorio() {
     }));
 
   const conta = (/** @type {string} */ d) => linhas.filter((l) => l.decisao === d).length;
+  // Lotes: atletas REVER criados pelo mesmo autor na mesma hora (ex.: uma importação de ficheiro).
+  const lotes = new Map();
+  for (const { s, autor, alertas, decisao } of linhas) {
+    if (decisao !== 'REVER') continue;
+    const chave = `${data(s.createdAt).slice(0, 13)}h | ${autor ? `${autor.user.email} (${autor.user.role})` : 'sem autor'}`;
+    const lote = lotes.get(chave) ?? { total: 0, comActividade: 0, exemplos: [] };
+    lote.total++;
+    if (alertas.includes('ACTIVIDADE_DE_ASSISTENTE') || alertas.includes('PAGAMENTOS_PAGOS')) lote.comActividade++;
+    if (lote.exemplos.length < 3) lote.exemplos.push(`${s.firstName} ${s.lastName}`);
+    lotes.set(chave, lote);
+  }
   const resumo = [
     `Relatório gerado em ${new Date().toISOString()}`,
     `Atletas: ${linhas.length}`,
@@ -173,6 +179,9 @@ async function relatorio() {
     `Contas que não são de atleta: ${contas.length} (seed/teste: ${contas.filter((u) => emailDeSeed(u.email)).length}) — ver contas.csv; este script não as remove.`,
     `Totais: turmas ${await prisma.class.count()}, encarregados ${await prisma.parent.count()}, instrutores ${await prisma.instructor.count()},`
       + ` pagamentos ${await prisma.payment.count()}, eventos ${await prisma.evento.count()}, leads ${await prisma.lead.count()}`,
+    '',
+    'Atletas REVER por lote (criados por / hora) — com actividade = pagamentos pagos ou trabalho de assistente:',
+    ...[...lotes].map(([chave, l]) => `  ${chave}: ${l.total} atleta(s), ${l.comActividade} com actividade — ex.: ${l.exemplos.join(', ')}`),
   ].join('\n');
   fs.writeFileSync(path.join(PASTA, 'resumo.txt'), resumo + '\n', { mode: 0o600 });
   console.log(resumo);
@@ -188,7 +197,9 @@ async function remover(ficheiro, { confirmar, autorEmail, backup }) {
 
   const autor = autorEmail ? await prisma.user.findUnique({ where: { email: autorEmail.toLowerCase() } }) : null;
   if (!autor || !['ADMIN', 'SUPER_ADMIN'].includes(autor.role)) {
-    throw new Error('Indica --autor=<email de uma conta ADMIN ou SUPER_ADMIN> para ficar registado quem fez a limpeza.');
+    const admins = await prisma.user.findMany({ where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] }, isActive: true }, select: { email: true, role: true } });
+    throw new Error('Indica --autor=<email de uma conta ADMIN ou SUPER_ADMIN> para ficar registado quem fez a limpeza.\n'
+      + `Contas possíveis:\n${admins.map((a) => `  ${a.email} (${a.role})`).join('\n')}`);
   }
 
   // Classificação refeita agora: nunca se remove quem entretanto foi associado a um assistente.
