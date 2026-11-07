@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
+import { useDebounced } from '@/components/ui/student-search-select';
 import {
   Award, CheckCircle2, ChevronDown, ChevronRight,
   UserPlus, X, Search, Loader2, Trophy, Users, TrendingUp,
@@ -153,9 +154,10 @@ function AssignModal({ fase, config, onClose, onAssigned }: {
   const [loadError, setLoadError] = useState(false);
   const [assigning, setAssigning] = useState<string | null>(null);
 
+  const termo = useDebounced(search.trim());
   const loadStudents = useCallback(() => {
     setLoading(true);
-    api.get('/students?limit=100').then(r => {
+    api.get('/students', { params: { limit: 100, ...(termo && { search: termo }) } }).then(r => {
       const raw = r.data?.data ?? r.data;
       const arr: Student[] = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
       const assignedIds = new Set(fase.studentFases.map(sf => sf.studentId));
@@ -165,7 +167,7 @@ function AssignModal({ fase, config, onClose, onAssigned }: {
       setLoadError(true);
       toast.error('Erro ao carregar atletas', 'Tenta novamente');
     }).finally(() => setLoading(false));
-  }, [fase.studentFases]);
+  }, [fase.studentFases, termo]);
 
   useEffect(() => { loadStudents(); }, [loadStudents]);
 
@@ -221,7 +223,7 @@ function AssignModal({ fase, config, onClose, onAssigned }: {
             </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-6 text-gray-400 text-sm">
-              {students.length === 0 ? 'Todos os atletas já foram atribuídos' : 'Nenhum atleta encontrado'}
+              {students.length === 0 && !termo ? 'Todos os atletas já foram atribuídos' : 'Nenhum atleta encontrado'}
             </div>
           ) : (
             <div className="max-h-64 overflow-y-auto space-y-1">

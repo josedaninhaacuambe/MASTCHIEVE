@@ -5,10 +5,10 @@ import { toast } from '@/lib/toast';
 import { formatDate, cn } from '@/lib/utils';
 import { Plus, LogIn, LogOut, DoorOpen, XCircle, Users } from 'lucide-react';
 import { BulkEntradaSaidaModal } from './bulk-modal';
+import { StudentSearchSelect } from '@/components/ui/student-search-select';
 
 export default function EntradaSaidaPage() {
   const [registos, setRegistos] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
   const [pessoasAutorizadas, setPessoasAutorizadas] = useState<any[]>([]);
   const [data, setData] = useState('');
   const [loading, setLoading] = useState(true);
@@ -36,11 +36,6 @@ export default function EntradaSaidaPage() {
   };
 
   useEffect(() => { load(); }, [data]);
-  useEffect(() => {
-    api.get('/students?limit=100')
-      .then((r) => setStudents(r.data.data ?? []))
-      .catch(() => toast.error('Não foi possível carregar a lista de atletas'));
-  }, []);
 
   useEffect(() => {
     if (!form.studentId) { setPessoasAutorizadas([]); return; }
@@ -154,10 +149,7 @@ export default function EntradaSaidaPage() {
             <h2 className="text-lg font-bold text-gray-900">Registar Entrada/Saída</h2>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Atleta*</label>
-              <select value={form.studentId} onChange={(e) => setForm((f) => ({ ...f, studentId: e.target.value, pessoaAutorizadaId: '' }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                <option value="">— Selecionar —</option>
-                {students.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
-              </select>
+              <StudentSearchSelect value={form.studentId} onChange={(id) => setForm((f) => ({ ...f, studentId: id, pessoaAutorizadaId: '' }))} />
             </div>
             <div className="flex gap-2">
               {(['ENTRADA', 'SAIDA', 'CANCELAMENTO'] as const).map((t) => (

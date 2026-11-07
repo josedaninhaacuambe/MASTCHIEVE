@@ -120,8 +120,8 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-gray-700 mb-1">Nome da turma</label>
           <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
@@ -139,7 +139,7 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
             onChange={(e) => setForm((f) => ({ ...f, maxStudents: Number(e.target.value) }))}
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-gray-700 mb-1">Instrutor</label>
           <select value={form.instructorId} onChange={(e) => setForm((f) => ({ ...f, instructorId: e.target.value }))}
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30">
@@ -149,7 +149,7 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
             ))}
           </select>
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
             <label className="block text-xs font-medium text-gray-700 mb-1">Instrutores auxiliares <span className="text-gray-400 font-normal">(opcional)</span></label>
             <div className="flex flex-wrap gap-1.5">
               {(instructorsData ?? []).filter((i: any) => i.id !== form.instructorId).map((i: any) => {
@@ -164,7 +164,7 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
               })}
             </div>
           </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-gray-700 mb-1">Unidade <span className="text-red-400">*</span></label>
           <select value={form.unidadeId} onChange={(e) => setForm((f) => ({ ...f, unidadeId: e.target.value }))}
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30">
@@ -174,7 +174,7 @@ function EditClassPanel({ cls, onSave, onCancel }: { cls: any; onSave: () => voi
             ))}
           </select>
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-gray-700 mb-1">Descrição</label>
           <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             rows={2} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none" />
@@ -284,7 +284,7 @@ function AddStudentModal({ classId, enrolled, onClose, onSuccess }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-gray-900">Inscrever atleta</h2>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition"><X className="w-4 h-4" /></button>
@@ -346,7 +346,7 @@ function TransferStudentModal({ classId, enrolled, onClose, onSuccess }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-gray-900">Transferir atleta</h2>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition"><X className="w-4 h-4" /></button>
@@ -411,7 +411,7 @@ function CreateSessionModal({ classId, onClose, onSuccess }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-gray-900">Nova sessão de aula</h2>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition"><X className="w-4 h-4" /></button>
@@ -625,7 +625,7 @@ export default function ClassDetailPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+      <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit max-w-full overflow-x-auto">
         {([
           ['overview', BookOpen, 'Visão Geral'],
           ['athletes', Users, `Atletas (${enrolled.length})`],
@@ -633,7 +633,7 @@ export default function ClassDetailPage() {
           ['stats', BarChart3, 'Estatísticas'],
         ] as const).map(([key, Icon, label]) => (
           <button key={key} onClick={() => setTab(key as Tab)}
-            className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition',
+            className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap shrink-0',
               tab === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
             <Icon className="w-4 h-4" />
             {label}

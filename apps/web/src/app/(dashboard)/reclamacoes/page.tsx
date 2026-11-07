@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { formatDate, cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
+import { StudentSearchSelect } from '@/components/ui/student-search-select';
 import { Plus, MessageSquareWarning, MessageSquareHeart, Lightbulb, Send, AlertTriangle } from 'lucide-react';
 
 const TIPOS = ['RECLAMACAO', 'SUGESTAO', 'ELOGIO'] as const;
@@ -36,7 +37,6 @@ export default function ReclamacoesPage() {
 
   const [lista, setLista] = useState<any[]>([]);
   const [unidades, setUnidades] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
   const [meusFilhos, setMeusFilhos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -74,7 +74,6 @@ export default function ReclamacoesPage() {
       return;
     }
     api.get('/unidades').then((r) => setUnidades(r.data.data ?? r.data ?? [])).catch(() => {});
-    api.get('/students?limit=200').then((r) => setStudents(r.data.data ?? [])).catch(() => {});
   }, [isParent]);
 
   const abrirNovo = () => {
@@ -276,10 +275,7 @@ export default function ReclamacoesPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Aluno relacionado (opcional)</label>
-                  <select value={form.studentId} onChange={(e) => setForm((f) => ({ ...f, studentId: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                    <option value="">— Nenhum —</option>
-                    {students.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
-                  </select>
+                  <StudentSearchSelect value={form.studentId} onChange={(id) => setForm((f) => ({ ...f, studentId: id }))} emptyLabel="— Nenhum —" apenasActivos={false} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>

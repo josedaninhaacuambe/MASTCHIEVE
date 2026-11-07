@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { formatDate, cn } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useDebounced } from '@/components/ui/student-search-select';
 import {
   FileText, Upload, Trash2, Download, Eye, Search,
   Plus, X, AlertCircle, RefreshCw, FileCheck, FolderOpen,
@@ -129,9 +130,14 @@ export default function DocumentsPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [docToDelete, setDocToDelete] = useState<{ id: string; name: string } | null>(null);
 
+  // Pesquisa no servidor: a lista local só trazia os primeiros 100 atletas por ordem alfabética.
+  const termo = useDebounced(search.trim());
   const { data: studentsData, isLoading: loadingStudents } = useQuery({
-    queryKey: ['students-doc-list'],
-    queryFn: async () => { const { data } = await api.get('/students?limit=100'); return data.data ?? []; },
+    queryKey: ['students-doc-list', termo],
+    queryFn: async () => {
+      const { data } = await api.get('/students', { params: { limit: 50, ...(termo && { search: termo }) } });
+      return data.data ?? [];
+    },
     staleTime: 60_000,
   });
 
@@ -156,9 +162,7 @@ export default function DocumentsPage() {
   });
 
   const students: any[] = studentsData ?? [];
-  const filteredStudents = students.filter(s =>
-    `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredStudents = students;
 
   const allDocs: any[] = Array.isArray(docs) ? docs : docs?.data ?? [];
   const filteredDocs = typeFilter ? allDocs.filter(d => d.type === typeFilter) : allDocs;

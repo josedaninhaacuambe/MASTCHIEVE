@@ -175,10 +175,11 @@ export class StudentsService {
     const where: any = {};
     if (isActive !== undefined) where.isActive = isActive;
     if (search) {
-      where.OR = [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-      ];
+      // Cada palavra tem de aparecer no nome ou no apelido, para "Ana Ossumane" encontrar o atleta.
+      const palavras = String(search).trim().split(/\s+/).filter(Boolean).slice(0, 5);
+      where.AND = palavras.map((p) => ({
+        OR: [{ firstName: { contains: p } }, { lastName: { contains: p } }],
+      }));
     }
     if (classId) {
       where.enrollments = { some: { classId, isActive: true } };
