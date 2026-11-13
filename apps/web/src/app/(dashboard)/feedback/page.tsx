@@ -7,9 +7,10 @@ import { toast } from '@/lib/toast';
 import { timeAgo, getInitials, cn } from '@/lib/utils';
 import {
   Brain, CheckCircle, Send, Eye, Filter, AlertCircle, RefreshCw,
-  Plus, X, User, Sliders, Search,
+  Plus, X, User, Sliders, Search, PenLine,
 } from 'lucide-react';
 import AvaliacaoModal from '@/components/avaliacoes/AvaliacaoModal';
+import { EditorTextoFeedback, NovoFeedbackModal, mensagemErro } from './feedback-manual';
 
 // ─── Nova Avaliação: seleção de atleta + modal partilhado ────────────────────
 
@@ -119,6 +120,13 @@ export default function FeedbackPage() {
   const [status, setStatus] = useState('');
   const [selected, setSelected] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showNovoFeedback, setShowNovoFeedback] = useState(false);
+
+  // Actualiza o painel com a resposta da API sem perder os dados do atleta já carregados.
+  const actualizarSelecionado = (fb: any) => {
+    setSelected((s: any) => (s && s.id === fb.id ? { ...s, ...fb, student: s.student } : s));
+    qc.invalidateQueries({ queryKey: ['feedbacks'] });
+  };
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['feedbacks', status],
@@ -131,15 +139,23 @@ export default function FeedbackPage() {
 
   const sendMutation = useMutation({
     mutationFn: (id: string) => api.post(`/feedback/${id}/send`),
-    onSuccess: () => { toast.success('Feedback enviado ao atleta'); qc.invalidateQueries({ queryKey: ['feedbacks'] }); },
-    onError: () => toast.error('Erro ao enviar feedback'),
+    onSuccess: (r: any) => {
+      const res = r.data?.data ?? {};
+      if (res.emailEnviado) {
+        toast.success('Feedback enviado por email');
+        actualizarSelecionado(res);
+      } else {
+        toast.warning('Feedback não enviado', res.motivo ?? 'Sem contacto de email registado.');
+      }
+    },
+    onError: (e: any) => toast.error('Erro ao enviar feedback', mensagemErro(e)),
   });
 
   const reviewMutation = useMutation({
     mutationFn: ({ id, notes }: { id: string; notes: string }) =>
       api.patch(`/feedback/${id}/review`, { instructorNotes: notes, approve: true }),
-    onSuccess: () => { toast.success('Feedback revisto e aprovado'); qc.invalidateQueries({ queryKey: ['feedbacks'] }); },
-    onError: () => toast.error('Erro ao rever feedback'),
+    onSuccess: (r: any) => { toast.success('Feedback revisto e aprovado'); actualizarSelecionado(r.data?.data ?? {}); },
+    onError: (e: any) => toast.error('Erro ao rever feedback', mensagemErro(e)),
   });
 
   const feedbacks = data?.data ?? [];
@@ -157,12 +173,20 @@ export default function FeedbackPage() {
           <h1 className="text-2xl font-bold text-gray-900">Feedback IA</h1>
           <p className="text-gray-500 text-sm mt-1">Gestão de feedbacks e avaliações de desempenho</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-mastchieve-600 hover:bg-mastchieve-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-sm"
-        >
-          <Plus className="w-4 h-4" /> Nova Avaliação
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setShowNovoFeedback(true)}
+            className="flex items-center gap-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-800 px-4 py-2.5 rounded-xl text-sm font-semibold transition"
+          >
+            <PenLine className="w-4 h-4" /> Novo feedback
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-mastchieve-600 hover:bg-mastchieve-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-sm"
+          >
+            <Plus className="w-4 h-4" /> Nova Avaliação
+          </button>
+        </div>
       </div>
 
       {/* KPI row */}
@@ -246,7 +270,7 @@ export default function FeedbackPage() {
                         </span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
-                        {fb.finalText || fb.aiGeneratedText || 'A gerar feedback pela IA...'}
+                        {fb.finalText || fb.aiGeneratedText || 'Sem texto: gere com IA ou escreva o feedback.'}
                       </p>
                       <div className="flex items-center gap-3 mt-2">
                         <span className="text-xs text-gray-400">{timeAgo(fb.createdAt)}</span>
@@ -353,11 +377,18 @@ export default function FeedbackPage() {
                   </div>
                 )}
 
-                {/* Pending: no content yet */}
-                {!selected.aiGeneratedText && (
-                  <div className="text-center py-8 text-gray-400">
-                    <Brain className="w-8 h-8 mx-auto mb-2 opacity-30 animate-pulse" />
-                    <p className="text-sm">A aguardar geração pela IA...</p>
+                {/* Texto final: editável até ser enviado */}
+                {selected.status !== 'SENT' ? (
+                  <EditorTextoFeedback feedback={selected} onChanged={actualizarSelecionado} />
+                ) : (selected.finalText || selected.aiGeneratedText) && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Send className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-semibold text-gray-700">Texto enviado</span>
+                    </div>
+                    <div className="bg-green-50 rounded-xl p-4 text-sm text-gray-700 whitespace-pre-wrap border border-green-100">
+                      {selected.finalText || selected.aiGeneratedText}
+                    </div>
                   </div>
                 )}
               </div>
@@ -377,7 +408,7 @@ export default function FeedbackPage() {
                   )}
                   <button
                     onClick={() => sendMutation.mutate(selected.id)}
-                    disabled={sendMutation.isPending}
+                    disabled={sendMutation.isPending || !(selected.finalText || selected.aiGeneratedText)}
                     className="w-full flex items-center justify-center gap-2 bg-mastchieve-600 hover:bg-mastchieve-700 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-60"
                   >
                     <Send className="w-4 h-4" />
@@ -413,6 +444,12 @@ export default function FeedbackPage() {
 
       {/* Nova avaliação */}
       {showModal && <NovaAvaliacaoFlow onClose={() => setShowModal(false)} />}
+      {showNovoFeedback && (
+        <NovoFeedbackModal
+          onClose={() => setShowNovoFeedback(false)}
+          onSaved={(fb) => { setShowNovoFeedback(false); setSelected(fb); qc.invalidateQueries({ queryKey: ['feedbacks'] }); }}
+        />
+      )}
     </div>
   );
 }

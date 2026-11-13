@@ -5,7 +5,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { ReviewFeedbackDto } from './dto/feedback.dto';
+import { CreateFeedbackManualDto, EditarTextoFeedbackDto, ReviewFeedbackDto } from './dto/feedback.dto';
 
 @ApiTags('feedback')
 @ApiBearerAuth()
@@ -25,6 +25,20 @@ export class FeedbackController {
   @Roles('ADMIN', 'INSTRUCTOR')
   @ApiOperation({ summary: 'Listar feedbacks' })
   getFeedbacks(@Query() query: any) { return this.service.getFeedbacks(query); }
+
+  @Post()
+  @Roles('ADMIN', 'INSTRUCTOR')
+  @ApiOperation({ summary: 'Escrever feedback manualmente (sem IA)' })
+  createManual(@Body() dto: CreateFeedbackManualDto, @CurrentUser('id') userId: string) {
+    return this.service.createManual(dto.studentId, dto.texto, userId);
+  }
+
+  @Patch(':id/texto')
+  @Roles('ADMIN', 'INSTRUCTOR')
+  @ApiOperation({ summary: 'Escrever ou corrigir o texto final do feedback' })
+  editarTexto(@Param('id') id: string, @Body() dto: EditarTextoFeedbackDto, @CurrentUser('id') userId: string) {
+    return this.service.editarTexto(id, dto.texto, userId);
+  }
 
   @Patch(':id/review')
   @Roles('ADMIN', 'INSTRUCTOR')

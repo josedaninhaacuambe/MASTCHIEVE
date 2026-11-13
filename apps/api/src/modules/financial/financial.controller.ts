@@ -2,6 +2,7 @@ import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Res } from
 import type { Response } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { FinancialService } from './financial.service';
+import { CreateCobrancaDto } from './dto/create-cobranca.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -28,8 +29,8 @@ export class FinancialController {
 
   @Post('payments')
   @Roles('ADMIN', 'ASSISTENTE_ADMIN')
-  @ApiOperation({ summary: 'Criar pagamento' })
-  createPayment(@Body() dto: any, @CurrentUser('id') userId: string) { return this.service.createPayment(dto, userId); }
+  @ApiOperation({ summary: 'Criar cobrança individual (um atleta, valor e vencimento próprios)' })
+  createPayment(@Body() dto: CreateCobrancaDto, @CurrentUser('id') userId: string) { return this.service.createCobranca(dto, userId); }
 
   @Patch('payments/:id/pay')
   @Roles('ADMIN', 'ASSISTENTE_ADMIN')

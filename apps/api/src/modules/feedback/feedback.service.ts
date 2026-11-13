@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { EmailService } from '../email/email.service';
@@ -82,7 +82,11 @@ export class FeedbackService {
     const feedback = await this.prisma.feedback.findUnique({ where: { id } });
     if (!feedback) throw new NotFoundException('Feedback não encontrado');
 
-    const finalText = approve
+    if (feedback.status === 'SENT') throw new ConflictException('Este feedback já foi enviado e não pode ser alterado.');
+    // Se o instrutor já escreveu/corrigiu o texto final, aprovar não o substitui pelo texto da IA.
+    const finalText = approve && feedback.finalText?.trim()
+      ? feedback.finalText
+      : approve
       ? `${feedback.aiGeneratedText || ''}${instructorNotes ? `\n\n**Nota do instrutor:** ${instructorNotes}` : ''}`
       : instructorNotes;
 
@@ -92,6 +96,45 @@ export class FeedbackService {
     });
   }
 
+  /** Feedback escrito à mão pelo instrutor: fica logo revisto, pronto a enviar. */
+  async createManual(studentId: string, texto: string, userId: string) {
+    const student = await this.prisma.student.findUnique({ where: { id: studentId }, select: { id: true } });
+    if (!student) throw new NotFoundException('Atleta não encontrado');
+    const instructor = await this.prisma.instructor.findUnique({ where: { userId }, select: { id: true } });
+    const fb = await this.prisma.feedback.create({
+      data: {
+        studentId,
+        instructorId: instructor?.id ?? null,
+        status: 'REVIEWED',
+        finalText: texto.trim(),
+        recommendedLessons: '[]',
+        interactiveExercises: '[]',
+      },
+    });
+    await this.audit.log({ userId, action: 'FEEDBACK_MANUAL_CRIADO', entity: 'Feedback', entityId: fb.id, newValues: { studentId } });
+    return this.normalizeFeedback(fb);
+  }
+
+  /** Escrever ou corrigir o texto final (também serve para feedbacks pendentes cuja IA falhou). */
+  async editarTexto(id: string, texto: string, userId: string) {
+    const fb = await this.prisma.feedback.findUnique({ where: { id }, select: { status: true, instructorId: true } });
+    if (!fb) throw new NotFoundException('Feedback não encontrado');
+    if (fb.status === 'SENT') throw new ConflictException('Este feedback já foi enviado e não pode ser alterado.');
+    const instructor = fb.instructorId
+      ? null
+      : await this.prisma.instructor.findUnique({ where: { userId }, select: { id: true } });
+    const updated = await this.prisma.feedback.update({
+      where: { id },
+      data: { finalText: texto.trim(), status: 'REVIEWED', ...(instructor && { instructorId: instructor.id }) },
+    });
+    await this.audit.log({ userId, action: 'FEEDBACK_TEXTO_EDITADO', entity: 'Feedback', entityId: id });
+    return this.normalizeFeedback(updated);
+  }
+
+  /**
+   * Envia o feedback por email ao atleta (ou ao encarregado principal).
+   * Só é marcado como enviado quando o email sai de facto; sem contacto não se presume que foi recebido.
+   */
   async sendFeedback(id: string, userId?: string) {
     const feedback = await this.prisma.feedback.findUnique({
       where: { id },
@@ -105,21 +148,40 @@ export class FeedbackService {
       },
     });
     if (!feedback) throw new NotFoundException('Feedback não encontrado');
-    const updated = await this.prisma.feedback.update({
-      where: { id },
-      data: { status: 'SENT', sentToStudentAt: new Date() },
-    });
-    if (userId) {
-      this.audit.log({ userId, action: 'SEND_FEEDBACK', entity: 'Feedback', entityId: id });
-    }
+    const texto = (feedback.finalText || feedback.aiGeneratedText || '').trim();
+    if (!texto) throw new BadRequestException('O feedback ainda não tem texto. Escreva-o ou gere-o com IA antes de enviar.');
+
     const student = (feedback as any).student;
     const primaryParent = student?.parents?.find((sp: any) => sp.isPrimary)?.parent ?? student?.parents?.[0]?.parent;
-    const studentEmail = student?.user?.email || primaryParent?.user?.email;
-    const studentName = `${(feedback as any).student?.firstName ?? ''} ${(feedback as any).student?.lastName ?? ''}`.trim();
-    const preview = feedback.finalText || feedback.aiGeneratedText || '';
-    if (studentEmail && preview) {
-      this.email.sendFeedbackReady(studentEmail, studentName, preview).catch(() => {});
+    const destino: string | undefined = student?.user?.email || primaryParent?.user?.email || undefined;
+    const studentName = `${student?.firstName ?? ''} ${student?.lastName ?? ''}`.trim();
+
+    if (!destino) {
+      return {
+        ...this.normalizeFeedback(feedback),
+        student: undefined,
+        emailEnviado: false,
+        motivo: 'O atleta e o encarregado não têm email registado. O feedback não foi marcado como enviado.',
+      };
     }
-    return updated;
+
+    const enviado = await this.email.sendFeedbackReady(destino, studentName, texto).catch(() => false);
+    if (!enviado) {
+      return {
+        ...this.normalizeFeedback(feedback),
+        student: undefined,
+        emailEnviado: false,
+        motivo: 'Não foi possível enviar o email (serviço de email indisponível ou não configurado). Tente mais tarde.',
+      };
+    }
+
+    const updated = await this.prisma.feedback.update({
+      where: { id },
+      data: { status: 'SENT', sentToStudentAt: new Date(), ...(!feedback.finalText && { finalText: texto }) },
+    });
+    if (userId) {
+      await this.audit.log({ userId, action: 'SEND_FEEDBACK', entity: 'Feedback', entityId: id });
+    }
+    return { ...this.normalizeFeedback(updated), emailEnviado: true };
   }
 }

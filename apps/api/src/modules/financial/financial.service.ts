@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { CreateCobrancaDto } from './dto/create-cobranca.dto';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Logger } from '@nestjs/common';
@@ -87,22 +88,56 @@ export class FinancialService {
     };
   }
 
-  async createPayment(dto: any, actorUserId?: string) {
-    const receiptNumber = `REC-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const payment = await this.prisma.payment.create({
-      data: { ...dto, receiptNumber },
-      include: { student: { select: { firstName: true, lastName: true } } },
+  /**
+   * Cobrança individual: um atleta, com valor e vencimento próprios.
+   * MENSALIDADE cria também o registo do mês (um por atleta/mês); OUTRA é uma cobrança avulsa.
+   */
+  async createCobranca(dto: CreateCobrancaDto, actorUserId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { id: dto.studentId },
+      select: { id: true, firstName: true, lastName: true },
     });
+    if (!student) throw new NotFoundException('Atleta não encontrado');
 
-    if (actorUserId) {
-      await this.audit.log({
-        userId: actorUserId,
-        action: 'PAYMENT_CRIADO',
-        entity: 'Payment',
-        entityId: payment.id,
-        newValues: { studentId: payment.studentId, amount: payment.amount, dueDate: payment.dueDate },
+    const dueDate = new Date(dto.dueDate);
+    if (isNaN(dueDate.getTime())) throw new BadRequestException('Data de vencimento inválida');
+    const tipo = dto.tipo ?? 'MENSALIDADE';
+    const descricao = dto.descricao?.trim() || null;
+    // O número de recibo só é atribuído quando o pagamento é registado (markAsPaid).
+    let payment;
+    if (tipo === 'MENSALIDADE') {
+      if (!dto.month || !dto.year) throw new BadRequestException('Indique o mês e o ano da mensalidade');
+      const { month, year } = dto;
+      const existing = await this.prisma.monthlyFee.findUnique({
+        where: { studentId_month_year: { studentId: student.id, month, year } },
+      });
+      if (existing) {
+        throw new ConflictException(`${student.firstName} já tem a mensalidade de ${month}/${year}. Use "Outra cobrança" para um valor adicional.`);
+      }
+      payment = await this.prisma.$transaction(async (tx) => {
+        const fee = await tx.monthlyFee.create({
+          data: { studentId: student.id, month, year, amount: dto.amount, dueDate, description: descricao },
+        });
+        return tx.payment.create({
+          data: { studentId: student.id, monthlyFeeId: fee.id, amount: dto.amount, status: 'PENDING', dueDate, notes: descricao },
+          include: { student: { select: { firstName: true, lastName: true } }, monthlyFee: { select: { month: true, year: true } } },
+        });
+      });
+    } else {
+      if (!descricao) throw new BadRequestException('Indique a descrição da cobrança');
+      payment = await this.prisma.payment.create({
+        data: { studentId: student.id, amount: dto.amount, status: 'PENDING', dueDate, notes: descricao },
+        include: { student: { select: { firstName: true, lastName: true } }, monthlyFee: { select: { month: true, year: true } } },
       });
     }
+
+    await this.audit.log({
+      userId: actorUserId,
+      action: 'PAYMENT_CRIADO',
+      entity: 'Payment',
+      entityId: payment.id,
+      newValues: { tipo, studentId: payment.studentId, amount: payment.amount, dueDate: payment.dueDate, ...(tipo === 'MENSALIDADE' && { month: dto.month, year: dto.year }) },
+    });
 
     return payment;
   }
@@ -157,7 +192,7 @@ export class FinancialService {
     const existing = await this.prisma.monthlyFee.findUnique({
       where: { studentId_month_year: { studentId, month, year } },
     });
-    if (existing) throw new NotFoundException('Mensalidade já existe para este atleta neste mês');
+    if (existing) throw new ConflictException('Mensalidade já existe para este atleta neste mês');
 
     const dueDate = new Date(year, month - 1, 10);
     const fee = await this.prisma.monthlyFee.create({ data: { studentId, month, year, amount, dueDate } });

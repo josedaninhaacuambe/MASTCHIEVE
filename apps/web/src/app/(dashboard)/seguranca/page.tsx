@@ -19,27 +19,32 @@ export default function SegurancaPage() {
   const [mensal, setMensal] = useState<any>(null);
   const [reincidencias, setReincidencias] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
-  const loadTab = async (t: Tab) => {
+  const dadosDe = { semanal, mensal, reincidencias };
+  const setters = { semanal: setSemanal, mensal: setMensal, reincidencias: setReincidencias };
+
+  const loadTab = async (t: Tab, forcar = false) => {
+    if (dadosDe[t] && !forcar) return;
     setLoading(true);
+    setErro(null);
     try {
-      if (t === 'semanal' && !semanal) {
-        const r = await api.get('/seguranca/semanal');
-        setSemanal(r.data);
-      }
-      if (t === 'mensal' && !mensal) {
-        const r = await api.get('/seguranca/mensal');
-        setMensal(r.data);
-      }
-      if (t === 'reincidencias' && !reincidencias) {
-        const r = await api.get('/seguranca/reincidencias');
-        setReincidencias(r.data);
-      }
-    } catch {}
-    setLoading(false);
+      const r = await api.get(`/seguranca/${t}`);
+      // A API devolve { success, data }; usa o objecto interior.
+      setters[t](r.data?.data ?? r.data ?? {});
+    } catch (e: any) {
+      const status = e?.response?.status;
+      setErro(status === 403
+        ? 'Não tens permissão para ver este relatório.'
+        : e?.response?.data?.message || 'Não foi possível carregar os dados de segurança.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { loadTab(tab); }, [tab]);
+  useEffect(() => { loadTab(tab); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const totais = { incidentes: 0, quaseIncidentes: 0, graves: 0, ...(mensal?.totais ?? {}) };
 
   const tabs: { key: Tab; label: string; icon: any }[] = [
     { key: 'mensal', label: 'Mensal', icon: BarChart3 },
@@ -60,7 +65,7 @@ export default function SegurancaPage() {
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
         {tabs.map(({ key, label, icon: Icon }) => (
-          <button key={key} onClick={() => { setTab(key); loadTab(key); }}
+          <button key={key} onClick={() => setTab(key)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === key ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
             <Icon className="w-4 h-4" />{label}
           </button>
@@ -68,6 +73,16 @@ export default function SegurancaPage() {
       </div>
 
       {loading && <div className="text-center py-12 text-gray-400">A carregar...</div>}
+
+      {erro && !loading && (
+        <div className="flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            {erro}
+          </div>
+          <button onClick={() => loadTab(tab, true)} className="text-xs text-red-600 hover:underline">Tentar novamente</button>
+        </div>
+      )}
 
       {/* ── MENSAL ── */}
       {tab === 'mensal' && mensal && !loading && (
@@ -80,10 +95,10 @@ export default function SegurancaPage() {
                 : <XCircle className="w-8 h-8 text-red-600" />}
               <div>
                 <div className={`text-lg font-bold ${mensal.metaZeroGraves ? 'text-green-700' : 'text-red-700'}`}>
-                  {mensal.metaZeroGraves ? '✓ Meta atingida — 0 incidentes graves este mês' : `✗ ${mensal.totais.graves} incidente(s) grave(s) este mês`}
+                  {mensal.metaZeroGraves ? '✓ Meta atingida — 0 incidentes graves este mês' : `✗ ${totais.graves} incidente(s) grave(s) este mês`}
                 </div>
                 <div className="text-sm text-gray-500">
-                  {mensal.totais.incidentes} incidentes confirmados · {mensal.totais.quaseIncidentes} quase-incidentes registados
+                  {totais.incidentes} incidentes confirmados · {totais.quaseIncidentes} quase-incidentes registados
                 </div>
               </div>
             </div>
@@ -92,15 +107,15 @@ export default function SegurancaPage() {
           {/* Stats por tipo */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div className="bg-white rounded-xl p-4 border border-gray-200">
-              <div className="text-3xl font-bold text-gray-800">{mensal.totais.incidentes}</div>
+              <div className="text-3xl font-bold text-gray-800">{totais.incidentes}</div>
               <div className="text-sm text-gray-500 mt-1">Incidentes confirmados</div>
             </div>
             <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-              <div className="text-3xl font-bold text-amber-700">{mensal.totais.quaseIncidentes}</div>
+              <div className="text-3xl font-bold text-amber-700">{totais.quaseIncidentes}</div>
               <div className="text-sm text-gray-500 mt-1">Quase-incidentes</div>
             </div>
             <div className="bg-red-50 rounded-xl p-4 border border-red-200">
-              <div className="text-3xl font-bold text-red-700">{mensal.totais.graves}</div>
+              <div className="text-3xl font-bold text-red-700">{totais.graves}</div>
               <div className="text-sm text-gray-500 mt-1">Acidentes graves</div>
             </div>
           </div>
@@ -114,7 +129,7 @@ export default function SegurancaPage() {
                   <div key={d.dimensao} className="flex items-center gap-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium w-24 text-center ${DIM_CORES[d.dimensao]}`}>{d.dimensao}</span>
                     <div className="flex-1 bg-gray-100 rounded-full h-2">
-                      <div className="bg-indigo-500 h-2 rounded-full" style={{ width: `${Math.min(100, (d.total / Math.max(1, mensal.totais.incidentes + mensal.totais.quaseIncidentes)) * 100)}%` }} />
+                      <div className="bg-indigo-500 h-2 rounded-full" style={{ width: `${Math.min(100, (d.total / Math.max(1, totais.incidentes + totais.quaseIncidentes)) * 100)}%` }} />
                     </div>
                     <span className="text-sm font-semibold text-gray-700 w-8 text-right">{d.total}</span>
                   </div>
@@ -129,9 +144,9 @@ export default function SegurancaPage() {
               <h3 className="font-semibold text-gray-800 mb-4">Protocolos mais violados</h3>
               <div className="space-y-2">
                 {mensal.porProtocolo.map((p: any) => (
-                  <div key={p.protocolo.ranking} className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded bg-gray-200 text-gray-600 text-xs font-bold flex items-center justify-center">#{p.protocolo.ranking}</span>
-                    <span className="flex-1 text-sm text-gray-700 truncate">{p.protocolo.nome}</span>
+                  <div key={p.protocolo?.ranking ?? p.protocolo?.nome} className="flex items-center gap-3">
+                    <span className="w-6 h-6 rounded bg-gray-200 text-gray-600 text-xs font-bold flex items-center justify-center">#{p.protocolo?.ranking ?? '—'}</span>
+                    <span className="flex-1 text-sm text-gray-700 truncate">{p.protocolo?.nome ?? 'Sem protocolo'}</span>
                     <span className="text-sm font-bold text-gray-800">{p.total}</span>
                     {p.quaseIncidentes > 0 && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{p.quaseIncidentes} quasi</span>}
                   </div>
@@ -195,7 +210,7 @@ export default function SegurancaPage() {
                     <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
                     <span className="flex-1 text-sm text-gray-700 truncate">{i.descricao}</span>
                     {i.protocolo && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">#{i.protocolo.ranking}</span>}
-                    <span className="text-xs text-gray-400">{new Date(i.data).toLocaleDateString('pt-PT')}</span>
+                    <span className="text-xs text-gray-400">{i.data ? new Date(i.data).toLocaleDateString('pt-PT') : '—'}</span>
                   </div>
                 ))}
               </div>

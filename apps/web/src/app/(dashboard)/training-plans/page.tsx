@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { CriarPlanoModal } from './criar-plano-modal';
 import { toast } from '@/lib/toast';
 import { getInitials, formatDate, cn } from '@/lib/utils';
 import {
@@ -268,7 +269,10 @@ function GeneratePlanModal({ onClose, onSuccess }: { onClose: () => void; onSucc
       onSuccess();
       onClose();
     },
-    onError: (e: any) => toast.error('Erro ao gerar plano', e?.response?.data?.message),
+    onError: (e: any) => {
+      const msg = e?.response?.data?.message;
+      toast.error('Erro ao gerar plano', Array.isArray(msg) ? msg.join(' · ') : msg ?? 'Pode criar o plano manualmente em "Criar plano".');
+    },
   });
 
   return (
@@ -532,6 +536,7 @@ export default function TrainingPlansPage() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'ai'>('all');
   const [showGenerate, setShowGenerate] = useState(false);
+  const [showCriar, setShowCriar] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<TrainingPlan | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -557,6 +562,10 @@ export default function TrainingPlansPage() {
         <GeneratePlanModal onClose={() => setShowGenerate(false)}
           onSuccess={() => qc.invalidateQueries({ queryKey: ['training-plans'] })} />
       )}
+      {showCriar && (
+        <CriarPlanoModal onClose={() => setShowCriar(false)}
+          onSuccess={() => qc.invalidateQueries({ queryKey: ['training-plans'] })} />
+      )}
       {selectedPlan && (
         <PlanDrawer plan={selectedPlan} onClose={() => setSelectedPlan(null)} />
       )}
@@ -565,13 +574,19 @@ export default function TrainingPlansPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Planos de Treino</h1>
-          <p className="text-gray-500 text-sm mt-1">Planos por atleta gerados por IA + templates de plano de aula por módulo</p>
+          <p className="text-gray-500 text-sm mt-1">Planos por atleta (criados por si ou pela IA) + templates de plano de aula por módulo</p>
         </div>
         {tab === 'plans' && (
-          <button onClick={() => setShowGenerate(true)}
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition">
-            <Sparkles className="w-4 h-4" /> Gerar com IA
-          </button>
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <button onClick={() => setShowCriar(true)}
+              className="flex items-center gap-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-800 px-4 py-2.5 rounded-xl text-sm font-medium transition">
+              <Plus className="w-4 h-4" /> Criar plano
+            </button>
+            <button onClick={() => setShowGenerate(true)}
+              className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition">
+              <Sparkles className="w-4 h-4" /> Gerar com IA
+            </button>
+          </div>
         )}
       </div>
 
@@ -580,7 +595,7 @@ export default function TrainingPlansPage() {
         <button onClick={() => setTab('plans')}
           className={cn('flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition',
             tab === 'plans' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
-          <Sparkles className="w-4 h-4" /> Planos por Atleta (IA)
+          <Sparkles className="w-4 h-4" /> Planos por Atleta
         </button>
         <button onClick={() => setTab('templates')}
           className={cn('flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition',
@@ -666,11 +681,17 @@ export default function TrainingPlansPage() {
             <div className="text-center py-20 text-gray-400">
               <Dumbbell className="w-14 h-14 mx-auto mb-4 opacity-20" />
               <p className="text-sm font-medium">Nenhum plano de treino encontrado</p>
-              <p className="text-xs mt-1 mb-4">Gera o primeiro plano personalizado com IA</p>
-              <button onClick={() => setShowGenerate(true)}
-                className="inline-flex items-center gap-2 bg-violet-600 text-white px-4 py-2 rounded-xl text-sm hover:bg-violet-700 transition">
-                <Sparkles className="w-4 h-4" /> Gerar com IA
-              </button>
+              <p className="text-xs mt-1 mb-4">Crie o primeiro plano à mão, importe um ficheiro ou gere-o com IA</p>
+              <div className="inline-flex gap-2">
+                <button onClick={() => setShowCriar(true)}
+                  className="inline-flex items-center gap-2 border border-gray-200 bg-white text-gray-800 px-4 py-2 rounded-xl text-sm hover:bg-gray-50 transition">
+                  <Plus className="w-4 h-4" /> Criar plano
+                </button>
+                <button onClick={() => setShowGenerate(true)}
+                  className="inline-flex items-center gap-2 bg-violet-600 text-white px-4 py-2 rounded-xl text-sm hover:bg-violet-700 transition">
+                  <Sparkles className="w-4 h-4" /> Gerar com IA
+                </button>
+              </div>
             </div>
           )}
         </>

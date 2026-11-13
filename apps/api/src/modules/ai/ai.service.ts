@@ -1,10 +1,11 @@
-import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { erroDaIa, extrairJson, textoDaResposta } from './ai-errors.util';
 
 export interface FeedbackJobData {
   performanceRecordId?: string;
@@ -41,6 +42,46 @@ export class AiService {
     throw new NotFoundException('É necessário indicar avaliacaoId ou performanceRecordId');
   }
 
+  /**
+   * Gera (ou volta a gerar) o feedback da avaliação mais recente do atleta — diária ou de conclusão de módulo.
+   * Nunca substitui um feedback já revisto ou enviado.
+   */
+  async generateFeedbackForStudent(studentId: string) {
+    const student = await this.prisma.student.findUnique({ where: { id: studentId }, select: { id: true } });
+    if (!student) throw new NotFoundException('Atleta não encontrado');
+
+    const ultima = await this.prisma.avaliacao.findFirst({
+      where: { studentId },
+      orderBy: { avaliadoEm: 'desc' },
+      select: { id: true, feedback: { select: { status: true } } },
+    });
+    if (!ultima) {
+      throw new BadRequestException('Este atleta ainda não tem avaliações registadas. Registe uma avaliação ou escreva o feedback manualmente.');
+    }
+    if (ultima.feedback && ['REVIEWED', 'SENT'].includes(ultima.feedback.status)) {
+      throw new ConflictException('O feedback da última avaliação já foi revisto ou enviado. Registe uma nova avaliação ou escreva um feedback manual.');
+    }
+
+    await this.generateFeedbackFromAvaliacao(ultima.id);
+    return this.prisma.feedback.findUnique({ where: { avaliacaoId: ultima.id } });
+  }
+
+  /** Volta a tentar a IA num feedback existente (ex.: ficou PENDING porque a geração falhou). */
+  async regenerateFeedback(feedbackId: string) {
+    const fb = await this.prisma.feedback.findUnique({
+      where: { id: feedbackId },
+      select: { status: true, avaliacaoId: true, performanceRecordId: true },
+    });
+    if (!fb) throw new NotFoundException('Feedback não encontrado');
+    if (['REVIEWED', 'SENT'].includes(fb.status)) {
+      throw new ConflictException('Este feedback já foi revisto ou enviado e não é substituído pela IA.');
+    }
+    if (fb.avaliacaoId) await this.generateFeedbackFromAvaliacao(fb.avaliacaoId);
+    else if (fb.performanceRecordId) await this.generateFeedbackFromPerformanceRecord(fb.performanceRecordId);
+    else throw new BadRequestException('Este feedback não está ligado a uma avaliação; escreva o texto manualmente.');
+    return this.prisma.feedback.findUnique({ where: { id: feedbackId } });
+  }
+
   // Fluxo NOVO: avaliação diária pontua os critérios do módulo ativo do aluno (escala 1-5).
   private async generateFeedbackFromAvaliacao(avaliacaoId: string): Promise<string> {
     const avaliacao = await this.prisma.avaliacao.findUnique({
@@ -49,9 +90,19 @@ export class AiService {
     });
     if (!avaliacao) throw new NotFoundException('Avaliação não encontrada');
 
+    const existente = await this.prisma.feedback.findUnique({ where: { avaliacaoId }, select: { status: true } });
+    if (existente && ['REVIEWED', 'SENT'].includes(existente.status)) {
+      throw new ConflictException('O feedback desta avaliação já foi revisto ou enviado e não é substituído pela IA.');
+    }
+
     const student = await this.fetchStudentContext(avaliacao.studentId);
 
-    const criterios: { nome: string; obrigatoria: boolean; valor: number | null }[] = JSON.parse(avaliacao.pontuacoes);
+    let criterios: { nome: string; obrigatoria: boolean; valor: number | null }[] = [];
+    try {
+      criterios = JSON.parse(avaliacao.pontuacoes) ?? [];
+    } catch {
+      criterios = [];
+    }
     const prompt = this.buildFeedbackPromptFromAvaliacao(student, avaliacao, criterios);
     const { feedbackText, recommendedLessons, interactiveExercises, tokensUsed } = await this.callAnthropicForFeedback(
       prompt,
@@ -145,14 +196,13 @@ export class AiService {
     try {
       const message = await this.anthropic.messages.create({
         model: this.model,
-        max_tokens: 1024,
+        max_tokens: 4096,
         system: this.getSystemPrompt(),
         messages: [{ role: 'user', content: prompt }],
       });
 
-      const block = message.content[0];
-      if (block.type !== 'text') throw new Error(`Unexpected response block type: ${block.type}`);
-      const rawResponse = block.text;
+      const rawResponse = textoDaResposta(message).trim();
+      if (!rawResponse) throw new Error('Resposta da IA sem texto');
       const tokensUsed = message.usage.input_tokens + message.usage.output_tokens;
 
       // Separate textual feedback from the appended recommendations JSON block.
@@ -176,7 +226,7 @@ export class AiService {
       return { feedbackText, recommendedLessons, interactiveExercises, tokensUsed };
     } catch (err) {
       this.logger.error(`Anthropic call failed for ${logContext}`, err instanceof Error ? err.stack : String(err));
-      throw new InternalServerErrorException('Falha ao gerar feedback com IA. Tenta novamente mais tarde.');
+      throw erroDaIa(err, 'gerar o feedback com IA');
     }
   }
 
@@ -190,7 +240,7 @@ export class AiService {
     }
   }
 
-  async generateTrainingPlan(studentId: string, instructorNotes?: string): Promise<any> {
+  async generateTrainingPlan(studentId: string, instructorNotes?: string, actorUserId?: string): Promise<any> {
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
       include: {
@@ -252,27 +302,50 @@ Responde com um JSON estruturado assim:
 }
     `.trim();
 
-    const message = await this.anthropic.messages.create({
-      model: this.model,
-      max_tokens: 2048,
-      system: 'És um especialista em natação e pedagogia desportiva da Mastchieve. Responde sempre em português europeu com JSON válido.',
-      messages: [{ role: 'user', content: prompt }],
-    });
+    let responseText: string;
+    try {
+      const message = await this.anthropic.messages.create({
+        model: this.model,
+        max_tokens: 8192,
+        system: 'És um especialista em natação e pedagogia desportiva da Mastchieve. Responde sempre em português europeu, apenas com JSON válido, sem texto antes ou depois.',
+        messages: [{ role: 'user', content: prompt }],
+      });
+      responseText = textoDaResposta(message);
+      if (message.stop_reason === 'max_tokens') this.logger.warn(`Plano de treino truncado (student ${studentId})`);
+    } catch (err) {
+      this.logger.error(`Anthropic call failed for training plan ${studentId}`, err instanceof Error ? err.stack : String(err));
+      throw erroDaIa(err, 'gerar o plano de treino');
+    }
 
-    const responseText = (message.content[0] as any).text;
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    const planData = jsonMatch ? JSON.parse(jsonMatch[0]) : { title: 'Plano Personalizado', exercises: [] };
+    const planData = extrairJson<any>(responseText);
+    if (!planData || typeof planData !== 'object') {
+      this.logger.warn(`Plano de treino sem JSON válido (student ${studentId})`);
+      throw new BadRequestException('A IA não devolveu um plano válido. Tente novamente ou crie o plano manualmente.');
+    }
+
+    const objectives = Array.isArray(planData.objectives) ? planData.objectives.map((o: any) => String(o)) : [];
+    const exercises = Array.isArray(planData.exercises) ? planData.exercises : [];
+    const semanas = Number(planData.durationWeeks);
+    const durationWeeks = Number.isFinite(semanas) && semanas > 0 && semanas <= 52 ? semanas : 4;
+    const description =
+      [planData.description, planData.weeklyGoal ? `Meta semanal: ${planData.weeklyGoal}` : null].filter(Boolean).join('\n\n') || null;
+
+    const instructor = actorUserId
+      ? await this.prisma.instructor.findUnique({ where: { userId: actorUserId }, select: { id: true } })
+      : null;
 
     const plan = await this.prisma.trainingPlan.create({
       data: {
         studentId,
-        title: planData.title,
-        description: planData.description,
-        objectives: planData.objectives || [],
-        exercises: planData.exercises || [],
+        instructorId: instructor?.id ?? null,
+        title: String(planData.title || `Plano de treino — ${student.firstName} ${student.lastName}`).slice(0, 190),
+        description,
+        // As colunas são texto: guardam JSON.
+        objectives: JSON.stringify(objectives),
+        exercises: JSON.stringify(exercises),
         aiGenerated: true,
         validFrom: new Date(),
-        validUntil: new Date(Date.now() + (planData.durationWeeks || 4) * 7 * 24 * 60 * 60 * 1000),
+        validUntil: new Date(Date.now() + durationWeeks * 7 * 24 * 60 * 60 * 1000),
       },
     });
 

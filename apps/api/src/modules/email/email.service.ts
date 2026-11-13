@@ -76,15 +76,15 @@ export class EmailService {
     }, `Payment reminder sent to ${to}`);
   }
 
-  async sendFeedbackReady(to: string, studentName: string, feedbackPreview: string) {
+  async sendFeedbackReady(to: string, studentName: string, feedbackPreview: string): Promise<boolean> {
     if (!process.env.SMTP_USER || process.env.SMTP_USER === 'noreply@mastchieve.com') {
       this.logger.warn(`[EMAIL SKIPPED] Feedback ready to ${to} — SMTP not configured`);
-      return;
+      return false;
     }
-    await this.safeSend({
+    return this.safeSend({
       from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
       to,
-      subject: '🧠 Novo feedback da IA disponível — Mastchieve',
+      subject: 'Novo feedback disponível — Mastchieve',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #7c3aed 0%, #1A56DB 100%); padding: 32px; border-radius: 12px 12px 0 0;">

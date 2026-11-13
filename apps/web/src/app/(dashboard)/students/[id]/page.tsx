@@ -336,12 +336,14 @@ export default function StudentDetailPage() {
   const handleGenerateFeedback = async () => {
     setGeneratingFeedback(true);
     try {
-      await api.post(`/ai/feedback/generate/${id}`);
-      toast.success('Feedback IA gerado com sucesso');
+      // Usa a avaliação mais recente do atleta (diária ou de conclusão de módulo).
+      await api.post(`/ai/feedback/student/${id}`);
+      toast.success('Feedback IA gerado', 'Reveja e envie-o na página Feedback.');
       qc.invalidateQueries({ queryKey: ['student-perf', id] });
       setActiveTab('Feedbacks IA');
-    } catch {
-      toast.error('Erro ao gerar feedback IA');
+    } catch (e: any) {
+      const msg = e?.response?.data?.message;
+      toast.error('Erro ao gerar feedback IA', Array.isArray(msg) ? msg.join(' · ') : msg);
     } finally {
       setGeneratingFeedback(false);
     }
