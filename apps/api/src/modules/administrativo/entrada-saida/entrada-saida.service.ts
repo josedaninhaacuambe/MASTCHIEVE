@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { CreatePessoaAutorizadaDto } from './dto/create-pessoa-autorizada.dto';
 import { CreateRegistoDto } from './dto/create-registo.dto';
 import { BulkRegistoDto } from './dto/create-registo-bulk.dto';
 import { validarHoraManual } from './hora-manual.util';
+import {
+  JANELA_SAIDA_MAX_H, RegistoSessao, decidirSaidaManual, saidaAutomaticaPara, validarNovaEntrada,
+} from './sessao-aula.util';
 
 @Injectable()
 export class EntradaSaidaService {
@@ -64,10 +68,62 @@ export class EntradaSaidaService {
     });
   }
 
+  /** Registos de cada atleta perto da hora indicada (para validar a sessão de aula). */
+  private async registosPerto(tx: Prisma.TransactionClient, studentIds: string[], hora: Date) {
+    const margem = JANELA_SAIDA_MAX_H * 60 * 60_000;
+    const regs = await tx.registoEntradaSaidaAluno.findMany({
+      where: {
+        studentId: { in: studentIds },
+        dataHora: { gte: new Date(hora.getTime() - margem), lte: new Date(hora.getTime() + margem) },
+      },
+      select: { id: true, studentId: true, tipo: true, dataHora: true, automatica: true },
+    });
+    const porAtleta = new Map<string, RegistoSessao[]>(studentIds.map((id) => [id, []]));
+    for (const r of regs) porAtleta.get(r.studentId)?.push(r);
+    return porAtleta;
+  }
+
+  /** Bloqueia as linhas dos atletas até ao fim da transacção, para evitar registos em duplicado. */
+  private async bloquearAtletas(tx: Prisma.TransactionClient, studentIds: string[]) {
+    await tx.$queryRaw`SELECT id FROM students WHERE id IN (${Prisma.join(studentIds)}) FOR UPDATE`;
+  }
+
+  /** Cria a entrada e a respectiva saída automática ao fim da aula. */
+  private async criarEntrada(tx: Prisma.TransactionClient, studentId: string, hora: Date, actorUserId: string) {
+    const entrada = await tx.registoEntradaSaidaAluno.create({
+      data: { studentId, tipo: 'ENTRADA', dataHora: hora, registadoPorId: actorUserId },
+    });
+    const saida = await tx.registoEntradaSaidaAluno.create({
+      data: { studentId, tipo: 'SAIDA', dataHora: saidaAutomaticaPara(hora), automatica: true, registadoPorId: actorUserId },
+    });
+    return { entrada, saida };
+  }
+
+  /** Regista a saída manual: substitui a saída automática da aula, se existir. */
+  private async gravarSaidaManual(
+    tx: Prisma.TransactionClient,
+    dados: { studentId: string; tipo: string; hora: Date; pessoaAutorizadaId?: string; justificativa?: string },
+    substituir: RegistoSessao | undefined,
+    actorUserId: string,
+  ) {
+    const data = {
+      tipo: dados.tipo,
+      dataHora: dados.hora,
+      automatica: false,
+      pessoaAutorizadaId: dados.pessoaAutorizadaId ?? null,
+      justificativa: dados.justificativa?.trim() || null,
+      registadoPorId: actorUserId,
+    };
+    // createdAt passa a ser o momento em que a saída manual foi lançada.
+    if (substituir) return tx.registoEntradaSaidaAluno.update({ where: { id: substituir.id }, data: { ...data, createdAt: new Date() } });
+    return tx.registoEntradaSaidaAluno.create({ data: { ...data, studentId: dados.studentId } });
+  }
+
   async createRegisto(dto: CreateRegistoDto, actorUserId: string) {
     const student = await this.prisma.student.findUnique({ where: { id: dto.studentId } });
     if (!student) throw new NotFoundException('Atleta não encontrado');
-    const dataHora = this.lerHoraManual(dto.dataHora);
+    const horaManual = this.lerHoraManual(dto.dataHora);
+    const hora = horaManual ?? new Date();
 
     if (dto.tipo === 'SAIDA' || dto.tipo === 'CANCELAMENTO') {
       if (dto.tipo === 'CANCELAMENTO' && !dto.justificativa?.trim()) {
@@ -81,52 +137,96 @@ export class EntradaSaidaService {
       }
     }
 
-    const registo = await this.prisma.registoEntradaSaidaAluno.create({
-      data: {
-        studentId: dto.studentId,
+    const { registo, saidaAutomatica, substituiuAutomatica } = await this.prisma.$transaction(async (tx) => {
+      await this.bloquearAtletas(tx, [dto.studentId]);
+      const regs = (await this.registosPerto(tx, [dto.studentId], hora)).get(dto.studentId) ?? [];
+
+      if (dto.tipo === 'ENTRADA') {
+        const erro = validarNovaEntrada(regs, hora);
+        if (erro) throw new BadRequestException(erro);
+        const { entrada, saida } = await this.criarEntrada(tx, dto.studentId, hora, actorUserId);
+        return { registo: entrada, saidaAutomatica: saida, substituiuAutomatica: false };
+      }
+
+      const decisao = decidirSaidaManual(regs, hora);
+      if ('erro' in decisao) throw new BadRequestException(decisao.erro);
+      const saida = await this.gravarSaidaManual(
+        tx,
+        { studentId: dto.studentId, tipo: dto.tipo, hora, pessoaAutorizadaId: dto.pessoaAutorizadaId, justificativa: dto.justificativa },
+        decisao.substituir,
+        actorUserId,
+      );
+      return { registo: saida, saidaAutomatica: undefined, substituiuAutomatica: !!decisao.substituir };
+    });
+
+    await this.audit.log({
+      userId: actorUserId,
+      action: 'REGISTO_ENTRADA_SAIDA_CRIADO',
+      entity: 'RegistoEntradaSaidaAluno',
+      entityId: registo.id,
+      newValues: {
         tipo: dto.tipo,
-        pessoaAutorizadaId: dto.pessoaAutorizadaId,
-        justificativa: dto.justificativa?.trim() || undefined,
-        registadoPorId: actorUserId,
-        ...(dataHora && { dataHora }),
+        studentId: dto.studentId,
+        ...(horaManual && { horaManual: true, dataHora: horaManual }),
+        ...(saidaAutomatica && { saidaAutomatica: saidaAutomatica.dataHora }),
+        ...(substituiuAutomatica && { substituiuSaidaAutomatica: true }),
       },
     });
-    await this.audit.log({ userId: actorUserId, action: 'REGISTO_ENTRADA_SAIDA_CRIADO', entity: 'RegistoEntradaSaidaAluno', entityId: registo.id, newValues: { tipo: dto.tipo, studentId: dto.studentId, ...(dataHora && { horaManual: true, dataHora }) } });
-    return registo;
+    return { ...registo, ...(saidaAutomatica && { saidaPrevista: saidaAutomatica.dataHora }) };
   }
 
   async createRegistoBulk(dto: BulkRegistoDto, actorUserId: string) {
-    const dataHora = this.lerHoraManual(dto.dataHora);
+    const horaManual = this.lerHoraManual(dto.dataHora);
+    const hora = horaManual ?? new Date();
 
     const studentIds = [...new Set(dto.studentIds)];
-    const students = await this.prisma.student.findMany({ where: { id: { in: studentIds } }, select: { id: true } });
+    const students = await this.prisma.student.findMany({
+      where: { id: { in: studentIds } },
+      select: { id: true, firstName: true, lastName: true },
+    });
     if (students.length !== studentIds.length) {
       const found = new Set(students.map((s) => s.id));
       const missing = studentIds.filter((id) => !found.has(id));
       throw new NotFoundException(`Atleta(s) não encontrado(s): ${missing.join(', ')}`);
     }
+    const nomes = new Map(students.map((s) => [s.id, `${s.firstName} ${s.lastName}`.trim()]));
 
-    const registos = await Promise.all(
-      studentIds.map((studentId) =>
-        this.prisma.registoEntradaSaidaAluno.create({
-          data: {
-            studentId,
-            tipo: dto.tipo,
-            justificativa: dto.tipo === 'SAIDA' ? dto.justificativa?.trim() || undefined : undefined,
-            registadoPorId: actorUserId,
-            ...(dataHora && { dataHora }),
-          },
-        }),
-      ),
-    );
+    // Atletas que não cumprem a regra (já em aula / sem entrada) são ignorados e indicados na resposta.
+    const { registados, ignorados } = await this.prisma.$transaction(async (tx) => {
+      await this.bloquearAtletas(tx, studentIds);
+      const porAtleta = await this.registosPerto(tx, studentIds, hora);
+      const registados: string[] = [];
+      const ignorados: { studentId: string; nome: string; motivo: string }[] = [];
+
+      for (const studentId of studentIds) {
+        const regs = porAtleta.get(studentId) ?? [];
+        if (dto.tipo === 'ENTRADA') {
+          const erro = validarNovaEntrada(regs, hora);
+          if (erro) { ignorados.push({ studentId, nome: nomes.get(studentId) ?? '', motivo: erro }); continue; }
+          await this.criarEntrada(tx, studentId, hora, actorUserId);
+        } else {
+          const decisao = decidirSaidaManual(regs, hora);
+          if ('erro' in decisao) { ignorados.push({ studentId, nome: nomes.get(studentId) ?? '', motivo: decisao.erro }); continue; }
+          await this.gravarSaidaManual(tx, { studentId, tipo: 'SAIDA', hora, justificativa: dto.justificativa }, decisao.substituir, actorUserId);
+        }
+        registados.push(studentId);
+      }
+      return { registados, ignorados };
+    }, { timeout: 20_000 });
 
     await this.audit.log({
       userId: actorUserId,
       action: 'REGISTO_ENTRADA_SAIDA_BULK_CRIADO',
       entity: 'RegistoEntradaSaidaAluno',
-      newValues: { tipo: dto.tipo, count: registos.length, studentIds, ...(dataHora && { horaManual: true, dataHora }) },
+      newValues: {
+        tipo: dto.tipo,
+        count: registados.length,
+        studentIds: registados,
+        ...(ignorados.length > 0 && { ignorados: ignorados.map((i) => i.studentId) }),
+        ...(horaManual && { horaManual: true, dataHora: horaManual }),
+      },
     });
 
-    return { count: registos.length, tipo: dto.tipo };
+    return { count: registados.length, tipo: dto.tipo, ignorados };
   }
 }

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from '@/lib/toast';
-import { levelLabel, getInitials, formatDate, cn } from '@/lib/utils';
+import { classLevelLabel, getInitials, formatDate, cn } from '@/lib/utils';
 import {
   BookOpen, Users, ArrowLeft, Edit2, Plus, X, Check,
   Calendar, Clock, ChevronRight, Search, UserMinus,
@@ -575,7 +575,7 @@ export default function ClassDetailPage() {
             <div>
               <h1 className="text-2xl font-bold">{cls.name}</h1>
               <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                <span className="text-blue-100 text-sm">{levelLabel(cls.level)}</span>
+                <span className="text-blue-100 text-sm">{classLevelLabel(cls.level)}</span>
                 <span className={cn('text-xs px-2.5 py-1 rounded-full font-medium bg-white/20 text-white')}>
                   {STATUS_LABEL[cls.status] ?? cls.status}
                 </span>
@@ -648,7 +648,7 @@ export default function ClassDetailPage() {
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Informações gerais</h3>
             <dl className="space-y-2.5">
               {[
-                { label: 'Nível', value: levelLabel(cls.level) },
+                { label: 'Módulo', value: classLevelLabel(cls.level) },
                 { label: 'Estado', value: STATUS_LABEL[cls.status] ?? cls.status },
                 { label: 'Capacidade', value: `${enrolled.length}/${cls.maxStudents} (${occupancy}%)` },
                 { label: 'Criada em', value: formatDate(cls.createdAt) },

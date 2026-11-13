@@ -70,3 +70,56 @@ test('registo público: aceita os perfis oferecidos pela página de registo', ()
     assert.equal(errosDoPerfil(role).length, 0, role);
   }
 });
+
+// ── Sessão de aula: entrada obrigatória e saída automática ao fim de 50 min ──
+import {
+  DURACAO_AULA_MIN, JANELA_SAIDA_MAX_H, decidirSaidaManual, saidaAutomaticaPara, validarNovaEntrada, RegistoSessao,
+} from '../../src/modules/administrativo/entrada-saida/sessao-aula.util';
+
+const reg = (id: string, tipo: string, min: number, automatica = false): RegistoSessao =>
+  ({ id, tipo, dataHora: minutos(min), automatica });
+const aulaAs = (min: number): RegistoSessao[] =>
+  [reg('e', 'ENTRADA', min), reg('s', 'SAIDA', min + DURACAO_AULA_MIN, true)];
+
+test('sessão: a saída automática fica 50 min depois da entrada', () => {
+  assert.equal(saidaAutomaticaPara(AGORA).getTime() - AGORA.getTime(), 50 * 60_000);
+});
+
+test('sessão: saída sem entrada é recusada', () => {
+  const d = decidirSaidaManual([], AGORA);
+  assert.ok('erro' in d && /não tem entrada/.test(d.erro));
+});
+
+test('sessão: saída manual substitui a saída automática (encurtar e prolongar)', () => {
+  const encurtar = decidirSaidaManual(aulaAs(-20), AGORA);
+  assert.ok(!('erro' in encurtar) && encurtar.substituir?.id === 's');
+  const prolongar = decidirSaidaManual(aulaAs(-70), AGORA);
+  assert.ok(!('erro' in prolongar) && prolongar.substituir?.id === 's');
+});
+
+test('sessão: segunda saída manual é recusada', () => {
+  const d = decidirSaidaManual([reg('e', 'ENTRADA', -40), reg('s', 'SAIDA', -5)], AGORA);
+  assert.ok('erro' in d && /já foi registada/.test(d.erro));
+});
+
+test('sessão: entrada antiga demais não permite saída', () => {
+  const d = decidirSaidaManual([reg('e', 'ENTRADA', -(JANELA_SAIDA_MAX_H * 60 + 1))], AGORA);
+  assert.ok('erro' in d);
+});
+
+test('sessão: entrada antiga sem saída automática (dados anteriores) ainda aceita saída', () => {
+  const d = decidirSaidaManual([reg('e', 'ENTRADA', -30)], AGORA);
+  assert.ok(!('erro' in d) && d.substituir === undefined);
+});
+
+test('sessão: não aceita nova entrada durante a aula, aceita depois', () => {
+  assert.match(validarNovaEntrada(aulaAs(-10), AGORA)!, /já tem uma entrada/);
+  assert.equal(validarNovaEntrada(aulaAs(-60), AGORA), null);
+  // aula encurtada por saída manual: pode voltar a entrar depois dela
+  assert.equal(validarNovaEntrada([reg('e', 'ENTRADA', -30), reg('s', 'SAIDA', -5)], AGORA), null);
+});
+
+test('sessão: entrada manual que coincide com outra entrada posterior é recusada', () => {
+  assert.match(validarNovaEntrada(aulaAs(20), AGORA)!, /coincide/);
+  assert.equal(validarNovaEntrada(aulaAs(60), AGORA), null);
+});

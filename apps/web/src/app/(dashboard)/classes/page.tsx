@@ -4,11 +4,10 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from '@/lib/toast';
-import { levelLabel, getInitials, cn } from '@/lib/utils';
+import { classLevelLabel, CLASS_LEVEL_OPTIONS, getInitials, cn } from '@/lib/utils';
 import { BookOpen, Plus, Users, X, ChevronRight, AlertCircle, RefreshCw, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-const levelOptions = ['BEGINNER', 'ELEMENTARY', 'INTERMEDIATE', 'ADVANCED', 'COMPETITIVE'];
 const statusConfig: Record<string, { label: string; color: string }> = {
   ACTIVE: { label: 'Ativa', color: 'bg-green-100 text-green-700' },
   INACTIVE: { label: 'Inativa', color: 'bg-gray-100 text-gray-500' },
@@ -103,7 +102,7 @@ function CreateClassModal({ onClose, onSuccess }: { onClose: () => void; onSucce
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mastchieve-500"
-              placeholder="Ex: Iniciantes A — Manhã"
+              placeholder="Ex: AMA A — Manhã"
             />
           </div>
           <div>
@@ -318,13 +317,13 @@ export default function ClassesPage() {
           >
             Todos
           </button>
-          {levelOptions.map((l) => (
+          {CLASS_LEVEL_OPTIONS.map((l) => (
             <button key={l}
               onClick={() => setLevelFilter(l)}
               className={cn('text-xs px-3 py-1.5 rounded-full font-medium transition',
                 levelFilter === l ? 'bg-mastchieve-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}
             >
-              {levelLabel(l)}
+              {classLevelLabel(l)}
             </button>
           ))}
         </div>
@@ -356,7 +355,7 @@ export default function ClassesPage() {
                     </div>
                     <div>
                       <div className="font-semibold text-gray-900 text-sm leading-tight group-hover:text-blue-600 transition">{cls.name}</div>
-                      <div className="text-xs text-gray-400 mt-0.5">{levelLabel(cls.level)}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">{classLevelLabel(cls.level)}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">

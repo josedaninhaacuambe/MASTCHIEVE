@@ -5,6 +5,9 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { LogIn, LogOut, Users } from 'lucide-react';
 
+/** Igual a DURACAO_AULA_MIN na API (sessao-aula.util.ts). */
+export const DURACAO_AULA_MIN = 50;
+
 interface BulkEntradaSaidaModalProps {
   onClose: () => void;
   onSaved: () => void;
@@ -19,6 +22,7 @@ export function BulkEntradaSaidaModal({ onClose, onSaved }: BulkEntradaSaidaModa
   const [tipo, setTipo] = useState<'ENTRADA' | 'SAIDA'>('ENTRADA');
   const [justificativa, setJustificativa] = useState('');
   const [hora, setHora] = useState('');
+  const [horaManual, setHoraManual] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -50,7 +54,7 @@ export function BulkEntradaSaidaModal({ onClose, onSaved }: BulkEntradaSaidaModa
     setSelected((prev) => (prev.size === students.length ? new Set() : new Set(students.map((s) => s.id))));
   };
 
-  const valido = selected.size > 0;
+  const valido = selected.size > 0 && (!horaManual || !!hora);
 
   const salvar = async () => {
     setSaving(true);
@@ -59,10 +63,21 @@ export function BulkEntradaSaidaModal({ onClose, onSaved }: BulkEntradaSaidaModa
         studentIds: Array.from(selected),
         tipo,
         justificativa: tipo === 'SAIDA' ? justificativa.trim() || undefined : undefined,
-        dataHora: hora ? new Date(hora).toISOString() : undefined,
+        dataHora: horaManual && hora ? new Date(hora).toISOString() : undefined,
       });
-      toast.success(`${r.data.data?.count ?? selected.size} registos criados`);
-      onSaved();
+      const count = r.data.data?.count ?? 0;
+      const ignorados: { nome: string; motivo: string }[] = r.data.data?.ignorados ?? [];
+      if (count > 0) {
+        toast.success(
+          tipo === 'ENTRADA' ? `${count} entrada(s) registada(s)` : `${count} saída(s) registada(s)`,
+          tipo === 'ENTRADA' ? `Saída automática ao fim de ${DURACAO_AULA_MIN} min` : undefined,
+        );
+      }
+      if (ignorados.length > 0) {
+        const lista = ignorados.slice(0, 5).map((i) => `${i.nome}: ${i.motivo}`).join(' · ');
+        toast.warning(`${ignorados.length} atleta(s) não registado(s)`, ignorados.length > 5 ? `${lista} · …` : lista);
+      }
+      if (count > 0) onSaved();
     } catch (e: any) {
       toast.error('Erro ao registar em grupo', e?.response?.data?.message);
     } finally {
@@ -102,10 +117,26 @@ export function BulkEntradaSaidaModal({ onClose, onSaved }: BulkEntradaSaidaModa
           ))}
         </div>
 
+        <p className={cn('text-xs rounded-lg px-3 py-2 border',
+          tipo === 'ENTRADA' ? 'text-gray-600 bg-gray-50 border-gray-100' : 'text-amber-700 bg-amber-50 border-amber-100')}>
+          {tipo === 'ENTRADA'
+            ? `A saída de cada atleta fica registada automaticamente ${DURACAO_AULA_MIN} min depois da entrada.`
+            : 'Só para casos especiais (aula prolongada ou encurtada). Substitui a saída automática; atletas sem entrada registada são ignorados.'}
+        </p>
+
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Hora <span className="text-gray-400 font-normal">(opcional)</span></label>
-          <input type="datetime-local" value={hora} onChange={(e) => setHora(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-          <p className="text-xs text-gray-400 mt-1">Em branco usa a hora actual. Indica a hora real ao lançar um registo anotado antes (até 7 dias).</p>
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" checked={horaManual} onChange={(e) => { setHoraManual(e.target.checked); if (!e.target.checked) setHora(''); }} className="rounded border-gray-300" />
+            Indicar a hora manualmente
+          </label>
+          {horaManual ? (
+            <>
+              <input type="datetime-local" value={hora} onChange={(e) => setHora(e.target.value)} className="mt-2 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              <p className="text-xs text-gray-400 mt-1">Para registos anotados sem internet e lançados mais tarde (até 7 dias).</p>
+            </>
+          ) : (
+            <p className="text-xs text-gray-400 mt-1">Por defeito usa a hora actual.</p>
+          )}
         </div>
 
         {tipo === 'SAIDA' && (

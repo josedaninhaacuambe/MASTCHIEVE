@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { levelLabel, cn } from '@/lib/utils';
+import { classLevelLabel, cn } from '@/lib/utils';
 import {
   Waves, BookOpen, Users, GraduationCap, Brain, Star,
   CheckCircle, Mail, Phone, MapPin, ChevronRight, Sparkles,
@@ -124,7 +124,7 @@ export default function VisitorPage() {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-gray-900">{cls.name}</p>
-                      <p className="text-xs text-gray-400">{levelLabel(cls.level)}</p>
+                      <p className="text-xs text-gray-400">{classLevelLabel(cls.level)}</p>
                     </div>
                   </div>
                   {cls.instructor && (

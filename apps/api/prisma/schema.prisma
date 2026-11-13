@@ -1382,10 +1382,12 @@ model PessoaAutorizada {
 model RegistoEntradaSaidaAluno {
   id                 String   @id @default(uuid())
   studentId          String
-  tipo               String // ENTRADA|SAIDA
+  tipo               String // ENTRADA|SAIDA|CANCELAMENTO
   dataHora           DateTime @default(now())
   pessoaAutorizadaId String?
   justificativa      String?  @db.Text
+  /// true = saída gerada automaticamente ao fim da aula (substituída se for registada uma saída manual)
+  automatica         Boolean  @default(false)
   registadoPorId     String
   createdAt          DateTime @default(now())
 
@@ -1394,6 +1396,7 @@ model RegistoEntradaSaidaAluno {
   registadoPor     User              @relation(fields: [registadoPorId], references: [id])
 
   @@index([studentId])
+  @@index([studentId, dataHora])
   @@map("registos_entrada_saida")
 }
 

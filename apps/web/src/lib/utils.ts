@@ -37,6 +37,19 @@ export function levelLabel(level: string) {
   return map[level] ?? level;
 }
 
+/**
+ * Nível das turmas com os nomes dos módulos (AMA / Intermédio / Avançado).
+ * Os códigos guardados não mudam; ELEMENTARY e COMPETITIVE são valores antigos.
+ */
+export const CLASS_LEVEL_OPTIONS = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED'];
+export function classLevelLabel(level: string) {
+  const map: Record<string, string> = {
+    BEGINNER: 'AMA', ELEMENTARY: 'AMA',
+    INTERMEDIATE: 'Intermédio', ADVANCED: 'Avançado', COMPETITIVE: 'Avançado',
+  };
+  return map[level] ?? level;
+}
+
 export function statusColor(status: string) {
   const map: Record<string, string> = {
     ACTIVE: 'text-green-600 bg-green-50', INACTIVE: 'text-gray-600 bg-gray-50',

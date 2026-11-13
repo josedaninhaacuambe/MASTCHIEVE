@@ -4,7 +4,7 @@ import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { formatDate, cn } from '@/lib/utils';
 import { Plus, LogIn, LogOut, DoorOpen, XCircle, Users } from 'lucide-react';
-import { BulkEntradaSaidaModal } from './bulk-modal';
+import { BulkEntradaSaidaModal, DURACAO_AULA_MIN } from './bulk-modal';
 import { StudentSearchSelect } from '@/components/ui/student-search-select';
 
 export default function EntradaSaidaPage() {
@@ -18,6 +18,7 @@ export default function EntradaSaidaPage() {
   const [loadError, setLoadError] = useState(false);
 
   const [form, setForm] = useState({ studentId: '', tipo: 'ENTRADA', pessoaAutorizadaId: '', justificativa: '', hora: '' });
+  const [horaManual, setHoraManual] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -44,20 +45,26 @@ export default function EntradaSaidaPage() {
 
   const abrirNovo = () => {
     setForm({ studentId: '', tipo: 'ENTRADA', pessoaAutorizadaId: '', justificativa: '', hora: '' });
+    setHoraManual(false);
     setShowForm(true);
   };
 
   const salvar = async () => {
     setSaving(true);
     try {
-      await api.post('/entrada-saida/registos', {
+      const r = await api.post('/entrada-saida/registos', {
         studentId: form.studentId,
         tipo: form.tipo,
         pessoaAutorizadaId: form.tipo === 'SAIDA' ? (form.pessoaAutorizadaId || undefined) : undefined,
         justificativa: form.tipo !== 'ENTRADA' ? (form.justificativa || undefined) : undefined,
-        dataHora: form.hora ? new Date(form.hora).toISOString() : undefined,
+        dataHora: horaManual && form.hora ? new Date(form.hora).toISOString() : undefined,
       });
-      toast.success('Registo criado');
+      const prevista = r.data.data?.saidaPrevista;
+      if (form.tipo === 'ENTRADA' && prevista) {
+        toast.success('Entrada registada', `Saída automática às ${formatDate(prevista, 'HH:mm')} (fim da aula de ${DURACAO_AULA_MIN} min)`);
+      } else {
+        toast.success(form.tipo === 'CANCELAMENTO' ? 'Entrada cancelada' : 'Saída registada');
+      }
       setShowForm(false);
       load();
     } catch (e: any) {
@@ -67,14 +74,14 @@ export default function EntradaSaidaPage() {
     }
   };
 
-  const formValido = form.tipo !== 'CANCELAMENTO' || !!form.justificativa.trim();
+  const formValido = (form.tipo !== 'CANCELAMENTO' || !!form.justificativa.trim()) && (!horaManual || !!form.hora);
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Entrada e Saída dos Alunos</h1>
-          <p className="text-gray-500 text-sm mt-1">Controlo de entradas e saídas dos atletas</p>
+          <p className="text-gray-500 text-sm mt-1">Regista a entrada do atleta; a saída é automática ao fim de {DURACAO_AULA_MIN} min de aula</p>
         </div>
         <div className="flex items-center gap-3">
           <input type="date" value={data} onChange={(e) => setData(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
@@ -122,7 +129,11 @@ export default function EntradaSaidaPage() {
                 <tr key={r.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-gray-500">
                     {formatDate(r.dataHora, 'dd/MM/yyyy HH:mm')}
-                    {Math.abs(new Date(r.dataHora).getTime() - new Date(r.createdAt).getTime()) > 60_000 && (
+                    {r.automatica ? (
+                      <span title={`Saída automática ao fim da aula de ${DURACAO_AULA_MIN} min`} className="ml-2 px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-xs font-medium">
+                        {new Date(r.dataHora).getTime() > Date.now() ? 'Automática · prevista' : 'Automática'}
+                      </span>
+                    ) : Math.abs(new Date(r.dataHora).getTime() - new Date(r.createdAt).getTime()) > 60_000 && (
                       <span title={`Lançado em ${formatDate(r.createdAt, 'dd/MM/yyyy HH:mm')}`} className="ml-2 px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-xs font-medium">Manual</span>
                     )}
                   </td>
@@ -168,10 +179,29 @@ export default function EntradaSaidaPage() {
                 </button>
               ))}
             </div>
+            {form.tipo === 'ENTRADA' && (
+              <p className="text-xs text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                A saída fica registada automaticamente {DURACAO_AULA_MIN} min depois da entrada. Não é preciso registá-la.
+              </p>
+            )}
+            {form.tipo === 'SAIDA' && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                Só para casos especiais: aula prolongada ou encurtada, ou saída com pessoa autorizada. Substitui a saída automática; o atleta tem de ter a entrada registada.
+              </p>
+            )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Hora <span className="text-gray-400 font-normal">(opcional)</span></label>
-              <input type="datetime-local" value={form.hora} onChange={(e) => setForm((f) => ({ ...f, hora: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-              <p className="text-xs text-gray-400 mt-1">Em branco usa a hora actual. Indica a hora real ao lançar um registo anotado antes (até 7 dias).</p>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" checked={horaManual} onChange={(e) => { setHoraManual(e.target.checked); if (!e.target.checked) setForm((f) => ({ ...f, hora: '' })); }} className="rounded border-gray-300" />
+                Indicar a hora manualmente
+              </label>
+              {horaManual ? (
+                <>
+                  <input type="datetime-local" value={form.hora} onChange={(e) => setForm((f) => ({ ...f, hora: e.target.value }))} className="mt-2 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  <p className="text-xs text-gray-400 mt-1">Para registos anotados sem internet e lançados mais tarde (até 7 dias).</p>
+                </>
+              ) : (
+                <p className="text-xs text-gray-400 mt-1">Por defeito usa a hora actual.</p>
+              )}
             </div>
             {form.tipo === 'CANCELAMENTO' && (
               <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
