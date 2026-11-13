@@ -16,7 +16,7 @@ import {
   AlertTriangle, Fish, Award, Calendar, Trophy, Megaphone, Building2, Shield, Zap, Bell,
   Briefcase, UserPlus, FileSignature, IdCard, CalendarClock, ClipboardCheck, CalendarX,
   Banknote, Gavel, FolderOpen, PieChart, Fingerprint, ChevronDown,
-  Users2, Boxes, DoorOpen, MessageSquareWarning, FileBarChart, CalendarCheck,
+  Users2, Boxes, DoorOpen, MessageSquareWarning, FileBarChart, CalendarCheck, Package,
 } from 'lucide-react';
 
 type NavGroupKey = 'pedagogico' | 'seguranca' | 'crm' | 'administrativo' | 'rh' | 'sistema';
@@ -41,6 +41,7 @@ const navItems = [
   { href: '/feedback',          icon: MessageSquare,    label: 'Feedback IA',            roles: ['ADMIN', 'INSTRUCTOR'] },
   { href: '/training-plans',    icon: Dumbbell,         label: 'Planos de Treino',       roles: ['ADMIN', 'INSTRUCTOR'] },
   { href: '/financial',         icon: CreditCard,       label: 'Financeiro',             roles: ['ADMIN', 'FINANCIAL', 'ASSISTENTE_ADMIN'] },
+  { href: '/pacotes',           icon: Package,          label: 'Pacotes e Preços',       roles: ['ADMIN'] },
   { href: '/kpi',               icon: BarChart3,        label: 'KPIs',                   roles: ['ADMIN', 'MANAGER'] },
   { href: '/modules',           icon: Waves,            label: 'Módulos',                roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER', 'ASSISTENTE_ADMIN'] },
   { href: '/documents',         icon: FileText,         label: 'Documentos',             roles: ['ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN'] },

@@ -107,6 +107,71 @@ export class EmailService {
     }, `Feedback email sent to ${to}`);
   }
 
+  private smtpConfigurado(): boolean {
+    return !!process.env.SMTP_USER && process.env.SMTP_USER !== 'noreply@mastchieve.com';
+  }
+
+  private esc(v: string): string {
+    return v.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+  }
+
+  /** Lembrete antes do vencimento. Devolve true só se o email saiu de facto. */
+  async sendPaymentDueSoon(to: string, studentName: string, amount: number, dueDate: string, diasRestantes: number): Promise<boolean> {
+    if (!this.smtpConfigurado()) {
+      this.logger.warn(`[EMAIL SKIPPED] Payment due reminder to ${to} — SMTP not configured`);
+      return false;
+    }
+    const quando = diasRestantes <= 0 ? 'vence <strong>hoje</strong>' : `vence em <strong>${diasRestantes} dia(s)</strong>`;
+    return this.safeSend({
+      from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
+      to,
+      subject: diasRestantes <= 0 ? 'Mensalidade vence hoje — Mastchieve' : `Mensalidade vence em ${diasRestantes} dia(s) — Mastchieve`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #1A3A9C 0%, #1A56DB 100%); padding: 32px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">Mastchieve</h1>
+          </div>
+          <div style="padding: 32px; background: #f9fafb; border-radius: 0 0 12px 12px;">
+            <p style="color: #374151; font-size: 16px;">Olá!</p>
+            <p style="color: #6b7280;">A mensalidade de <strong>${this.esc(studentName)}</strong> ${quando}.</p>
+            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <p style="margin: 0; color: #6b7280;">Valor: <strong style="color: #111827;">MT ${amount.toFixed(2)}</strong></p>
+              <p style="margin: 8px 0 0; color: #6b7280;">Vencimento: <strong style="color: #111827;">${this.esc(dueDate)}</strong></p>
+            </div>
+            <p style="color: #6b7280; font-size: 13px;">Se já efectuou o pagamento, ignore esta mensagem.</p>
+          </div>
+        </div>
+      `,
+    }, `Payment due reminder sent to ${to}`);
+  }
+
+  /** Recibo de pagamento (PDF em anexo). Devolve true só se o email saiu de facto. */
+  async sendRecibo(to: string, studentName: string, numero: string, amount: number, dataPagamento: string, pdf: Buffer): Promise<boolean> {
+    if (!this.smtpConfigurado()) {
+      this.logger.warn(`[EMAIL SKIPPED] Receipt ${numero} to ${to} — SMTP not configured`);
+      return false;
+    }
+    return this.safeSend({
+      from: process.env.SMTP_FROM ?? '"Mastchieve" <noreply@mastchieve.com>',
+      to,
+      subject: `Recibo ${numero} — Mastchieve`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #047857 0%, #10b981 100%); padding: 32px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">Mastchieve</h1>
+            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0;">Pagamento recebido</p>
+          </div>
+          <div style="padding: 32px; background: #f9fafb; border-radius: 0 0 12px 12px;">
+            <p style="color: #374151; font-size: 16px;">Olá!</p>
+            <p style="color: #6b7280;">Confirmamos o pagamento de <strong>MT ${amount.toFixed(2)}</strong> referente a <strong>${this.esc(studentName)}</strong>, em ${this.esc(dataPagamento)}.</p>
+            <p style="color: #6b7280;">Recibo n.º <strong>${this.esc(numero)}</strong> em anexo.</p>
+          </div>
+        </div>
+      `,
+      attachments: [{ filename: `recibo-${numero}.pdf`, content: pdf, contentType: 'application/pdf' }],
+    }, `Receipt ${numero} sent to ${to}`);
+  }
+
   async sendMonthlyReport(to: string, studentName: string, pdfBuffer: Buffer) {
     if (!process.env.SMTP_USER || process.env.SMTP_USER === 'noreply@mastchieve.com') {
       this.logger.warn(`[EMAIL SKIPPED] Monthly report to ${to} — SMTP not configured`);

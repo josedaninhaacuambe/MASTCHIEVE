@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { CriarPlanoModal } from './criar-plano-modal';
+import { PlanosAula } from './planos-aula';
 import { toast } from '@/lib/toast';
 import { getInitials, formatDate, cn } from '@/lib/utils';
 import {
@@ -532,7 +533,7 @@ function PlanCard({ plan, onClick }: { plan: TrainingPlan; onClick: () => void }
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TrainingPlansPage() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<'plans' | 'templates'>('plans');
+  const [tab, setTab] = useState<'plans' | 'aulas' | 'templates'>('plans');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'ai'>('all');
   const [showGenerate, setShowGenerate] = useState(false);
@@ -597,6 +598,11 @@ export default function TrainingPlansPage() {
             tab === 'plans' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
           <Sparkles className="w-4 h-4" /> Planos por Atleta
         </button>
+        <button onClick={() => setTab('aulas')}
+          className={cn('flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition',
+            tab === 'aulas' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
+          <LayoutGrid className="w-4 h-4" /> Planos de Aula
+        </button>
         <button onClick={() => setTab('templates')}
           className={cn('flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition',
             tab === 'templates' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
@@ -604,6 +610,7 @@ export default function TrainingPlansPage() {
         </button>
       </div>
 
+      {tab === 'aulas' && <PlanosAula />}
       {tab === 'templates' && <TemplatesModulo />}
 
       {tab === 'plans' && isError && (

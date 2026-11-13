@@ -5,6 +5,7 @@ import { Queue } from 'bull';
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { erroDaIa, extrairJson, textoDaResposta } from './ai-errors.util';
 
 export interface FeedbackJobData {
@@ -23,6 +24,7 @@ export class AiService {
     private prisma: PrismaService,
     @InjectQueue('feedback') private feedbackQueue: Queue,
     private email: EmailService,
+    private notifications: NotificationsService,
   ) {
     this.anthropic = new Anthropic({
       apiKey: this.config.get('ANTHROPIC_API_KEY'),
@@ -120,7 +122,7 @@ export class AiService {
       update: { ...this.feedbackData(feedbackText, tokensUsed, confidence, recommendedLessons, interactiveExercises), updatedAt: new Date() },
     });
 
-    await this.notifyStudentFeedback(student.id, student.firstName, feedbackText);
+    await this.notificarFeedbackParaRever({ avaliacaoId }, `${student.firstName} ${student.lastName ?? ''}`.trim());
     this.logger.log(`Feedback generated for student ${student.id}, tokens: ${tokensUsed}`);
     return feedbackText;
   }
@@ -152,7 +154,7 @@ export class AiService {
       update: { ...this.feedbackData(feedbackText, tokensUsed, confidence, recommendedLessons, interactiveExercises), updatedAt: new Date() },
     });
 
-    await this.notifyStudentFeedback(student.id, student.firstName, feedbackText);
+    await this.notificarFeedbackParaRever({ performanceRecordId }, `${student.firstName} ${student.lastName ?? ''}`.trim());
     this.logger.log(`Feedback generated for student ${student.id}, tokens: ${tokensUsed}`);
     return feedbackText;
   }
@@ -230,13 +232,41 @@ export class AiService {
     }
   }
 
-  private async notifyStudentFeedback(studentId: string, firstName: string, feedbackText: string) {
-    const userAccount = await this.prisma.user.findFirst({
-      where: { student: { id: studentId } },
-      select: { email: true },
-    });
-    if (userAccount?.email) {
-      this.email.sendFeedbackReady(userAccount.email, firstName, feedbackText).catch(() => {});
+  /**
+   * O atleta só recebe o feedback depois de o instrutor o rever e enviar (página Feedback).
+   * Aqui apenas se avisa o instrutor que avaliou de que há um feedback pronto a rever.
+   */
+  private async notificarFeedbackParaRever(
+    chave: { avaliacaoId: string } | { performanceRecordId: string },
+    nomeAtleta: string,
+  ) {
+    try {
+      const fb = await this.prisma.feedback.findUnique({
+        where: chave as any,
+        select: {
+          id: true,
+          instructor: { select: { userId: true } },
+          performanceRecord: { select: { instructorId: true } },
+        },
+      });
+      let userId = fb?.instructor?.userId;
+      if (!userId && fb?.performanceRecord?.instructorId) {
+        const inst = await this.prisma.instructor.findUnique({
+          where: { id: fb.performanceRecord.instructorId },
+          select: { userId: true },
+        });
+        userId = inst?.userId ?? undefined;
+      }
+      if (!fb || !userId) return;
+      await this.notifications.createForUser(
+        userId,
+        'FEEDBACK_PARA_REVER',
+        '📝 Feedback pronto para rever',
+        `O feedback de ${nomeAtleta} foi gerado pela IA. Reveja e envie-o ao atleta.`,
+        JSON.stringify({ feedbackId: fb.id }),
+      );
+    } catch (e) {
+      this.logger.warn(`Não foi possível avisar o instrutor do feedback: ${e instanceof Error ? e.message : e}`);
     }
   }
 

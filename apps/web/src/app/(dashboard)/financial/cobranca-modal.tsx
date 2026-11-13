@@ -78,7 +78,7 @@ export function CobrancaModal({ onClose, onSaved }: CobrancaModalProps) {
             <label className="block text-xs font-medium text-gray-700 mb-1.5">Atleta*</label>
             {atleta ? (
               <div className="flex items-center justify-between border border-gray-200 rounded-lg px-3 py-2 text-sm">
-                <span className="font-medium text-gray-900">{atleta.firstName} {atleta.lastName}</span>
+                <span className="font-medium text-gray-900">{atleta.firstName} {atleta.lastName}{atleta.pacote && <span className="ml-2 text-xs font-normal text-gray-500">Pacote: {atleta.pacote.nome}</span>}</span>
                 <button onClick={() => { setAtleta(null); setPesquisa(''); }} className="text-xs text-blue-600 hover:underline">Alterar</button>
               </div>
             ) : (
@@ -88,7 +88,7 @@ export function CobrancaModal({ onClose, onSaved }: CobrancaModalProps) {
                 {resultados.length > 0 && (
                   <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
                     {resultados.map((s) => (
-                      <button key={s.id} onClick={() => { setAtleta(s); setResultados([]); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
+                      <button key={s.id} onClick={() => { setAtleta(s); setResultados([]); if (s.pacote?.preco && amount === '') setAmount(Number(s.pacote.preco)); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
                         {s.firstName} {s.lastName}
                       </button>
                     ))}

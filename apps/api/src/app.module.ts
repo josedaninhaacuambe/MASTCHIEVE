@@ -34,6 +34,8 @@ import { AiModule } from './modules/ai/ai.module';
 import { EmailModule } from './modules/email/email.module';
 import { ParentsModule } from './modules/parents/parents.module';
 import { TrainingPlansModule } from './modules/training-plans/training-plans.module';
+import { PacotesModule } from './modules/pacotes/pacotes.module';
+import { PlanosAulaModule } from './modules/planos-aula/planos-aula.module';
 import { RecursosHumanosModule } from './modules/recursos-humanos/recursos-humanos.module';
 import { AdministrativoModule } from './modules/administrativo/administrativo.module';
 import { RedisModule } from './common/redis/redis.module';
@@ -99,6 +101,8 @@ import { LinkPartilhaModule } from './modules/link-partilha/link-partilha.module
     EmailModule,
     ParentsModule,
     TrainingPlansModule,
+    PacotesModule,
+    PlanosAulaModule,
     UnidadesModule,
     LeadsModule,
     IncidentesModule,

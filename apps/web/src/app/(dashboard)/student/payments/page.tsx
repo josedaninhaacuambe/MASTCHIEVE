@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { abrirRecibo } from '@/lib/recibo';
 import { cn, formatCurrency } from '@/lib/utils';
 import {
   CreditCard, CheckCircle, Clock, AlertCircle, TrendingUp,
@@ -72,6 +73,14 @@ function ReceiptModal({ payment, onClose }: { payment: any; onClose: () => void 
               </div>
             ))}
           </div>
+          {payment.status === 'PAID' && payment.receiptNumber && (
+            <button
+              onClick={() => abrirRecibo(payment.id, true)}
+              className="w-full py-2.5 text-sm font-semibold bg-green-600 hover:bg-green-700 text-white rounded-xl transition"
+            >
+              Descarregar recibo (PDF)
+            </button>
+          )}
 
           <div className="text-center text-[10px] text-gray-400">
             Este documento serve como comprovativo de pagamento.

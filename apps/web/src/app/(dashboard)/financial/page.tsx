@@ -11,10 +11,11 @@ import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
 import {
   CreditCard, AlertCircle, CheckCircle, Clock, TrendingUp, Plus,
-  X, FileDown, Bell, ChevronDown, ShieldOff, Wallet, ClipboardList, Briefcase, RefreshCw,
+  X, FileDown, Bell, ChevronDown, ShieldOff, Wallet, ClipboardList, Briefcase, RefreshCw, FileText,
 } from 'lucide-react';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { CobrancaModal } from './cobranca-modal';
+import { abrirRecibo } from '@/lib/recibo';
 
 /* ─────────────────── Constants ─────────────────── */
 
@@ -77,7 +78,7 @@ function GradientCard({
 
 interface GenerateModalProps {
   onClose: () => void;
-  onConfirm: (opts: { month: number; year: number; amount: number }) => void;
+  onConfirm: (opts: { month: number; year: number; amount?: number }) => void;
   isPending: boolean;
 }
 
@@ -85,7 +86,7 @@ function GenerateModal({ onClose, onConfirm, isPending }: GenerateModalProps) {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
-  const [amount, setAmount] = useState(45);
+  const [amount, setAmount] = useState<number | ''>('');
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -121,11 +122,12 @@ function GenerateModal({ onClose, onConfirm, isPending }: GenerateModalProps) {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">Valor (MT)</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Valor para atletas sem pacote (MT, opcional)</label>
             <input
               type="number"
               value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
+              placeholder="Vazio = só atletas com pacote"
+              onChange={(e) => setAmount(e.target.value === '' ? '' : Number(e.target.value))}
               min={0}
               step={0.5}
               className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mastchieve-500"
@@ -133,6 +135,7 @@ function GenerateModal({ onClose, onConfirm, isPending }: GenerateModalProps) {
           </div>
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
             Cria a mensalidade deste mês para <strong>todos os atletas activos</strong> que ainda não a têm, com vencimento no dia 10.
+            Cada atleta paga o <strong>preço do seu pacote</strong>; o valor acima só se usa para quem não tem pacote.
             Para cobrar um só atleta, com valor ou data diferentes, usa <strong>Nova cobrança</strong>.
           </p>
         </div>
@@ -144,7 +147,7 @@ function GenerateModal({ onClose, onConfirm, isPending }: GenerateModalProps) {
             Cancelar
           </button>
           <button
-            onClick={() => onConfirm({ month, year, amount })}
+            onClick={() => onConfirm({ month, year, ...(amount !== '' && Number(amount) > 0 && { amount: Number(amount) }) })}
             disabled={isPending}
             className="px-4 py-2 text-sm font-medium bg-mastchieve-600 hover:bg-mastchieve-700 text-white rounded-lg transition disabled:opacity-60"
           >
@@ -368,6 +371,7 @@ export default function FinancialPage() {
   const qc = useQueryClient();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'ADMIN';
+  const podeVerRecibo = ['ADMIN', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN'].includes(user?.role ?? '');
   const currentYear = new Date().getFullYear();
 
   const [tab, setTab] = useState<'pagamentos' | 'caixa'>('pagamentos');
@@ -401,8 +405,17 @@ export default function FinancialPage() {
   const payMutation = useMutation({
     mutationFn: ({ id, method }: { id: string; method: string }) =>
       api.patch(`/financial/payments/${id}/pay`, { method }),
-    onSuccess: () => {
-      toast.success('Pagamento registado');
+    onSuccess: (r: any) => {
+      const recibo = r?.data?.data?.recibo;
+      if (recibo) {
+        const partes = [`Recibo ${recibo.numero} emitido.`];
+        partes.push(`${recibo.notificados ?? 0} conta(s) notificada(s) na aplicação.`);
+        if (recibo.emailsEnviados) partes.push(`${recibo.emailsEnviados} email(s) com o recibo enviados.`);
+        else partes.push('Sem email real registado — o recibo não foi enviado por email.');
+        toast.success('Pagamento registado', partes.join(' '));
+      } else {
+        toast.success('Pagamento registado');
+      }
       qc.invalidateQueries({ queryKey: ['payments'] });
       qc.invalidateQueries({ queryKey: ['financial-summary'] });
     },
@@ -410,14 +423,17 @@ export default function FinancialPage() {
   });
 
   const generateMutation = useMutation({
-    mutationFn: (opts: { month: number; year: number; amount: number }) =>
+    mutationFn: (opts: { month: number; year: number; amount?: number }) =>
       api.post('/financial/monthly-fees/generate', opts),
     onSuccess: (r: any) => {
       qc.invalidateQueries({ queryKey: ['payments'] });
       qc.invalidateQueries({ queryKey: ['financial-summary'] });
       setShowGenerateModal(false);
       const res = r?.data?.data;
-      toast.success('Mensalidades geradas', res ? `${res.created} criada(s) de ${res.total} atleta(s) activo(s)` : undefined);
+      toast.success(
+        'Mensalidades geradas',
+        res ? `${res.created} criada(s) de ${res.total} atleta(s) activo(s); ${res.comPacote ?? 0} com preço do pacote.${res.semValor ? ` ${res.semValor} sem pacote nem valor ficaram por gerar.` : ''}` : undefined,
+      );
     },
     onError: () => toast.error('Erro ao gerar mensalidades'),
   });
@@ -766,7 +782,13 @@ export default function FinancialPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-xs text-gray-400 whitespace-nowrap">{p.receiptNumber || '—'}</td>
+                      <td className="px-6 py-4 text-xs text-gray-400 whitespace-nowrap">
+                        {p.status === 'PAID' && p.receiptNumber && podeVerRecibo ? (
+                          <button onClick={() => abrirRecibo(p.id)} className="inline-flex items-center gap-1 text-blue-600 hover:underline font-medium" title="Abrir recibo (PDF)">
+                            <FileText className="w-3.5 h-3.5" /> {p.receiptNumber}
+                          </button>
+                        ) : (p.receiptNumber || '—')}
+                      </td>
                       <td className="px-6 py-4">
                         {p.status === 'PAID' ? (
                           <span className="text-xs text-gray-500 font-medium">{METHOD_LABEL[p.method] ?? p.method ?? '—'}</span>

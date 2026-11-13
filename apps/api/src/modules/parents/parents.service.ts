@@ -79,7 +79,7 @@ export class ParentsService {
                   orderBy: { dueDate: 'asc' },
                 },
                 feedbacks: {
-                  where: { status: { in: ['SENT', 'REVIEWED'] } },
+                  where: { status: 'SENT' },
                   take: 3,
                   orderBy: { createdAt: 'desc' },
                   select: { id: true, aiGeneratedText: true, createdAt: true, status: true },
@@ -124,10 +124,10 @@ export class ParentsService {
         payments: {
           take: 12,
           orderBy: { dueDate: 'desc' },
-          select: { id: true, amount: true, status: true, dueDate: true, paidAt: true, method: true },
+          select: { id: true, amount: true, status: true, dueDate: true, paidAt: true, method: true, receiptNumber: true },
         },
         feedbacks: {
-          where: { status: { in: ['SENT', 'REVIEWED'] } },
+          where: { status: 'SENT' },
           take: 10,
           orderBy: { createdAt: 'desc' },
           select: { id: true, aiGeneratedText: true, finalText: true, createdAt: true, status: true },

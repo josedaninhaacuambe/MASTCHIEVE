@@ -57,6 +57,8 @@ import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuthStore } from '@/stores/auth.store';
 import Link from 'next/link';
+import { abrirRecibo } from '@/lib/recibo';
+import PacoteDoAtleta from '@/components/students/PacoteDoAtleta';
 
 // ─── Tab definition ────────────────────────────────────────────────────────────
 const tabs = ['Desempenho', 'Feedbacks IA', 'Módulos', 'Planos de Treino', 'Financeiro', 'Documentos', 'Histórico'] as const;
@@ -1055,6 +1057,12 @@ export default function StudentDetailPage() {
         {/* FINANCEIRO */}
         {activeTab === 'Financeiro' && (
           <div className="space-y-4">
+            <PacoteDoAtleta
+              studentId={id as string}
+              pacote={student.pacote}
+              podeAlterar={canManageQr}
+              onChange={() => { refetchStudent(); qc.invalidateQueries({ queryKey: ['pacotes'] }); }}
+            />
             {/* Financial summary row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-green-50 border border-green-100 rounded-xl p-4">
@@ -1094,7 +1102,13 @@ export default function StudentDetailPage() {
                           {paymentLabel[p.status] ?? p.status}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-xs text-gray-400">{p.receiptNumber || '—'}</td>
+                      <td className="px-5 py-3 text-xs text-gray-400">
+                        {p.status === 'PAID' && p.receiptNumber && canManageQr ? (
+                          <button onClick={() => abrirRecibo(p.id)} className="text-blue-600 hover:underline font-medium">
+                            {p.receiptNumber}
+                          </button>
+                        ) : (p.receiptNumber || '—')}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

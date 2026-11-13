@@ -44,7 +44,7 @@ export default function NewStudentPage() {
   const precisaEscolherUnidade = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const [form, setForm] = useState({
     firstName: '', lastName: '', dateOfBirth: '', gender: 'MALE',
-    email: '', phone: '', emergencyContact: '', emergencyPhone: '', medicalNotes: '', classId: '', unidadeId: '',
+    email: '', phone: '', emergencyContact: '', emergencyPhone: '', medicalNotes: '', classId: '', unidadeId: '', pacoteId: '', gerarPrimeiraMensalidade: true,
     autorizacaoImagem: false, autorizacaoImagemDoc: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -56,6 +56,12 @@ export default function NewStudentPage() {
     queryKey: ['classes-select'],
     queryFn: async () => { const { data } = await api.get('/classes?limit=50&status=ACTIVE'); return data.data ?? []; },
   });
+
+  const { data: pacotes } = useQuery({
+    queryKey: ['pacotes-select'],
+    queryFn: async () => { const { data } = await api.get('/pacotes'); return data.data ?? []; },
+  });
+  const pacoteEscolhido = (pacotes ?? []).find((p: any) => p.id === form.pacoteId);
 
   const { data: unidades } = useQuery({
     queryKey: ['unidades-select'],
@@ -111,6 +117,7 @@ export default function NewStudentPage() {
         ...(form.emergencyPhone && { emergencyPhone: form.emergencyPhone }),
         ...(form.medicalNotes && { medicalNotes: form.medicalNotes }),
         ...(form.unidadeId && { unidadeId: form.unidadeId }),
+        ...(form.pacoteId && { pacoteId: form.pacoteId, gerarPrimeiraMensalidade: form.gerarPrimeiraMensalidade }),
         autorizacaoImagem: form.autorizacaoImagem,
         ...(form.autorizacaoImagemDoc && { autorizacaoImagemDoc: form.autorizacaoImagemDoc }),
         ...(guardians.length && {
@@ -313,6 +320,29 @@ export default function NewStudentPage() {
             ))}
           </select>
         </Field>
+        <Field label="Pacote / plano de pagamento">
+          <select value={form.pacoteId} onChange={(e) => set('pacoteId', e.target.value)} className={inputCls}>
+            <option value="">— Sem pacote (definir depois) —</option>
+            {(pacotes ?? []).map((p: any) => (
+              <option key={p.id} value={p.id}>
+                {p.nome} — {Number(p.preco).toLocaleString('pt-PT', { minimumFractionDigits: 2 })} MT/mês
+              </option>
+            ))}
+          </select>
+        </Field>
+        {pacoteEscolhido && (
+          <label className="flex items-start gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={form.gerarPrimeiraMensalidade}
+              onChange={(e) => set('gerarPrimeiraMensalidade', e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Gerar já a mensalidade deste mês ({Number(pacoteEscolhido.preco).toLocaleString('pt-PT', { minimumFractionDigits: 2 })} MT)
+            </span>
+          </label>
+        )}
         <Field label="Notas médicas / observações">
           <textarea
             value={form.medicalNotes}

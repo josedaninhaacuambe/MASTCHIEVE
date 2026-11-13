@@ -5,6 +5,8 @@ import { NotificationsService } from './notifications.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { calcularStatusInstrutor } from '../administrativo/rotina-diaria/rotina-diaria-status.util';
+import { EmailService } from '../email/email.service';
+import { destinatariosDoAtleta } from '../../common/utils/destinatarios-atleta.util';
 
 @Injectable()
 export class NotificationsScheduler {
@@ -15,6 +17,7 @@ export class NotificationsScheduler {
     private notifService: NotificationsService,
     private gateway: NotificationsGateway,
     private whatsappService: WhatsappService,
+    private email: EmailService,
   ) {}
 
   private async notifyRoleOnce(role: string, type: string, title: string, body: string, dedupeHours = 24) {
@@ -30,77 +33,94 @@ export class NotificationsScheduler {
     this.gateway.broadcastToRole(role, 'notification', { type, title, body });
   }
 
+  /** Antecedências (em dias) em que o atleta e os encarregados são avisados antes do vencimento. */
+  static readonly MARCOS_AVISO_PAGAMENTO = [7, 3, 1, 0];
+
+  /** Já houve este aviso (mesmo pagamento, mesmo marco) para este utilizador? */
+  private async avisoPagamentoJaEnviado(userId: string, chave: string, desde?: Date) {
+    const existente = await this.prisma.notification.findFirst({
+      where: { userId, type: 'PAYMENT_DUE', data: chave, ...(desde && { createdAt: { gte: desde } }) },
+      select: { id: true },
+    });
+    return !!existente;
+  }
+
   // Runs every day at 08:00
   @Cron('0 8 * * *')
   async checkPaymentsDue() {
     this.logger.log('Checking payments due soon...');
-    const in3Days = new Date();
-    in3Days.setDate(in3Days.getDate() + 3);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const maxMarco = Math.max(...NotificationsScheduler.MARCOS_AVISO_PAGAMENTO);
+    const limite = new Date(today);
+    limite.setDate(limite.getDate() + maxMarco + 1);
 
-    const parentsInclude = { include: { parent: { include: { user: true } } } } as const;
+    const userLite = { select: { id: true, email: true, isActive: true } } as const;
+    const studentInclude = {
+      student: {
+        select: {
+          firstName: true,
+          lastName: true,
+          user: userLite,
+          parents: { select: { parent: { select: { user: userLite } } } },
+        },
+      },
+    } as const;
 
     const pending = await this.prisma.payment.findMany({
-      where: {
-        status: 'PENDING',
-        dueDate: { gte: today, lte: in3Days },
-        isento: false,
-      },
-      include: { student: { include: { user: true, parents: parentsInclude } } },
+      where: { status: 'PENDING', dueDate: { gte: today, lt: limite }, isento: false },
+      include: studentInclude,
     });
 
+    let avisos = 0;
+    let emails = 0;
     for (const p of pending) {
-      const primaryParent = p.student?.parents.find((sp) => sp.isPrimary)?.parent ?? p.student?.parents[0]?.parent;
-      const targetUser = p.student?.user ?? primaryParent?.user;
-      if (!targetUser?.id) continue;
-      const daysLeft = Math.ceil((new Date(p.dueDate).getTime() - today.getTime()) / 86400000);
-      const existing = await this.prisma.notification.findFirst({
-        where: {
-          userId: targetUser.id,
-          type: 'PAYMENT_DUE',
-          createdAt: { gte: new Date(Date.now() - 86400000) },
-        },
-      });
-      if (existing) continue;
+      const venc = new Date(p.dueDate);
+      venc.setHours(0, 0, 0, 0);
+      const daysLeft = Math.round((venc.getTime() - today.getTime()) / 86400000);
+      // Avisa no marco certo; se um dia o cron falhar, o marco seguinte apanha-o.
+      const marco = NotificationsScheduler.MARCOS_AVISO_PAGAMENTO.filter((m) => m >= daysLeft).sort((a, b) => a - b)[0];
+      if (marco === undefined) continue;
+      const chave = JSON.stringify({ paymentId: p.id, marco });
+      const nome = `${p.student.firstName} ${p.student.lastName}`.trim();
+      const dueStr = new Date(p.dueDate).toLocaleDateString('pt-PT');
+      const titulo = daysLeft <= 0 ? '💰 Mensalidade vence hoje!' : `💰 Mensalidade vence em ${daysLeft} dia(s)`;
+      const corpo = `O valor de MT ${p.amount.toFixed(2)} referente a ${nome} deve ser pago até ${dueStr}.`;
 
-      const notif = await this.notifService.createForUser(
-        targetUser.id,
-        'PAYMENT_DUE',
-        daysLeft === 0 ? '💰 Mensalidade vence hoje!' : `💰 Mensalidade vence em ${daysLeft} dia(s)`,
-        `O valor de MT ${p.amount} deve ser pago até ${new Date(p.dueDate).toLocaleDateString('pt-PT')}.`,
-      );
-      this.gateway.sendToUser(targetUser.id, 'notification', notif);
+      for (const d of destinatariosDoAtleta(p.student)) {
+        if (await this.avisoPagamentoJaEnviado(d.userId, chave)) continue;
+        const notif = await this.notifService.createForUser(d.userId, 'PAYMENT_DUE', titulo, corpo, chave);
+        this.gateway.sendToUser(d.userId, 'notification', notif);
+        avisos++;
+        // Email só para contactos reais; sem email fica apenas o aviso na app.
+        if (d.email && (await this.email.sendPaymentDueSoon(d.email, nome, p.amount, dueStr, daysLeft).catch(() => false))) emails++;
+      }
     }
 
-    // Overdue payments
+    // Pagamentos vencidos: passam a "em atraso" e o atleta/encarregados são avisados (no máximo de 3 em 3 dias).
     const overdue = await this.prisma.payment.findMany({
       where: { status: 'PENDING', dueDate: { lt: today }, isento: false },
-      include: { student: { include: { user: true, parents: parentsInclude } } },
+      include: studentInclude,
     });
 
     for (const p of overdue) {
-      const primaryParent = p.student?.parents.find((sp) => sp.isPrimary)?.parent ?? p.student?.parents[0]?.parent;
-      const targetUser = p.student?.user ?? primaryParent?.user;
-      if (!targetUser?.id) continue;
-      const existing = await this.prisma.notification.findFirst({
-        where: {
-          userId: targetUser.id,
-          type: 'PAYMENT_DUE',
-          createdAt: { gte: new Date(Date.now() - 3 * 86400000) },
-        },
-      });
-      if (existing) continue;
-
       await this.prisma.payment.update({ where: { id: p.id }, data: { status: 'OVERDUE' } });
-      const notif = await this.notifService.createForUser(
-        targetUser.id,
-        'PAYMENT_DUE',
-        '⚠️ Mensalidade em atraso',
-        `A mensalidade de MT ${p.amount} está em atraso desde ${new Date(p.dueDate).toLocaleDateString('pt-PT')}. Por favor regulariza a situação.`,
-      );
-      this.gateway.sendToUser(targetUser.id, 'notification', notif);
+      const chave = JSON.stringify({ paymentId: p.id, marco: 'ATRASO' });
+      const nome = `${p.student.firstName} ${p.student.lastName}`.trim();
+      for (const d of destinatariosDoAtleta(p.student)) {
+        if (await this.avisoPagamentoJaEnviado(d.userId, chave, new Date(Date.now() - 3 * 86400000))) continue;
+        const notif = await this.notifService.createForUser(
+          d.userId,
+          'PAYMENT_DUE',
+          '⚠️ Mensalidade em atraso',
+          `A mensalidade de MT ${p.amount.toFixed(2)} referente a ${nome} está em atraso desde ${new Date(p.dueDate).toLocaleDateString('pt-PT')}. Por favor regularize a situação.`,
+          chave,
+        );
+        this.gateway.sendToUser(d.userId, 'notification', notif);
+        avisos++;
+      }
     }
+    this.logger.log(`Avisos de pagamento: ${avisos} na app, ${emails} por email`);
   }
 
   // Runs every day at 09:00

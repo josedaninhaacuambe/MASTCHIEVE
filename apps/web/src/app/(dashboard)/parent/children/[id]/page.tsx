@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { abrirRecibo } from '@/lib/recibo';
 import { formatDate, formatCurrency, getInitials, cn } from '@/lib/utils';
 import {
   ArrowLeft, ChevronRight, Users, CreditCard, MessageSquare,
@@ -252,9 +253,16 @@ export default function ChildDetailPage() {
                       Vence: {formatDate(p.dueDate)} {p.paidAt ? `· Pago: ${formatDate(p.paidAt)}` : ''}
                     </p>
                   </div>
-                  <span className={cn('text-xs px-2.5 py-1 rounded-full font-medium', STATUS_COLOR[p.status] ?? 'bg-gray-100 text-gray-500')}>
-                    {STATUS_LABEL[p.status] ?? p.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {p.status === 'PAID' && p.receiptNumber && (
+                      <button onClick={() => abrirRecibo(p.id, true)} className="text-xs text-blue-600 hover:underline font-medium">
+                        Recibo
+                      </button>
+                    )}
+                    <span className={cn('text-xs px-2.5 py-1 rounded-full font-medium', STATUS_COLOR[p.status] ?? 'bg-gray-100 text-gray-500')}>
+                      {STATUS_LABEL[p.status] ?? p.status}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

@@ -171,8 +171,8 @@ export class StudentsController {
   @Put(':id')
   @Roles('ADMIN', 'INSTRUCTOR', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({ summary: 'Atualizar atleta' })
-  update(@Param('id') id: string, @Body() dto: UpdateStudentDto, @CurrentUser('id') userId: string) {
-    return this.studentsService.update(id, dto, userId);
+  update(@Param('id') id: string, @Body() dto: UpdateStudentDto, @CurrentUser('id') userId: string, @CurrentUser('role') role: string) {
+    return this.studentsService.update(id, dto, userId, role);
   }
 
   @Patch(':id/reset-password')

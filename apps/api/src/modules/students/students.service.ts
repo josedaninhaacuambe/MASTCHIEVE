@@ -210,6 +210,7 @@ export class StudentsService {
             },
           },
           lead: { select: { campanha: true, origem: true } },
+          pacote: { select: { id: true, nome: true, preco: true } },
           payments: { where: { status: 'OVERDUE' }, select: { id: true }, take: 1 },
         },
       }),
@@ -327,6 +328,7 @@ export class StudentsService {
         parents: {
           include: { parent: true },
         },
+        pacote: { select: { id: true, nome: true, preco: true, aulasPorSemana: true, ativo: true } },
         feedbacks: {
           take: 10,
           orderBy: { createdAt: 'desc' },
@@ -390,7 +392,11 @@ export class StudentsService {
       estadoInscricao: 'DOCUMENTOS_PENDENTES',
       camposEmFalta: camposEmFalta.length ? JSON.stringify(camposEmFalta) : undefined,
       unidadeId,
+      pacoteId: undefined as string | undefined,
     };
+
+    const pacote = dto.pacoteId ? await this.validarPacote(dto.pacoteId) : null;
+    if (pacote) studentData.pacoteId = pacote.id;
 
     let user: { student?: any };
 
@@ -489,8 +495,13 @@ export class StudentsService {
         action: 'STUDENT_CRIADO',
         entity: 'Student',
         entityId: user.student.id,
-        newValues: { firstName, lastName, guardians: dto.guardians?.length ?? 0 },
+        newValues: { firstName, lastName, guardians: dto.guardians?.length ?? 0, pacoteId: pacote?.id },
       });
+    }
+
+    // O preço do pacote reflecte-se logo na inscrição: primeira mensalidade com o valor do pacote.
+    if (pacote && user.student && dto.gerarPrimeiraMensalidade !== false) {
+      await this.criarPrimeiraMensalidade(user.student.id, pacote, actorUserId);
     }
 
     if (user.student) {
@@ -569,7 +580,8 @@ export class StudentsService {
       parentId = updated.parent!.id;
     }
 
-    const { guardians, ...childDto } = dto;
+    // O encarregado não escolhe pacote/preço: isso é feito pela administração.
+    const { guardians, pacoteId: _p, gerarPrimeiraMensalidade: _g, ...childDto } = dto;
     const created = await this.create(childDto, actorUserId);
     if (created.student) {
       await this.prisma.studentParent.create({
@@ -579,9 +591,61 @@ export class StudentsService {
     return created;
   }
 
-  async update(id: string, dto: UpdateStudentDto, actorUserId?: string) {
+  /** Pacote tem de existir e estar activo para ser atribuído. */
+  private async validarPacote(pacoteId: string) {
+    const pacote = await this.prisma.pacote.findUnique({ where: { id: pacoteId } });
+    if (!pacote) throw new BadRequestException('O pacote escolhido não existe.');
+    if (!pacote.ativo) throw new BadRequestException('O pacote escolhido está desactivado. Escolha outro pacote.');
+    return pacote;
+  }
+
+  /**
+   * Mensalidade do mês da inscrição com o preço do pacote. Vence no dia 10; se a inscrição
+   * for depois disso, vence 7 dias após a inscrição (para não nascer já em atraso).
+   */
+  private async criarPrimeiraMensalidade(studentId: string, pacote: { id: string; nome: string; preco: number }, actorUserId?: string) {
+    if (!(pacote.preco > 0)) return null;
+    const hoje = new Date();
+    const month = hoje.getMonth() + 1;
+    const year = hoje.getFullYear();
+    const existente = await this.prisma.monthlyFee.findUnique({ where: { studentId_month_year: { studentId, month, year } } });
+    if (existente) return null;
+    let dueDate = new Date(year, month - 1, 10, 23, 59, 59);
+    if (dueDate < hoje) {
+      dueDate = new Date(hoje);
+      dueDate.setDate(dueDate.getDate() + 7);
+      dueDate.setHours(23, 59, 59, 0);
+    }
+    const description = `Mensalidade — ${pacote.nome}`;
+    const fee = await this.prisma.$transaction(async (tx) => {
+      const f = await tx.monthlyFee.create({ data: { studentId, month, year, amount: pacote.preco, dueDate, description } });
+      await tx.payment.create({ data: { studentId, monthlyFeeId: f.id, amount: pacote.preco, status: 'PENDING', dueDate, notes: description } });
+      return f;
+    });
+    if (actorUserId) {
+      await this.audit.log({
+        userId: actorUserId,
+        action: 'MENSALIDADE_INSCRICAO_CRIADA',
+        entity: 'MonthlyFee',
+        entityId: fee.id,
+        newValues: { studentId, pacoteId: pacote.id, amount: pacote.preco, month, year },
+      });
+    }
+    return fee;
+  }
+
+  async update(id: string, dto: UpdateStudentDto, actorUserId?: string, actorRole?: string) {
     const before = await this.findOne(id);
-    const data: any = { ...dto };
+    const { gerarPrimeiraMensalidade, guardians: _guardians, ...resto } = dto as any;
+    const data: any = { ...resto };
+
+    if (dto.pacoteId !== undefined) {
+      // O pacote define o valor cobrado: só a administração o pode alterar.
+      if (!['ADMIN', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN'].includes(actorRole ?? '')) {
+        throw new BadRequestException('Só a administração pode alterar o pacote do atleta.');
+      }
+      data.pacoteId = dto.pacoteId ? (await this.validarPacote(dto.pacoteId)).id : null;
+    }
 
     if ((before as any).camposEmFalta) {
       let emFalta: string[] = [];

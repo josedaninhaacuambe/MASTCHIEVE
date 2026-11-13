@@ -4,6 +4,7 @@ import { AiService } from './ai.service';
 import { AiController } from './ai.controller';
 import { FeedbackProcessor } from './processors/feedback.processor';
 import { EmailModule } from '../email/email.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { EmailModule } from '../email/email.module';
       defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 2000 } },
     }),
     EmailModule,
+    NotificationsModule,
   ],
   controllers: [AiController],
   providers: [AiService, FeedbackProcessor],

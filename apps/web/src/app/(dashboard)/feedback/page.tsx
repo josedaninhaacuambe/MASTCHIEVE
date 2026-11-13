@@ -141,11 +141,13 @@ export default function FeedbackPage() {
     mutationFn: (id: string) => api.post(`/feedback/${id}/send`),
     onSuccess: (r: any) => {
       const res = r.data?.data ?? {};
-      if (res.emailEnviado) {
-        toast.success('Feedback enviado por email');
+      if (res.status === 'SENT') {
+        const detalhe = `${res.notificados ?? 0} conta(s) notificada(s) na aplicação, ${res.emailsEnviados ?? 0} email(s) enviado(s).`;
+        if (res.motivo) toast.warning('Feedback enviado', `${detalhe} ${res.motivo}`);
+        else toast.success('Feedback enviado', detalhe);
         actualizarSelecionado(res);
       } else {
-        toast.warning('Feedback não enviado', res.motivo ?? 'Sem contacto de email registado.');
+        toast.warning('Feedback não enviado', res.motivo ?? 'O atleta não tem contacto registado.');
       }
     },
     onError: (e: any) => toast.error('Erro ao enviar feedback', mensagemErro(e)),

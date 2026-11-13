@@ -2,6 +2,8 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { EmailService } from '../email/email.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { destinatariosDoAtleta } from '../../common/utils/destinatarios-atleta.util';
 
 @Injectable()
 export class FeedbackService {
@@ -9,6 +11,7 @@ export class FeedbackService {
     private prisma: PrismaService,
     private audit: AuditService,
     private email: EmailService,
+    private notifications: NotificationsService,
   ) {}
 
   async getFeedbacks(query: any) {
@@ -42,7 +45,8 @@ export class FeedbackService {
   async getMyFeedbacks(userId: string, query: any = {}) {
     const student = await this.prisma.student.findFirst({ where: { userId }, select: { id: true } });
     if (!student) return { data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 0 } };
-    return this.getFeedbacks({ ...query, studentId: student.id });
+    // O atleta só vê feedbacks que o instrutor já reviu e enviou.
+    return this.getFeedbacks({ page: query.page, limit: query.limit, studentId: student.id, status: 'SENT' });
   }
 
   async findOne(id: string) {
@@ -132,56 +136,92 @@ export class FeedbackService {
   }
 
   /**
-   * Envia o feedback por email ao atleta (ou ao encarregado principal).
-   * Só é marcado como enviado quando o email sai de facto; sem contacto não se presume que foi recebido.
+   * Envia o feedback ao atleta e a todos os encarregados: notificação na aplicação para cada conta
+   * e email só para endereços reais (os emails gerados pelo sistema não contam).
+   * Só fica marcado como enviado quando pelo menos uma conta o recebe; sem contas não se presume entrega.
    */
   async sendFeedback(id: string, userId?: string) {
+    const userLite = { select: { id: true, email: true, isActive: true } };
     const feedback = await this.prisma.feedback.findUnique({
       where: { id },
       include: {
         student: {
           include: {
-            user: { select: { email: true } },
-            parents: { include: { parent: { include: { user: { select: { email: true } } } } } },
+            user: userLite,
+            parents: { include: { parent: { include: { user: userLite } } } },
           },
         },
       },
     });
     if (!feedback) throw new NotFoundException('Feedback não encontrado');
+    if (feedback.status === 'SENT') throw new ConflictException('Este feedback já foi enviado.');
     const texto = (feedback.finalText || feedback.aiGeneratedText || '').trim();
     if (!texto) throw new BadRequestException('O feedback ainda não tem texto. Escreva-o ou gere-o com IA antes de enviar.');
 
     const student = (feedback as any).student;
-    const primaryParent = student?.parents?.find((sp: any) => sp.isPrimary)?.parent ?? student?.parents?.[0]?.parent;
-    const destino: string | undefined = student?.user?.email || primaryParent?.user?.email || undefined;
     const studentName = `${student?.firstName ?? ''} ${student?.lastName ?? ''}`.trim();
+    const destinatarios = destinatariosDoAtleta(student ?? {});
+    const { student: _s, ...semAluno } = feedback as any;
 
-    if (!destino) {
+    if (!destinatarios.length) {
       return {
-        ...this.normalizeFeedback(feedback),
-        student: undefined,
+        ...this.normalizeFeedback(semAluno),
         emailEnviado: false,
-        motivo: 'O atleta e o encarregado não têm email registado. O feedback não foi marcado como enviado.',
+        notificados: 0,
+        emailsEnviados: 0,
+        motivo: 'O atleta e os encarregados não têm conta activa na aplicação. O feedback não foi marcado como enviado.',
       };
     }
 
-    const enviado = await this.email.sendFeedbackReady(destino, studentName, texto).catch(() => false);
-    if (!enviado) {
-      return {
-        ...this.normalizeFeedback(feedback),
-        student: undefined,
-        emailEnviado: false,
-        motivo: 'Não foi possível enviar o email (serviço de email indisponível ou não configurado). Tente mais tarde.',
-      };
-    }
-
-    const updated = await this.prisma.feedback.update({
-      where: { id },
+    // Marca primeiro (com guarda contra envios duplicados em simultâneo) e só depois comunica.
+    const marcado = await this.prisma.feedback.updateMany({
+      where: { id, status: { not: 'SENT' } },
       data: { status: 'SENT', sentToStudentAt: new Date(), ...(!feedback.finalText && { finalText: texto }) },
     });
-    if (userId) {
-      await this.audit.log({ userId, action: 'SEND_FEEDBACK', entity: 'Feedback', entityId: id });
+    if (!marcado.count) throw new ConflictException('Este feedback já foi enviado.');
+
+    let notificados = 0;
+    let emailsEnviados = 0;
+    let comEmail = 0;
+    for (const d of destinatarios) {
+      try {
+        await this.notifications.createForUser(
+          d.userId,
+          'FEEDBACK_SENT',
+          '🏊 Novo feedback do treino',
+          d.papel === 'ATLETA'
+            ? 'O seu instrutor enviou-lhe um novo feedback. Abra a aplicação para o ler.'
+            : `Há um novo feedback do treino de ${studentName}.`,
+          JSON.stringify({ feedbackId: id }),
+        );
+        notificados++;
+      } catch {
+        /* uma falha de notificação não impede as restantes */
+      }
+      if (d.email) {
+        comEmail++;
+        const ok = await this.email.sendFeedbackReady(d.email, studentName, texto).catch(() => false);
+        if (ok) emailsEnviados++;
+      }
     }
-    return { ...this.normalizeFeedback(updated), emailEnviado: true };
+
+    if (userId) {
+      await this.audit.log({
+        userId,
+        action: 'SEND_FEEDBACK',
+        entity: 'Feedback',
+        entityId: id,
+        newValues: { destinatarios: destinatarios.length, notificados, emailsEnviados },
+      });
+    }
+    const updated = await this.prisma.feedback.findUnique({ where: { id } });
+    return {
+      ...this.normalizeFeedback(updated),
+      emailEnviado: emailsEnviados > 0,
+      notificados,
+      emailsEnviados,
+      ...(comEmail === 0 && { motivo: 'Enviado na aplicação. Não há email real registado, por isso não foi enviado email.' }),
+      ...(comEmail > 0 && emailsEnviados < comEmail && { motivo: 'Enviado na aplicação, mas alguns emails não saíram (serviço de email indisponível ou não configurado).' }),
+    };
   }
 }

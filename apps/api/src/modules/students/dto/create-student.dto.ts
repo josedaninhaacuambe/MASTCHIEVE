@@ -27,6 +27,10 @@ export class CreateStudentDto {
   @ApiPropertyOptional() @IsOptional() @IsString() emergencyPhone?: string;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() autorizacaoImagem?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() autorizacaoImagemDoc?: string;
+  @ApiPropertyOptional({ description: 'Pacote de frequência contratado; define o valor da mensalidade' })
+  @IsOptional() @IsUUID() pacoteId?: string | null;
+  @ApiPropertyOptional({ description: 'Na inscrição: cria logo a mensalidade do mês corrente com o preço do pacote' })
+  @IsOptional() @IsBoolean() gerarPrimeiraMensalidade?: boolean;
   @ApiPropertyOptional({ type: [GuardianDto] })
   @IsOptional()
   @IsArray()

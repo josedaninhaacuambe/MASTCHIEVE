@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Res } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, ParseUUIDPipe, Query, UseGuards, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { FinancialService } from './financial.service';
@@ -20,6 +20,32 @@ export class FinancialController {
   @ApiOperation({ summary: 'Pagamentos do atleta autenticado' })
   getMyPayments(@CurrentUser('id') userId: string, @Query() q: any) {
     return this.service.getMyPayments(userId, q);
+  }
+
+  @Get('me/payments/:id/recibo')
+  @Roles('STUDENT', 'PARENT')
+  @ApiOperation({ summary: 'Recibo (PDF) de um pagamento do próprio atleta ou de um educando' })
+  async meuRecibo(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('id') userId: string, @Res() res: Response) {
+    const { buffer, numero } = await this.service.reciboPdfDoUtilizador(userId, id);
+    this.enviarPdf(res, buffer, `recibo-${numero}.pdf`);
+  }
+
+  @Get('payments/:id/recibo')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN')
+  @ApiOperation({ summary: 'Recibo (PDF) de um pagamento' })
+  async recibo(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    const { buffer, numero } = await this.service.reciboPdf(id);
+    this.enviarPdf(res, buffer, `recibo-${numero}.pdf`);
+  }
+
+  private enviarPdf(res: Response, buffer: Buffer, filename: string) {
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${filename.replace(/[^\w.-]/g, '_')}"`,
+      'Content-Length': buffer.length,
+      'Cache-Control': 'no-store',
+    });
+    res.end(buffer);
   }
 
   @Get('payments')
@@ -48,8 +74,8 @@ export class FinancialController {
 
   @Post('monthly-fees/generate')
   @Roles('ADMIN')
-  @ApiOperation({ summary: 'Gerar mensalidades para todos os atletas ativos' })
-  generateMonthlyFees(@Body() body: { month: number; year: number; amount: number }) {
+  @ApiOperation({ summary: 'Gerar mensalidades dos atletas activos (preço do pacote; amount só para quem não tem pacote)' })
+  generateMonthlyFees(@Body() body: { month: number; year: number; amount?: number }) {
     return this.service.generateMonthlyFees(body.month, body.year, body.amount);
   }
 
@@ -58,7 +84,7 @@ export class FinancialController {
   @ApiOperation({ summary: 'Gerar mensalidade para um atleta específico' })
   createMonthlyFeeForStudent(
     @Param('studentId') studentId: string,
-    @Body() body: { month: number; year: number; amount: number },
+    @Body() body: { month: number; year: number; amount?: number },
   ) {
     return this.service.createMonthlyFeeForStudent(studentId, body.month, body.year, body.amount);
   }
