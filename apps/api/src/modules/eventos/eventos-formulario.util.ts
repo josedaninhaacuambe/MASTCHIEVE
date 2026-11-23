@@ -5,8 +5,10 @@
 //  • INDIVIDUAL — "Pré-inscrição Open Day 3 (Externos)": uma pessoa por submissão.
 //  • ESCOLA     — "Inscrição Escolas · Voucher Natação": um responsável da escola
 //                 inscreve até 10 alunos, cada um com um horário.
+//  • PROGRAMA   — programa de vários dias (ex.: "Mergulha nas Férias"): o
+//                 encarregado inscreve uma criança e escolhe um pacote do evento.
 
-export const FORMULARIO_TIPOS = ['INDIVIDUAL', 'ESCOLA'] as const;
+export const FORMULARIO_TIPOS = ['INDIVIDUAL', 'ESCOLA', 'PROGRAMA'] as const;
 export type FormularioTipo = (typeof FORMULARIO_TIPOS)[number];
 
 export const ESTADOS_PARTICIPANTE = ['PRE_INSCRITO', 'CONFIRMADO', 'PRESENTE', 'AUSENTE', 'CANCELADO'] as const;
@@ -60,7 +62,87 @@ export function lerConfigFormulario(tipo: string, json?: string | null): ConfigF
   const horarios = Array.isArray(raw.horarios) && raw.horarios.length
     ? raw.horarios.map((h: any) => String(h).trim()).filter(Boolean).slice(0, 12)
     : [...HORARIOS_ESCOLA_OMISSAO];
+  if (tipo === 'PROGRAMA') return { campos: [], horarios: [] };
   return tipo === 'ESCOLA' ? { campos: [], horarios } : { campos, horarios: [] };
+}
+
+// ─── Programa (férias) ─────────────────────────────────────────────────────
+// As datas do programa são dias de calendário em Moçambique (UTC+2, sem hora
+// de Verão). Trabalhamos com 'YYYY-MM-DD' para não depender do fuso do servidor.
+
+const FUSO_MOCAMBIQUE_MS = 2 * 60 * 60 * 1000;
+
+/** Dia de calendário em Moçambique ('YYYY-MM-DD') de um instante. */
+export function diaLocal(d: Date): string {
+  return new Date(d.getTime() + FUSO_MOCAMBIQUE_MS).toISOString().slice(0, 10);
+}
+
+function parseDia(dia: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return null;
+  const d = new Date(`${dia}T00:00:00.000Z`);
+  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== dia ? null : d;
+}
+
+export function eDiaUtil(dia: string): boolean {
+  const d = parseDia(dia);
+  if (!d) return false;
+  const w = d.getUTCDay();
+  return w >= 1 && w <= 5;
+}
+
+/** Último dia coberto por `dias` dias úteis a começar em `inicio` (inclusive). */
+export function somarDiasUteis(inicio: string, dias: number): string {
+  const d = parseDia(inicio);
+  if (!d) throw new Error('Data inválida');
+  let restantes = Math.max(1, Math.floor(dias));
+  for (;;) {
+    const w = d.getUTCDay();
+    if (w >= 1 && w <= 5) {
+      restantes -= 1;
+      if (restantes === 0) return d.toISOString().slice(0, 10);
+    }
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+}
+
+/**
+ * Valida o dia de início pretendido e devolve o último dia coberto pelo pacote.
+ * Regras: data válida, de segunda a sexta, dentro do período, não no passado e
+ * o pacote tem de terminar até ao fim do programa.
+ */
+export function validarInicioPrograma(
+  dia: string,
+  periodo: { inicio: string; fim: string | null },
+  diasPacote: number | null | undefined,
+  hoje: string,
+): { ok: boolean; erro?: string; fimPrevisto?: string | null } {
+  if (!parseDia(dia)) return { ok: false, erro: 'Data de início inválida.' };
+  if (!eDiaUtil(dia)) return { ok: false, erro: 'O programa decorre de segunda a sexta-feira. Escolha um dia útil para começar.' };
+  if (dia < periodo.inicio) return { ok: false, erro: `O programa só começa a ${periodo.inicio}.` };
+  if (periodo.fim && dia > periodo.fim) return { ok: false, erro: `O programa termina a ${periodo.fim}.` };
+  if (dia < hoje) return { ok: false, erro: 'A data de início já passou.' };
+  if (!diasPacote) return { ok: true, fimPrevisto: null };
+  const fimPrevisto = somarDiasUteis(dia, diasPacote);
+  if (periodo.fim && fimPrevisto > periodo.fim) {
+    return { ok: false, erro: `Este pacote terminaria a ${fimPrevisto}, depois do fim do programa (${periodo.fim}). Escolha uma data mais cedo ou um pacote mais curto.` };
+  }
+  return { ok: true, fimPrevisto };
+}
+
+/** Os períodos [a1,a2] e [b1,b2] (dias inclusivos) sobrepõem-se? */
+export function periodosSobrepostos(a1: string, a2: string, b1: string, b2: string): boolean {
+  return a1 <= b2 && b1 <= a2;
+}
+
+/** Idade completa num dado dia. */
+export function idadeEm(nascimento: string, dia: string): number | null {
+  const n = parseDia(nascimento);
+  const d = parseDia(dia);
+  if (!n || !d) return null;
+  let idade = d.getUTCFullYear() - n.getUTCFullYear();
+  const m = d.getUTCMonth() - n.getUTCMonth();
+  if (m < 0 || (m === 0 && d.getUTCDate() < n.getUTCDate())) idade -= 1;
+  return idade;
 }
 
 // ─── Normalização / duplicados ─────────────────────────────────────────────

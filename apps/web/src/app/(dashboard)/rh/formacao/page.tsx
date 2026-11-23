@@ -3,27 +3,30 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
-import { Plus, FolderOpen } from 'lucide-react';
+import { Plus, FolderOpen, Users } from 'lucide-react';
+import InscricoesFormacao from './inscricoes-formacao';
 
 const TIPOS = ['RECICLAGEM', 'CERTIFICACAO', 'SOFT_SKILLS', 'SEGURANCA', 'OUTRO'];
 const ESTADOS_CORES: Record<string, string> = {
   PROPOSTA: 'bg-amber-100 text-amber-700',
   APROVADA_ORCAMENTO: 'bg-green-100 text-green-700',
   REJEITADA: 'bg-red-100 text-red-700',
+  EM_CURSO: 'bg-blue-100 text-blue-700',
+  CONCLUIDA: 'bg-gray-200 text-gray-700',
 };
+const FORM_VAZIO = { titulo: '', tipo: 'RECICLAGEM', descricao: '', custoEstimado: '', dataInicio: '', dataFim: '', vagas: '', local: '' };
 
 export default function FormacaoPage() {
   const { user } = useAuthStore();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  // Propor formações e dar conclusões é do RH; gerir inscrições também é dos assistentes administrativos.
+  const isRH = user?.role === 'GESTOR_RH' || isSuperAdmin;
   const [formacoes, setFormacoes] = useState<any[]>([]);
-  const [funcionarios, setFuncionarios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ titulo: '', tipo: 'RECICLAGEM', descricao: '', custoEstimado: '', dataInicio: '', dataFim: '' });
-  const [inscrevendo, setInscrevendo] = useState<any>(null);
-  const [funcionarioParaInscrever, setFuncionarioParaInscrever] = useState('');
+  const [form, setForm] = useState(FORM_VAZIO);
+  const [gerir, setGerir] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [inscrevendoSaving, setInscrevendoSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -39,7 +42,6 @@ export default function FormacaoPage() {
 
   useEffect(() => {
     load();
-    api.get('/rh/funcionarios').then(r => setFuncionarios(r.data.data?.data || r.data.data || [])).catch(() => {});
   }, []);
 
   const salvar = async () => {
@@ -49,9 +51,16 @@ export default function FormacaoPage() {
     }
     setSaving(true);
     try {
-      await api.post('/rh/formacao', { ...form, custoEstimado: form.custoEstimado ? Number(form.custoEstimado) : undefined, dataInicio: form.dataInicio || undefined, dataFim: form.dataFim || undefined });
+      await api.post('/rh/formacao', {
+        ...form,
+        custoEstimado: form.custoEstimado ? Number(form.custoEstimado) : undefined,
+        dataInicio: form.dataInicio || undefined,
+        dataFim: form.dataFim || undefined,
+        vagas: form.vagas ? Number(form.vagas) : undefined,
+        local: form.local.trim() || undefined,
+      });
       setShowForm(false);
-      setForm({ titulo: '', tipo: 'RECICLAGEM', descricao: '', custoEstimado: '', dataInicio: '', dataFim: '' });
+      setForm(FORM_VAZIO);
       toast.success('Formação proposta');
       load();
     } catch (e: any) {
@@ -70,45 +79,18 @@ export default function FormacaoPage() {
     catch (e: any) { toast.error('Erro ao rejeitar formação', e?.response?.data?.message ?? 'Tenta novamente'); }
   };
 
-  const inscrever = async () => {
-    if (!funcionarioParaInscrever) {
-      toast.error('Campo obrigatório', 'Seleciona o funcionário');
-      return;
-    }
-    setInscrevendoSaving(true);
-    try {
-      await api.post(`/rh/formacao/${inscrevendo.id}/inscrever`, { funcionarioId: funcionarioParaInscrever });
-      setInscrevendo(null);
-      setFuncionarioParaInscrever('');
-      toast.success('Funcionário inscrito');
-      load();
-    } catch (e: any) {
-      toast.error('Erro ao inscrever funcionário', e?.response?.data?.message ?? 'Tenta novamente');
-    } finally {
-      setInscrevendoSaving(false);
-    }
-  };
-
-  const concluir = async (participanteId: string) => {
-    const notaFinal = prompt('Nota final (opcional):');
-    try {
-      await api.put(`/rh/formacao/participantes/${participanteId}/concluir`, { notaFinal: notaFinal ? Number(notaFinal) : undefined });
-      load();
-    } catch (e: any) {
-      toast.error('Erro ao concluir participação', e?.response?.data?.message ?? 'Tenta novamente');
-    }
-  };
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Formação</h1>
-          <p className="text-gray-500 text-sm mt-1">Propostas de formação — orçamento aprovado pelo Super Admin</p>
+          <p className="text-gray-500 text-sm mt-1">Propostas (orçamento aprovado pelo Super Admin), vagas e inscrições dos colaboradores</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 text-sm font-medium">
-          <Plus className="w-4 h-4" /> Propor Formação
-        </button>
+        {isRH && (
+          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 text-sm font-medium">
+            <Plus className="w-4 h-4" /> Propor Formação
+          </button>
+        )}
       </div>
 
       {loading ? <div className="text-center py-12 text-gray-400">A carregar...</div> : formacoes.length === 0 ? (
@@ -128,17 +110,20 @@ export default function FormacaoPage() {
                   </div>
                   <p className="text-sm font-semibold text-gray-800">{f.titulo}</p>
                   {f.descricao && <p className="text-sm text-gray-500 mt-1">{f.descricao}</p>}
-                  {f.participantes?.length > 0 && (
-                    <div className="mt-3 space-y-1">
-                      {f.participantes.map((p: any) => (
-                        <div key={p.id} className="flex items-center gap-2 text-xs text-gray-600">
-                          <span>{p.funcionario?.firstName} {p.funcionario?.lastName}</span>
-                          <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{p.estado}</span>
-                          {p.estado !== 'CONCLUIDO' && (
-                            <button onClick={() => concluir(p.id)} className="text-blue-600 hover:underline">Concluir</button>
-                          )}
-                        </div>
-                      ))}
+                  {f.resumo && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700">
+                        {f.resumo.ocupadas} inscrito(s){f.resumo.vagas != null ? ` de ${f.resumo.vagas} vagas` : ''}
+                      </span>
+                      {f.resumo.vagas != null && (
+                        f.resumo.esgotada
+                          ? <span className="px-2 py-1 rounded-full bg-red-100 text-red-700 font-medium">Esgotada</span>
+                          : <span className="px-2 py-1 rounded-full bg-green-100 text-green-700">{f.resumo.disponiveis} vaga(s) livre(s)</span>
+                      )}
+                      {f.resumo.porEstado?.CANCELADA + f.resumo.porEstado?.DESISTIU > 0 && (
+                        <span className="text-gray-400">{f.resumo.porEstado.CANCELADA + f.resumo.porEstado.DESISTIU} cancelada(s)/desistência(s)</span>
+                      )}
+                      {f.local && <span className="text-gray-400">· {f.local}</span>}
                     </div>
                   )}
                 </div>
@@ -149,8 +134,10 @@ export default function FormacaoPage() {
                       <button onClick={() => rejeitar(f.id)} className="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-200">Rejeitar</button>
                     </>
                   )}
-                  {f.estado === 'APROVADA_ORCAMENTO' && (
-                    <button onClick={() => setInscrevendo(f)} className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200">Inscrever</button>
+                  {f.estado !== 'PROPOSTA' && f.estado !== 'REJEITADA' && (
+                    <button onClick={() => setGerir(f.id)} className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200">
+                      <Users className="w-3.5 h-3.5" /> Gerir inscrições
+                    </button>
                   )}
                 </div>
               </div>
@@ -191,6 +178,16 @@ export default function FormacaoPage() {
                 <input type="date" value={form.dataFim} onChange={(e) => setForm(f => ({ ...f, dataFim: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vagas (capacidade)</label>
+                <input type="number" min={1} value={form.vagas} onChange={(e) => setForm(f => ({ ...f, vagas: e.target.value }))} placeholder="Sem limite" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Local</label>
+                <input value={form.local} onChange={(e) => setForm(f => ({ ...f, local: e.target.value }))} maxLength={191} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+            </div>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setShowForm(false)} disabled={saving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
               <button onClick={salvar} disabled={!form.titulo || saving}
@@ -202,23 +199,8 @@ export default function FormacaoPage() {
         </div>
       )}
 
-      {inscrevendo && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4">
-            <h2 className="text-lg font-bold text-gray-900">Inscrever em: {inscrevendo.titulo}</h2>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Funcionário*</label>
-              <select value={funcionarioParaInscrever} onChange={(e) => setFuncionarioParaInscrever(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                <option value="">— Selecionar —</option>
-                {funcionarios.map((f: any) => <option key={f.id} value={f.id}>{f.firstName} {f.lastName}</option>)}
-              </select>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button onClick={() => { setInscrevendo(null); setFuncionarioParaInscrever(''); }} disabled={inscrevendoSaving} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
-              <button onClick={inscrever} disabled={!funcionarioParaInscrever || inscrevendoSaving} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">{inscrevendoSaving ? 'A inscrever...' : 'Inscrever'}</button>
-            </div>
-          </div>
-        </div>
+      {gerir && (
+        <InscricoesFormacao formacaoId={gerir} podeConcluir={isRH} onClose={() => setGerir(null)} onChange={load} />
       )}
     </div>
   );

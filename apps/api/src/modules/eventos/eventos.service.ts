@@ -7,22 +7,46 @@ import { AuditService } from '../../common/audit/audit.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { EmailService } from '../email/email.service';
 import { resolveContactoAtleta } from '../../common/utils/contacto-atleta.util';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   CanalEnvio, ESTADO_LABEL, EstadoParticipante, comporMensagem, eDuplicado, gerarCsv, isEstadoValido,
   lerConfigFormulario, normalizarEmail, normalizarTelefone, planearEnvios, presenteDoEstado, urlSegura,
-  vagasDisponiveis, FORMULARIO_TIPOS, HORARIOS_ESCOLA_OMISSAO,
+  vagasDisponiveis, FORMULARIO_TIPOS, HORARIOS_ESCOLA_OMISSAO, diaLocal, idadeEm, periodosSobrepostos,
+  validarInicioPrograma,
 } from './eventos-formulario.util';
 import {
-  ComunicacaoEventoDto, PartilharComLeadsDto, PreInscricaoEscolaDto, PreInscricaoIndividualDto, WalkInDto,
+  AlterarPacoteParticipanteDto, ComunicacaoEventoDto, InscricaoProgramaDto, PacoteEventoDto, PartilharComLeadsDto,
+  PreInscricaoEscolaDto, PreInscricaoIndividualDto, RejeitarParticipanteDto, ValidarParticipanteDto, WalkInDto,
 } from './dto/eventos.dto';
 
 // Campos do evento que o staff pode gravar (evita mass-assignment).
 const CAMPOS_EVENTO = [
-  'tipo', 'nome', 'data', 'unidadeId', 'programa', 'capacidade', 'estado', 'notas', 'checklistMateriais',
+  'tipo', 'nome', 'data', 'dataFim', 'unidadeId', 'programa', 'capacidade', 'estado', 'notas', 'checklistMateriais',
   'relatorioPos', 'descricao', 'hora', 'local', 'formularioTipo', 'formularioCampos', 'inscricoesAbertas',
   'linkInscricaoAtleta',
 ];
 const MAX_DESTINATARIOS_POR_ENVIO = 500;
+
+// Quem valida as inscrições do formulário público (SUPER_ADMIN passa sempre no RolesGuard).
+const ROLES_VALIDACAO = ['ADMIN', 'ASSISTENTE_ADMIN'];
+
+const AUTOR_SELECT = {
+  id: true,
+  admin: { select: { firstName: true, lastName: true } },
+  instructor: { select: { firstName: true, lastName: true } },
+  funcionario: { select: { firstName: true, lastName: true } },
+} as const;
+
+function nomeDoUtilizador(u: any): string | null {
+  const p = u?.funcionario || u?.admin || u?.instructor;
+  return p ? `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim() || null : null;
+}
+
+const diaParaDate = (dia: string) => new Date(`${dia}T00:00:00.000Z`);
+const dateParaDia = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
+const fmtDia = (dia: string | null) => (dia ? dia.split('-').reverse().join('/') : '');
+const fmtMt = (v: number | null | undefined) =>
+  v == null ? '' : `${v.toLocaleString('pt-PT', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} MT`;
 
 const appUrl = () => (process.env.APP_URL ?? process.env.FRONTEND_URL ?? 'http://localhost:4300').replace(/\/$/, '');
 
@@ -33,6 +57,7 @@ export class EventosService {
     private audit: AuditService,
     private whatsapp: WhatsappService,
     private email: EmailService,
+    private notifications: NotificationsService,
   ) {}
 
   // ─── Eventos ───────────────────────────────────────────────────────────────
@@ -49,6 +74,11 @@ export class EventosService {
     const data: any = {};
     for (const k of CAMPOS_EVENTO) if (body[k] !== undefined) data[k] = body[k];
     if (data.data) data.data = new Date(data.data);
+    if (data.dataFim === '' || data.dataFim === null) data.dataFim = null;
+    else if (data.dataFim !== undefined) {
+      data.dataFim = new Date(data.dataFim);
+      if (Number.isNaN(data.dataFim.getTime())) throw new BadRequestException('Data de fim inválida');
+    }
     if (data.capacidade === '' || data.capacidade === null) data.capacidade = null;
     else if (data.capacidade !== undefined) {
       const n = Number(data.capacidade);
@@ -57,7 +87,7 @@ export class EventosService {
     }
     if (data.unidadeId === '') data.unidadeId = null;
     if (data.formularioTipo !== undefined && !(FORMULARIO_TIPOS as readonly string[]).includes(data.formularioTipo)) {
-      throw new BadRequestException('Tipo de formulário inválido (INDIVIDUAL ou ESCOLA)');
+      throw new BadRequestException('Tipo de formulário inválido (INDIVIDUAL, ESCOLA ou PROGRAMA)');
     }
     if (data.formularioCampos !== undefined && data.formularioCampos !== null && typeof data.formularioCampos !== 'string') {
       data.formularioCampos = JSON.stringify(data.formularioCampos);
@@ -84,8 +114,20 @@ export class EventosService {
       where, orderBy: { data: 'desc' },
       include: { unidade: { select: { nome: true, codigo: true } }, _count: { select: { certificados: true, leads: true, participantes: true } } },
     });
-    const contagens = await this.contarPreInscricoes(eventos.map((e) => e.id));
-    return eventos.map((e) => ({ ...e, preInscricoes: contagens[e.id] ?? 0, urlPublica: this.urlPublica(e.tokenPublico) }));
+    const ids = eventos.map((e) => e.id);
+    const contagens = await this.contarPreInscricoes(ids);
+    const porValidar = ids.length
+      ? await this.prisma.eventoParticipante.groupBy({
+        by: ['eventoId'], where: { eventoId: { in: ids }, origem: 'PRE_INSCRICAO', estado: 'PRE_INSCRITO' }, _count: true,
+      })
+      : [];
+    const mapaPorValidar = Object.fromEntries(porValidar.map((r) => [r.eventoId, r._count])) as Record<string, number>;
+    return eventos.map((e) => ({
+      ...e,
+      preInscricoes: contagens[e.id] ?? 0,
+      porValidar: mapaPorValidar[e.id] ?? 0,
+      urlPublica: this.urlPublica(e.tokenPublico),
+    }));
   }
 
   private async contarPreInscricoes(ids: string[]) {
@@ -119,6 +161,7 @@ export class EventosService {
   async create(body: any, actorUserId?: string) {
     const data = this.sanitizarEvento(body);
     if (!data.nome || !data.data) throw new BadRequestException('Nome e data são obrigatórios');
+    if (data.dataFim && data.dataFim < data.data) throw new BadRequestException('A data de fim não pode ser anterior à data de início');
     if (data.inscricoesAbertas) data.tokenPublico = this.gerarToken();
     const evento = await this.prisma.evento.create({ data });
     if (actorUserId) {
@@ -134,6 +177,9 @@ export class EventosService {
     const existing = await this.prisma.evento.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Evento não encontrado');
     const data = this.sanitizarEvento(body);
+    const inicio = data.data ?? existing.data;
+    const fim = data.dataFim !== undefined ? data.dataFim : existing.dataFim;
+    if (fim && inicio && fim < inicio) throw new BadRequestException('A data de fim não pode ser anterior à data de início');
     // Abrir o formulário gera o link público se ainda não existir. Fechar mantém o link e os dados.
     if (data.inscricoesAbertas && !existing.tokenPublico) data.tokenPublico = this.gerarToken();
     const updated = await this.prisma.evento.update({ where: { id }, data });
@@ -188,8 +234,14 @@ export class EventosService {
         lead: { select: { id: true, estado: true } },
       },
     });
+    const validadoresIds = [...new Set(rows.map((p) => p.validadoPorId).filter((x): x is string => !!x))];
+    const validadores = validadoresIds.length
+      ? await this.prisma.user.findMany({ where: { id: { in: validadoresIds } }, select: AUTOR_SELECT })
+      : [];
+    const nomeValidador = new Map(validadores.map((u) => [u.id, nomeDoUtilizador(u)]));
     return rows.map((p) => ({
       ...p,
+      validadoPorNome: p.validadoPorId ? nomeValidador.get(p.validadoPorId) ?? null : null,
       nomeExibicao: this.nomeParticipante(p),
       dadosFormulario: this.parseJson(p.dadosFormulario),
       inscricao: p.inscricao ? { ...p.inscricao, dados: this.parseJson(p.inscricao.dados) } : null,
@@ -268,6 +320,11 @@ export class EventosService {
     if (!isEstadoValido(estado)) throw new BadRequestException('Estado inválido');
     const atual = await this.prisma.eventoParticipante.findUnique({ where: { id: participanteId } });
     if (!atual) throw new NotFoundException('Participante não encontrado');
+    // Inscrições de programa (com pacote) só saem de "por validar" pela validação/rejeição,
+    // que registam quem decidiu e só estão disponíveis para ADMIN/ASSISTENTE_ADMIN.
+    if (atual.pacoteNome && atual.estado === 'PRE_INSCRITO' && (estado === 'CONFIRMADO' || estado === 'CANCELADO')) {
+      throw new BadRequestException('Use "Validar" ou "Rejeitar" para decidir esta inscrição.');
+    }
     const participante = await this.prisma.eventoParticipante.update({
       where: { id: participanteId },
       data: { estado, presente: presenteDoEstado(estado) },
@@ -314,7 +371,8 @@ export class EventosService {
     const cab = [
       'Nome', 'Estado', 'Origem', 'Contacto', 'Email', 'Data nascimento', 'Submetido em',
       'Tipo formulário', 'Responsável/Escola', 'Idade', 'Classe', 'Horário', 'Nível natação', 'Provas',
-      'Autoriza imagem', 'Pedido de inscrição',
+      'Autoriza imagem', 'Pedido de inscrição', 'Pacote', 'Preço (MT)', 'Início', 'Fim previsto', 'Encarregado',
+      'Validado em', 'Validado por', 'Motivo rejeição',
     ];
     const linhas = rows.map((p) => {
       const d: any = p.dadosFormulario ?? {};
@@ -325,6 +383,9 @@ export class EventosService {
         p.inscricao?.tipo ?? '', p.inscricao?.tipo === 'ESCOLA' ? `${i.escola ?? ''} — ${p.inscricao.responsavelNome}` : '',
         d.idade ?? '', d.classe ?? '', d.horario ?? '', d.nivelNatacao ?? '', Array.isArray(d.provas) ? d.provas.join(', ') : '',
         p.autorizacaoImagem == null ? '' : p.autorizacaoImagem ? 'Sim' : 'Não', p.lead ? 'Sim' : '',
+        p.pacoteNome ?? '', p.pacotePreco ?? '', dateParaDia(p.dataInicioPretendida) ?? '', dateParaDia(p.dataFimPrevista) ?? '',
+        p.inscricao?.tipo === 'PROGRAMA' ? p.inscricao.responsavelNome : '',
+        p.validadoEm ?? '', p.validadoPorNome ?? '', p.motivoRejeicao ?? '',
       ];
     });
     await this.audit.log({
@@ -350,6 +411,7 @@ export class EventosService {
   /** Só informação pública do evento — nunca dados de participantes. */
   async getPublico(token: string) {
     const ev = await this.eventoPorToken(token);
+    if (ev.formularioTipo === 'PROGRAMA') return this.getPublicoPrograma(ev);
     const ocupados = await this.prisma.eventoParticipante.count({ where: { eventoId: ev.id, estado: { not: 'CANCELADO' } } });
     const vagas = vagasDisponiveis(ev.capacidade, ocupados);
     return {
@@ -380,7 +442,7 @@ export class EventosService {
   async submeterIndividual(token: string, dto: PreInscricaoIndividualDto) {
     const ev = await this.eventoPorToken(token);
     this.assertAberto(ev);
-    if (ev.formularioTipo !== 'INDIVIDUAL') throw new BadRequestException('Este evento usa o formulário de escolas');
+    if (ev.formularioTipo !== 'INDIVIDUAL') throw new BadRequestException('Este evento usa outro formulário de inscrição');
     if (!dto.declaracao) throw new BadRequestException('É necessário confirmar a declaração para submeter');
 
     const cfg = lerConfigFormulario(ev.formularioTipo, ev.formularioCampos);
@@ -445,7 +507,7 @@ export class EventosService {
   async submeterEscola(token: string, dto: PreInscricaoEscolaDto) {
     const ev = await this.eventoPorToken(token);
     this.assertAberto(ev);
-    if (ev.formularioTipo !== 'ESCOLA') throw new BadRequestException('Este evento usa o formulário individual');
+    if (ev.formularioTipo !== 'ESCOLA') throw new BadRequestException('Este evento usa outro formulário de inscrição');
     if (!dto.declaracao) throw new BadRequestException('É necessário confirmar a declaração para submeter');
 
     const cfg = lerConfigFormulario(ev.formularioTipo, ev.formularioCampos);
@@ -509,6 +571,362 @@ export class EventosService {
         ok: true, referencia: inscricao.id.slice(0, 8).toUpperCase(), submetidoEm: agora,
         evento: ev.nome, alunos: dto.alunos.length,
       };
+    });
+  }
+
+  // ─── Programa (férias) com pacotes ─────────────────────────────────────────
+
+  private periodoPrograma(ev: { data: Date; dataFim: Date | null }) {
+    return { inicio: diaLocal(ev.data), fim: ev.dataFim ? diaLocal(ev.dataFim) : null };
+  }
+
+  /** Info pública de um programa: período e pacotes activos. Nunca dados de participantes. */
+  private async getPublicoPrograma(ev: any) {
+    const pacotes = await this.prisma.eventoPacote.findMany({
+      where: { eventoId: ev.id, ativo: true },
+      orderBy: [{ ordem: 'asc' }, { preco: 'asc' }],
+      select: { id: true, nome: true, descricao: true, preco: true, dias: true },
+    });
+    const periodo = this.periodoPrograma(ev);
+    const hoje = diaLocal(new Date());
+    const terminou = !!periodo.fim && hoje > periodo.fim;
+    const aberto = ev.inscricoesAbertas && ev.estado === 'PLANEADO' && !terminou && pacotes.length > 0;
+    return {
+      nome: ev.nome,
+      tipo: ev.tipo,
+      descricao: ev.descricao,
+      programa: ev.programa,
+      data: ev.data,
+      dataFim: ev.dataFim,
+      hora: ev.hora,
+      local: ev.local ?? ev.unidade?.endereco ?? null,
+      unidade: ev.unidade?.nome ?? null,
+      formularioTipo: ev.formularioTipo,
+      formulario: lerConfigFormulario(ev.formularioTipo, ev.formularioCampos),
+      periodo,
+      hoje,
+      pacotes,
+      inscricoesAbertas: aberto,
+      motivoFechado: aberto
+        ? null
+        : terminou
+          ? 'Este programa já terminou.'
+          : !pacotes.length && ev.inscricoesAbertas && ev.estado === 'PLANEADO'
+            ? 'As inscrições abrem em breve.'
+            : 'As inscrições para este programa estão encerradas.',
+      lotado: false,
+    };
+  }
+
+  /** Participantes não cancelados cujo período se sobrepõe a [inicio, fim]. Sem datas → conta sempre. */
+  private sobrepostos<T extends { dataInicioPretendida: Date | null; dataFimPrevista: Date | null }>(
+    rows: T[], inicio: string, fim: string,
+  ): T[] {
+    return rows.filter((p) => {
+      const a = dateParaDia(p.dataInicioPretendida);
+      if (!a) return true;
+      const b = dateParaDia(p.dataFimPrevista) ?? a;
+      return periodosSobrepostos(a, b, inicio, fim);
+    });
+  }
+
+  async submeterPrograma(token: string, dto: InscricaoProgramaDto) {
+    const ev = await this.eventoPorToken(token);
+    this.assertAberto(ev);
+    if (ev.formularioTipo !== 'PROGRAMA') throw new BadRequestException('Este evento usa outro formulário de inscrição');
+    if (!dto.declaracao) throw new BadRequestException('É necessário confirmar a declaração para submeter');
+    if (dto.condicaoSaude === true && !dto.condicaoSaudeDetalhe) throw new BadRequestException('Indique qual a condição de saúde');
+
+    const periodo = this.periodoPrograma(ev);
+    const hoje = diaLocal(new Date());
+    if (periodo.fim && hoje > periodo.fim) throw new GoneException('Este programa já terminou.');
+    const idade = idadeEm(dto.dataNascimento, hoje);
+    if (idade === null || idade < 1 || idade > 25 || dto.dataNascimento > hoje) {
+      throw new BadRequestException('Verifique a data de nascimento da criança.');
+    }
+    const contacto = normalizarTelefone(dto.contacto);
+    const email = normalizarEmail(dto.email);
+
+    const resultado = await this.prisma.$transaction(async (tx) => {
+      // Serializa as inscrições do mesmo evento: a contagem de vagas não pode ser ultrapassada em paralelo.
+      await tx.$queryRaw`SELECT id FROM eventos WHERE id = ${ev.id} FOR UPDATE`;
+      const pacote = await tx.eventoPacote.findFirst({ where: { id: dto.pacoteId, eventoId: ev.id, ativo: true } });
+      if (!pacote) throw new BadRequestException('Este pacote já não está disponível. Actualize a página e escolha outro.');
+
+      const v = validarInicioPrograma(dto.dataInicio, periodo, pacote.dias, hoje);
+      if (!v.ok) throw new BadRequestException(v.erro);
+      const fimPrevisto = v.fimPrevisto ?? periodo.fim ?? dto.dataInicio;
+
+      const existentes = await tx.eventoParticipante.findMany({
+        where: { eventoId: ev.id, estado: { not: 'CANCELADO' } },
+        select: { nome: true, contacto: true, email: true, estado: true, dataInicioPretendida: true, dataFimPrevista: true },
+      });
+      const noPeriodo = this.sobrepostos(existentes, dto.dataInicio, fimPrevisto);
+      if (eDuplicado({ nome: dto.nomeCrianca, contacto, email }, noPeriodo)) {
+        throw new ConflictException('Esta criança já tem uma inscrição para este período com o mesmo contacto.');
+      }
+      const vagas = vagasDisponiveis(ev.capacidade, noPeriodo.length);
+      if (vagas === 0) throw new GoneException('Já não há vagas para o período escolhido. Experimente outra data de início.');
+
+      const agora = new Date();
+      const inscricao = await tx.eventoInscricao.create({
+        data: {
+          eventoId: ev.id, tipo: 'PROGRAMA', responsavelNome: dto.nomeEncarregado, contacto, email,
+          dados: JSON.stringify({
+            parentesco: dto.parentesco,
+            contactoAlternativo: normalizarTelefone(dto.contactoAlternativo) ?? undefined,
+            pessoaAutorizadaRecolha: dto.pessoaAutorizadaRecolha,
+            observacoes: dto.observacoes,
+          }),
+          declaracaoAceite: true, submetidoEm: agora,
+        },
+      });
+      await tx.eventoParticipante.create({
+        data: {
+          eventoId: ev.id, inscricaoId: inscricao.id, nome: dto.nomeCrianca, contacto, email,
+          dataNascimento: diaParaDate(dto.dataNascimento),
+          dadosFormulario: JSON.stringify({
+            idade, genero: dto.genero, escola: dto.escola, nivelNatacao: dto.nivelNatacao,
+            condicaoSaude: dto.condicaoSaude, condicaoSaudeDetalhe: dto.condicaoSaude ? dto.condicaoSaudeDetalhe : undefined,
+          }),
+          autorizacaoImagem: dto.autorizacaoImagem === undefined ? null : !!dto.autorizacaoImagem,
+          eventoPacoteId: pacote.id, pacoteNome: pacote.nome, pacotePreco: pacote.preco,
+          dataInicioPretendida: diaParaDate(dto.dataInicio), dataFimPrevista: diaParaDate(fimPrevisto),
+          origem: 'PRE_INSCRICAO', estado: 'PRE_INSCRITO', presente: false, submetidoEm: agora,
+        },
+      });
+      return {
+        ok: true, referencia: inscricao.id.slice(0, 8).toUpperCase(), submetidoEm: agora, evento: ev.nome,
+        pacote: pacote.nome, preco: pacote.preco, dataInicio: dto.dataInicio, dataFimPrevista: fimPrevisto,
+      };
+    });
+
+    // Aviso interno à secretaria. Sem nomes nem contactos na notificação (minimização de dados).
+    const titulo = `Nova inscrição por validar — ${ev.nome}`;
+    const corpo = `Ref. ${resultado.referencia} · ${resultado.pacote} (${fmtMt(resultado.preco)}) · início ${fmtDia(resultado.dataInicio)}. Abra Eventos → Gerir para validar.`;
+    for (const role of ROLES_VALIDACAO) {
+      await this.notifications.createForRole(role, 'EVENTO_INSCRICAO', titulo, corpo).catch(() => undefined);
+    }
+    return resultado;
+  }
+
+  // ─── Pacotes do evento (staff) ─────────────────────────────────────────────
+
+  async listarPacotes(eventoId: string) {
+    const ev = await this.prisma.evento.findUnique({ where: { id: eventoId }, select: { id: true } });
+    if (!ev) throw new NotFoundException('Evento não encontrado');
+    const pacotes = await this.prisma.eventoPacote.findMany({
+      where: { eventoId }, orderBy: [{ ordem: 'asc' }, { preco: 'asc' }],
+      include: { _count: { select: { participantes: true } } },
+    });
+    return pacotes.map(({ _count, ...p }) => ({ ...p, inscricoes: _count.participantes }));
+  }
+
+  async criarPacote(eventoId: string, dto: PacoteEventoDto, actorUserId: string) {
+    const ev = await this.prisma.evento.findUnique({ where: { id: eventoId }, select: { id: true } });
+    if (!ev) throw new NotFoundException('Evento não encontrado');
+    const pacote = await this.prisma.eventoPacote.create({
+      data: {
+        eventoId, nome: dto.nome, descricao: dto.descricao ?? null, preco: dto.preco,
+        dias: dto.dias ?? null, ativo: dto.ativo ?? true, ordem: dto.ordem ?? 0,
+      },
+    });
+    await this.audit.log({
+      userId: actorUserId, action: 'EVENTO_PACOTE_CRIADO', entity: 'EventoPacote', entityId: pacote.id,
+      newValues: { eventoId, nome: pacote.nome, preco: pacote.preco, dias: pacote.dias },
+    });
+    return pacote;
+  }
+
+  async actualizarPacote(pacoteId: string, dto: PacoteEventoDto, actorUserId: string) {
+    const antes = await this.prisma.eventoPacote.findUnique({ where: { id: pacoteId } });
+    if (!antes) throw new NotFoundException('Pacote não encontrado');
+    // As inscrições já feitas guardam o nome e o preço da altura: mudar aqui não altera o que foi aceite.
+    const pacote = await this.prisma.eventoPacote.update({
+      where: { id: pacoteId },
+      data: {
+        nome: dto.nome, descricao: dto.descricao ?? null, preco: dto.preco, dias: dto.dias ?? null,
+        ...(dto.ativo !== undefined ? { ativo: dto.ativo } : {}), ...(dto.ordem !== undefined ? { ordem: dto.ordem } : {}),
+      },
+    });
+    await this.audit.log({
+      userId: actorUserId, action: 'EVENTO_PACOTE_ACTUALIZADO', entity: 'EventoPacote', entityId: pacoteId,
+      oldValues: { nome: antes.nome, preco: antes.preco, dias: antes.dias, ativo: antes.ativo },
+      newValues: { nome: pacote.nome, preco: pacote.preco, dias: pacote.dias, ativo: pacote.ativo },
+    });
+    return pacote;
+  }
+
+  /** Apaga só pacotes nunca usados; os usados são desactivados para manter o histórico. */
+  async removerPacote(pacoteId: string, actorUserId: string) {
+    const pacote = await this.prisma.eventoPacote.findUnique({
+      where: { id: pacoteId }, include: { _count: { select: { participantes: true } } },
+    });
+    if (!pacote) throw new NotFoundException('Pacote não encontrado');
+    if (pacote._count.participantes > 0) {
+      await this.prisma.eventoPacote.update({ where: { id: pacoteId }, data: { ativo: false } });
+      await this.audit.log({
+        userId: actorUserId, action: 'EVENTO_PACOTE_DESACTIVADO', entity: 'EventoPacote', entityId: pacoteId,
+        oldValues: { ativo: pacote.ativo }, newValues: { ativo: false, inscricoes: pacote._count.participantes },
+      });
+      return { removido: false, desactivado: true };
+    }
+    await this.prisma.eventoPacote.delete({ where: { id: pacoteId } });
+    await this.audit.log({
+      userId: actorUserId, action: 'EVENTO_PACOTE_REMOVIDO', entity: 'EventoPacote', entityId: pacoteId,
+      oldValues: { eventoId: pacote.eventoId, nome: pacote.nome, preco: pacote.preco },
+    });
+    return { removido: true, desactivado: false };
+  }
+
+  // ─── Validação das inscrições (ADMIN / ASSISTENTE_ADMIN) ───────────────────
+
+  private async participanteParaDecisao(participanteId: string) {
+    const p = await this.prisma.eventoParticipante.findUnique({
+      where: { id: participanteId },
+      include: {
+        evento: { select: { id: true, nome: true, local: true, hora: true } },
+        inscricao: { select: { id: true, responsavelNome: true } },
+      },
+    });
+    if (!p) throw new NotFoundException('Inscrição não encontrada');
+    return p;
+  }
+
+  /**
+   * Avisa o encarregado só pelos contactos que existem. WhatsApp fica na caixa de
+   * saída para envio manual (não é marcado como enviado); email só se o SMTP o aceitar.
+   */
+  private async avisarEncarregado(
+    p: { id: string; contacto: string | null; email: string | null; studentId: string | null },
+    titulo: string, mensagem: string, actorUserId: string,
+  ) {
+    const telefone = normalizarTelefone(p.contacto);
+    let whatsapp: 'EM_FILA' | 'SEM_CONTACTO' = 'SEM_CONTACTO';
+    if (telefone) {
+      await this.whatsapp.enqueue({
+        tipo: 'EVENTO_INSCRICAO', telefone, mensagem, studentId: p.studentId ?? undefined, criadoPorId: actorUserId,
+      });
+      whatsapp = 'EM_FILA';
+    }
+    let email: 'ENVIADO' | 'NAO_ENVIADO' | 'SEM_EMAIL' = 'SEM_EMAIL';
+    if (p.email) {
+      const ok = await this.email.sendComunicacao(p.email, titulo, mensagem).catch(() => false);
+      email = ok ? 'ENVIADO' : 'NAO_ENVIADO';
+    }
+    await this.audit.log({
+      userId: actorUserId, action: 'EVENTO_INSCRICAO_AVISO', entity: 'EventoParticipante', entityId: p.id,
+      newValues: { whatsapp, email },
+    });
+    return { whatsapp, email };
+  }
+
+  async validarParticipante(participanteId: string, dto: ValidarParticipanteDto, actorUserId: string) {
+    const p = await this.participanteParaDecisao(participanteId);
+    if (p.estado !== 'PRE_INSCRITO') {
+      throw new ConflictException(`Esta inscrição já foi decidida (estado: ${ESTADO_LABEL[p.estado as EstadoParticipante] ?? p.estado}).`);
+    }
+    const agora = new Date();
+    const r = await this.prisma.eventoParticipante.updateMany({
+      where: { id: participanteId, estado: 'PRE_INSCRITO' },
+      data: { estado: 'CONFIRMADO', validadoEm: agora, validadoPorId: actorUserId, motivoRejeicao: null },
+    });
+    if (r.count === 0) throw new ConflictException('A inscrição foi alterada entretanto. Actualize a lista.');
+    await this.audit.log({
+      userId: actorUserId, action: 'EVENTO_INSCRICAO_VALIDADA', entity: 'EventoParticipante', entityId: participanteId,
+      oldValues: { estado: p.estado },
+      newValues: { estado: 'CONFIRMADO', pacote: p.pacoteNome, preco: p.pacotePreco, nota: dto.nota },
+    });
+
+    let aviso: { whatsapp: string; email: string } | null = null;
+    if (dto.avisar) {
+      const ref = (p.inscricao?.id ?? p.id).slice(0, 8).toUpperCase();
+      const linhas = [
+        `Olá${p.inscricao?.responsavelNome ? ` ${p.inscricao.responsavelNome}` : ''}!`,
+        `A inscrição de ${p.nome ?? 'o seu educando'} no ${p.evento.nome} foi confirmada.`,
+        p.pacoteNome ? `Pacote: ${p.pacoteNome}${p.pacotePreco != null ? ` — ${fmtMt(p.pacotePreco)}` : ''}` : null,
+        p.dataInicioPretendida ? `Início: ${fmtDia(dateParaDia(p.dataInicioPretendida))}${p.dataFimPrevista ? ` · até ${fmtDia(dateParaDia(p.dataFimPrevista))}` : ''}` : null,
+        p.evento.local ? `Local: ${p.evento.local}` : null,
+        dto.nota ? dto.nota : null,
+        `Referência: ${ref}`,
+        'Mastchieve',
+      ].filter(Boolean);
+      aviso = await this.avisarEncarregado(p, `Inscrição confirmada — ${p.evento.nome}`, linhas.join('\n'), actorUserId);
+    }
+    return { ok: true, estado: 'CONFIRMADO', aviso };
+  }
+
+  async rejeitarParticipante(participanteId: string, dto: RejeitarParticipanteDto, actorUserId: string) {
+    const p = await this.participanteParaDecisao(participanteId);
+    if (p.estado !== 'PRE_INSCRITO') {
+      throw new ConflictException(`Esta inscrição já foi decidida (estado: ${ESTADO_LABEL[p.estado as EstadoParticipante] ?? p.estado}).`);
+    }
+    const agora = new Date();
+    const r = await this.prisma.eventoParticipante.updateMany({
+      where: { id: participanteId, estado: 'PRE_INSCRITO' },
+      data: { estado: 'CANCELADO', presente: false, validadoEm: agora, validadoPorId: actorUserId, motivoRejeicao: dto.motivo },
+    });
+    if (r.count === 0) throw new ConflictException('A inscrição foi alterada entretanto. Actualize a lista.');
+    await this.audit.log({
+      userId: actorUserId, action: 'EVENTO_INSCRICAO_REJEITADA', entity: 'EventoParticipante', entityId: participanteId,
+      oldValues: { estado: p.estado }, newValues: { estado: 'CANCELADO', motivo: dto.motivo },
+    });
+
+    let aviso: { whatsapp: string; email: string } | null = null;
+    if (dto.avisar) {
+      const linhas = [
+        `Olá${p.inscricao?.responsavelNome ? ` ${p.inscricao.responsavelNome}` : ''}.`,
+        `Não foi possível confirmar a inscrição de ${p.nome ?? 'o seu educando'} no ${p.evento.nome}.`,
+        `Motivo: ${dto.motivo}`,
+        'Para mais informações, contacte a Mastchieve.',
+      ];
+      aviso = await this.avisarEncarregado(p, `Inscrição não confirmada — ${p.evento.nome}`, linhas.join('\n'), actorUserId);
+    }
+    return { ok: true, estado: 'CANCELADO', aviso };
+  }
+
+  /** Corrige o pacote e/ou a data de início, recalculando o período e confirmando vagas. */
+  async alterarPacoteParticipante(participanteId: string, dto: AlterarPacoteParticipanteDto, actorUserId: string) {
+    const p = await this.prisma.eventoParticipante.findUnique({
+      where: { id: participanteId },
+      include: { evento: { select: { id: true, data: true, dataFim: true, capacidade: true } } },
+    });
+    if (!p) throw new NotFoundException('Inscrição não encontrada');
+    if (!['PRE_INSCRITO', 'CONFIRMADO'].includes(p.estado)) {
+      throw new BadRequestException('Só é possível alterar o pacote de inscrições por validar ou confirmadas.');
+    }
+    const periodo = this.periodoPrograma(p.evento);
+    const inicio = dto.dataInicio ?? dateParaDia(p.dataInicioPretendida) ?? periodo.inicio;
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM eventos WHERE id = ${p.eventoId} FOR UPDATE`;
+      const pacote = await tx.eventoPacote.findFirst({ where: { id: dto.pacoteId, eventoId: p.eventoId } });
+      if (!pacote) throw new BadRequestException('Pacote inválido para este evento');
+      // A secretaria pode corrigir inscrições já a decorrer: não se aplica a regra "data no passado".
+      const v = validarInicioPrograma(inicio, periodo, pacote.dias, periodo.inicio);
+      if (!v.ok) throw new BadRequestException(v.erro);
+      const fim = v.fimPrevisto ?? periodo.fim ?? inicio;
+
+      const outros = await tx.eventoParticipante.findMany({
+        where: { eventoId: p.eventoId, estado: { not: 'CANCELADO' }, id: { not: p.id } },
+        select: { dataInicioPretendida: true, dataFimPrevista: true },
+      });
+      if (vagasDisponiveis(p.evento.capacidade, this.sobrepostos(outros, inicio, fim).length) === 0) {
+        throw new ConflictException('Não há vagas para o novo período.');
+      }
+      const actualizado = await tx.eventoParticipante.update({
+        where: { id: p.id },
+        data: {
+          eventoPacoteId: pacote.id, pacoteNome: pacote.nome, pacotePreco: pacote.preco,
+          dataInicioPretendida: diaParaDate(inicio), dataFimPrevista: diaParaDate(fim),
+        },
+      });
+      await this.audit.log({
+        userId: actorUserId, action: 'EVENTO_INSCRICAO_PACOTE_ALTERADO', entity: 'EventoParticipante', entityId: p.id,
+        oldValues: { pacote: p.pacoteNome, preco: p.pacotePreco, inicio: dateParaDia(p.dataInicioPretendida), fim: dateParaDia(p.dataFimPrevista) },
+        newValues: { pacote: pacote.nome, preco: pacote.preco, inicio, fim },
+      });
+      return actualizado;
     });
   }
 

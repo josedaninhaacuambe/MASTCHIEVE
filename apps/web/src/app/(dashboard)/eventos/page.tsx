@@ -2,9 +2,11 @@
 import { Fragment, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
+import { useAuthStore } from '@/stores/auth.store';
+import { PacotesTab, ValidacaoPrograma, MODELO_MERGULHA, diaLocalStr, fmtDiaIso } from './programa-eventos';
 import {
   Plus, Calendar, MapPin, Users, Award, ClipboardList, X, Check, Trash2, Search, Link2, Copy, Lock, Unlock,
-  Pencil, Download, Send, MessageSquare, ChevronDown, ChevronUp, Clock, RefreshCw, UserCheck,
+  Pencil, Download, Send, MessageSquare, ChevronDown, ChevronUp, Clock, RefreshCw, UserCheck, Package, Sparkles,
 } from 'lucide-react';
 
 const ESTADOS_CORES: Record<string, string> = { PLANEADO:'bg-blue-100 text-blue-700', REALIZADO:'bg-green-100 text-green-700', CANCELADO:'bg-red-100 text-red-700' };
@@ -70,7 +72,8 @@ function EventoFormModal({ evento, onClose, onSaved }: { evento?: any; onClose: 
   const [form, setForm] = useState({
     nome: evento?.nome ?? '',
     tipo: evento?.tipo ?? 'OPEN_DAY',
-    data: evento?.data ? new Date(evento.data).toISOString().slice(0, 10) : '',
+    data: evento?.data ? diaLocalStr(evento.data) : '',
+    dataFim: evento?.dataFim ? diaLocalStr(evento.dataFim) : '',
     hora: evento?.hora ?? '',
     unidadeId: evento?.unidadeId ?? '',
     local: evento?.local ?? '',
@@ -90,15 +93,18 @@ function EventoFormModal({ evento, onClose, onSaved }: { evento?: any; onClose: 
 
   const salvar = async () => {
     if (!form.nome.trim() || !form.data) { toast.error('Campos obrigatórios', 'Preenche o nome e a data do evento'); return; }
+    if (form.formularioTipo === 'PROGRAMA' && !form.dataFim) { toast.error('Campo obrigatório', 'Indica a data de fim do programa'); return; }
+    if (form.dataFim && form.dataFim < form.data) { toast.error('Datas inválidas', 'A data de fim não pode ser anterior à de início'); return; }
     setSaving(true);
     try {
       const body = {
         ...form,
         nome: form.nome.trim(),
         data: new Date(`${form.data}T${form.hora || '00:00'}`).toISOString(),
+        dataFim: form.dataFim ? new Date(`${form.dataFim}T23:59`).toISOString() : null,
         capacidade: form.capacidade ? Number(form.capacidade) : null,
         unidadeId: form.unidadeId || null,
-        formularioCampos: JSON.stringify(form.formularioTipo === 'ESCOLA'
+        formularioCampos: JSON.stringify(form.formularioTipo === 'PROGRAMA' ? {} : form.formularioTipo === 'ESCOLA'
           ? { horarios: horarios.split('\n').map((h) => h.trim()).filter(Boolean) }
           : { campos }),
       };
@@ -145,6 +151,12 @@ function EventoFormModal({ evento, onClose, onSaved }: { evento?: any; onClose: 
               <label className="block text-sm font-medium text-gray-700 mb-1">Data*</label>
               <input type="date" value={form.data} onChange={(e) => set('data', e.target.value)} className={inputCls} />
             </div>
+            {form.formularioTipo === 'PROGRAMA' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Data de fim*</label>
+                <input type="date" value={form.dataFim} min={form.data || undefined} onChange={(e) => set('dataFim', e.target.value)} className={inputCls} />
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
               <input type="time" value={form.hora} onChange={(e) => set('hora', e.target.value)} className={inputCls} />
@@ -169,8 +181,9 @@ function EventoFormModal({ evento, onClose, onSaved }: { evento?: any; onClose: 
 
           <div className="border-t border-gray-100 pt-4 space-y-3">
             <h3 className="text-sm font-semibold text-gray-900">Formulário de pré-inscrição</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {[{ v: 'INDIVIDUAL', l: 'Individual', d: 'Modelo Open Day (externos)' }, { v: 'ESCOLA', l: 'Escola', d: 'Modelo Voucher — até 10 alunos' }].map((t) => (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[{ v: 'INDIVIDUAL', l: 'Individual', d: 'Modelo Open Day (externos)' }, { v: 'ESCOLA', l: 'Escola', d: 'Modelo Voucher — até 10 alunos' },
+                { v: 'PROGRAMA', l: 'Programa', d: 'Férias / campo — com pacotes e validação' }].map((t) => (
                 <button key={t.v} type="button" onClick={() => set('formularioTipo', t.v)}
                   className={`text-left border rounded-xl px-3 py-2 ${form.formularioTipo === t.v ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
                   <p className="text-sm font-medium text-gray-900">{t.l}</p>
@@ -178,7 +191,19 @@ function EventoFormModal({ evento, onClose, onSaved }: { evento?: any; onClose: 
                 </button>
               ))}
             </div>
-            {form.formularioTipo === 'INDIVIDUAL' ? (
+            {form.formularioTipo === 'PROGRAMA' ? (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-500">
+                  O encarregado escolhe o pacote e o dia de início (segunda a sexta, dentro do período). Cada inscrição fica &quot;por validar&quot;
+                  até a secretaria (Assistente administrativo ou Admin) a validar. Os pacotes e preços configuram-se em <strong>Gerir → Pacotes</strong>.
+                </p>
+                <button type="button"
+                  onClick={() => { if (!form.nome || confirm('Substituir nome, datas, local, descrição e programa pelos do folheto?')) setForm((f) => ({ ...f, ...MODELO_MERGULHA })); }}
+                  className="inline-flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100">
+                  <Sparkles className="w-3.5 h-3.5" /> Usar modelo &quot;Mergulha nas Férias&quot;
+                </button>
+              </div>
+            ) : form.formularioTipo === 'INDIVIDUAL' ? (
               <div>
                 <p className="text-xs text-gray-500 mb-2">Nome completo, contacto e declaração são sempre pedidos. Escolhe os campos adicionais:</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -230,7 +255,8 @@ const ROTULOS_DADOS: Record<string, string> = {
 };
 const fmtValor = (v: any) => (v === true ? 'Sim' : v === false ? 'Não' : Array.isArray(v) ? v.join(', ') : String(v));
 
-function ParticipantesTab({ evento }: { evento: any }) {
+function ParticipantesTab({ evento, podeValidar }: { evento: any; podeValidar: boolean }) {
+  const ePrograma = evento.formularioTipo === 'PROGRAMA';
   const [participantes, setParticipantes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroEstado, setFiltroEstado] = useState('');
@@ -313,6 +339,12 @@ function ParticipantesTab({ evento }: { evento: any }) {
           <Search className="w-4 h-4 text-gray-400" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nome, contacto, email..." className="flex-1 text-sm outline-none" />
         </div>
+        {ePrograma && (
+          <button onClick={() => setFiltroEstado(filtroEstado === 'PRE_INSCRITO' ? '' : 'PRE_INSCRITO')}
+            className={`text-xs rounded-lg px-3 py-1.5 border ${filtroEstado === 'PRE_INSCRITO' ? 'bg-amber-100 border-amber-200 text-amber-800 font-medium' : 'border-gray-300 hover:bg-gray-50'}`}>
+            Por validar
+          </button>
+        )}
         <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
           <option value="">Todos os estados</option>
           {ESTADOS_PARTICIPANTE.map((e) => <option key={e.v} value={e.v}>{e.l}</option>)}
@@ -339,24 +371,30 @@ function ParticipantesTab({ evento }: { evento: any }) {
                       {p.lead && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 rounded">pedido criado</span>}
                     </p>
                     <p className="text-xs text-gray-400 truncate">
+                      {p.pacoteNome ? `${p.pacoteNome} · desde ${fmtDiaIso(p.dataInicioPretendida)} · ` : ''}
                       {ORIGEM_LABEL[p.origem] ?? p.origem}
                       {p.contacto ? ` · ${p.contacto}` : ''}{p.email ? ` · ${p.email}` : ''}
                       {!p.contacto && !p.email && !p.studentId ? ' · sem contacto' : ''}
                     </p>
                   </button>
-                  <select value={p.estado} onChange={(e) => acao(() => api.patch(`/eventos/participantes/${p.id}/estado`, { estado: e.target.value }))}
-                    className={`text-xs rounded-full px-2 py-1 font-medium border-0 ${ESTADO_INFO[p.estado]?.cor ?? ''}`}>
-                    {ESTADOS_PARTICIPANTE.map((e) => <option key={e.v} value={e.v}>{e.l}</option>)}
-                  </select>
+                  {p.pacoteNome && p.estado === 'PRE_INSCRITO' ? (
+                    <button onClick={() => setAberto(p.id)} className="text-xs rounded-full px-2 py-1 font-medium bg-amber-100 text-amber-700">Por validar</button>
+                  ) : (
+                    <select value={p.estado} onChange={(e) => acao(() => api.patch(`/eventos/participantes/${p.id}/estado`, { estado: e.target.value }))}
+                      className={`text-xs rounded-full px-2 py-1 font-medium border-0 ${ESTADO_INFO[p.estado]?.cor ?? ''}`}>
+                      {ESTADOS_PARTICIPANTE.map((e) => <option key={e.v} value={e.v}>{e.l}</option>)}
+                    </select>
+                  )}
                   <button onClick={() => setAberto(expandido ? null : p.id)} className="p-1 text-gray-400">
                     {expandido ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
                 </div>
                 {expandido && (
                   <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
+                    {p.pacoteNome && <ValidacaoPrograma p={p} evento={evento} podeValidar={podeValidar} onChanged={load} />}
                     <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs">
                       {p.submetidoEm && <><dt className="text-gray-400">Submetido em</dt><dd className="text-gray-700">{new Date(p.submetidoEm).toLocaleString('pt-PT')}</dd></>}
-                      {p.dataNascimento && <><dt className="text-gray-400">Data de nascimento</dt><dd className="text-gray-700">{new Date(p.dataNascimento).toLocaleDateString('pt-PT')}</dd></>}
+                      {p.dataNascimento && <><dt className="text-gray-400">Data de nascimento</dt><dd className="text-gray-700">{fmtDiaIso(p.dataNascimento)}</dd></>}
                       {p.autorizacaoImagem != null && <><dt className="text-gray-400">Autoriza imagem</dt><dd className="text-gray-700">{p.autorizacaoImagem ? 'Sim' : 'Não'}</dd></>}
                       {p.inscricao?.tipo === 'ESCOLA' && <><dt className="text-gray-400">Responsável</dt><dd className="text-gray-700">{p.inscricao.responsavelNome} · {p.inscricao.contacto}</dd></>}
                       {Object.entries(dados).map(([k, v]) => (
@@ -664,12 +702,19 @@ function ChecklistTab({ evento, onSaved }: { evento: any; onSaved: () => void })
 }
 
 function EventoManageModal({ evento, onClose, onSaved }: { evento: any; onClose: () => void; onSaved: () => void }) {
-  const [tab, setTab] = useState<'participantes' | 'comunicacao' | 'checklist'>('participantes');
-  const tabs = [
-    { k: 'participantes', l: 'Participantes', i: Users },
+  const { user } = useAuthStore();
+  const role = user?.role ?? '';
+  const podeValidar = ['SUPER_ADMIN', 'ADMIN', 'ASSISTENTE_ADMIN'].includes(role);
+  const podeEditarPacotes = ['SUPER_ADMIN', 'ADMIN'].includes(role);
+  const ePrograma = evento.formularioTipo === 'PROGRAMA';
+  type Tab = 'participantes' | 'pacotes' | 'comunicacao' | 'checklist';
+  const [tab, setTab] = useState<Tab>('participantes');
+  const tabs: { k: Tab; l: string; i: any }[] = [
+    { k: 'participantes', l: ePrograma ? 'Inscrições' : 'Participantes', i: Users },
+    ...(ePrograma ? [{ k: 'pacotes' as Tab, l: 'Pacotes', i: Package }] : []),
     { k: 'comunicacao', l: 'Comunicação', i: Send },
     { k: 'checklist', l: 'Materiais', i: ClipboardList },
-  ] as const;
+  ];
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[94vh] overflow-y-auto">
@@ -677,11 +722,11 @@ function EventoManageModal({ evento, onClose, onSaved }: { evento: any; onClose:
           <div className="flex items-center justify-between">
             <div className="min-w-0">
               <h2 className="text-lg font-bold text-gray-900 truncate">{evento.nome}</h2>
-              <p className="text-sm text-gray-500 mt-0.5">{new Date(evento.data).toLocaleDateString('pt-PT')}{evento.hora ? ` · ${evento.hora}` : ''}</p>
+              <p className="text-sm text-gray-500 mt-0.5">{new Date(evento.data).toLocaleDateString('pt-PT')}{evento.dataFim ? ` a ${new Date(evento.dataFim).toLocaleDateString('pt-PT')}` : ''}{evento.hora ? ` · ${evento.hora}` : ''}</p>
             </div>
             <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4" /></button>
           </div>
-          <div className="flex gap-1 mt-3">
+          <div className="flex flex-wrap gap-1 mt-3">
             {tabs.map(({ k, l, i: Icon }) => (
               <button key={k} onClick={() => setTab(k)}
                 className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg ${tab === k ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-500 hover:bg-gray-50'}`}>
@@ -691,7 +736,8 @@ function EventoManageModal({ evento, onClose, onSaved }: { evento: any; onClose:
           </div>
         </div>
         <div className="p-5">
-          {tab === 'participantes' && <ParticipantesTab evento={evento} />}
+          {tab === 'participantes' && <ParticipantesTab evento={evento} podeValidar={podeValidar} />}
+          {tab === 'pacotes' && <PacotesTab evento={evento} podeEditar={podeEditarPacotes} />}
           {tab === 'comunicacao' && <ComunicacaoTab evento={evento} />}
           {tab === 'checklist' && <ChecklistTab evento={evento} onSaved={onSaved} />}
         </div>
@@ -767,18 +813,25 @@ export default function EventosPage() {
               <div className="px-5 pt-5 pb-4 flex-1">
                 <div className="flex items-start justify-between mb-3 gap-2">
                   <div className="min-w-0">
-                    <span className="text-xs text-gray-400 font-medium">{e.tipo.replace('_', ' ')} · formulário {e.formularioTipo === 'ESCOLA' ? 'escola' : 'individual'}</span>
+                    <span className="text-xs text-gray-400 font-medium">{e.tipo.replace('_', ' ')} · formulário {e.formularioTipo === 'PROGRAMA' ? 'programa' : e.formularioTipo === 'ESCOLA' ? 'escola' : 'individual'}</span>
                     <h3 className="font-bold text-gray-900 text-lg mt-0.5">{e.nome}</h3>
                   </div>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${ESTADOS_CORES[e.estado]}`}>{e.estado}</span>
                 </div>
                 <div className="space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-gray-400" />{new Date(e.data).toLocaleDateString('pt-PT', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}</div>
+                  <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-gray-400" />{e.dataFim
+                    ? `${new Date(e.data).toLocaleDateString('pt-PT')} a ${new Date(e.dataFim).toLocaleDateString('pt-PT')}`
+                    : new Date(e.data).toLocaleDateString('pt-PT', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}</div>
                   {e.hora && <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-gray-400" />{e.hora}</div>}
                   {(e.local || e.unidade) && <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-gray-400" />{[e.local, e.unidade?.nome].filter(Boolean).join(' — ')}</div>}
                   <div className="flex items-center gap-2"><Users className="w-4 h-4 text-gray-400" />
                     {e.preInscricoes ?? 0} pré-inscrições · {e._count?.participantes ?? 0} na lista{e.capacidade ? ` / ${e.capacidade}` : ''}
                   </div>
+                  {e.porValidar > 0 && (
+                    <button onClick={() => setManageEvento(e)} className="inline-flex items-center gap-1.5 text-xs font-medium bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full hover:bg-amber-200">
+                      {e.porValidar} inscrição(ões) por validar
+                    </button>
+                  )}
                   {e._count?.certificados > 0 && <div className="flex items-center gap-2"><Award className="w-4 h-4 text-gray-400" />{e._count.certificados} certificados</div>}
                 </div>
                 {e.urlPublica && (

@@ -2,7 +2,7 @@ import { Controller, Get, Post, Param, Body, UseGuards, SetMetadata } from '@nes
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import { EventosService } from './eventos.service';
-import { PreInscricaoEscolaDto, PreInscricaoIndividualDto } from './dto/eventos.dto';
+import { InscricaoProgramaDto, PreInscricaoEscolaDto, PreInscricaoIndividualDto } from './dto/eventos.dto';
 
 const Public = () => SetMetadata('isPublic', true);
 
@@ -31,5 +31,11 @@ export class EventosPublicoController {
   @Throttle({ short: { limit: 2, ttl: 1000 }, medium: { limit: 5, ttl: 60000 } })
   escola(@Param('token') token: string, @Body() dto: PreInscricaoEscolaDto) {
     return this.svc.submeterEscola(token, dto);
+  }
+
+  @Post(':token/programa')
+  @Throttle({ short: { limit: 2, ttl: 1000 }, medium: { limit: 10, ttl: 60000 } })
+  programa(@Param('token') token: string, @Body() dto: InscricaoProgramaDto) {
+    return this.svc.submeterPrograma(token, dto);
   }
 }

@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Waves, Loader2, AlertCircle, Calendar, Clock, MapPin, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
+import { FormPrograma, ResultadoProgramaCard, fmtDia, type PacotePublico } from './form-programa';
 
 interface EventoPublico {
   nome: string;
@@ -15,7 +16,11 @@ interface EventoPublico {
   hora?: string | null;
   local?: string | null;
   unidade?: string | null;
-  formularioTipo: 'INDIVIDUAL' | 'ESCOLA';
+  formularioTipo: 'INDIVIDUAL' | 'ESCOLA' | 'PROGRAMA';
+  dataFim?: string | null;
+  periodo?: { inicio: string; fim: string | null };
+  hoje?: string;
+  pacotes?: PacotePublico[];
   formulario: { campos: string[]; horarios: string[] };
   inscricoesAbertas: boolean;
   motivoFechado?: string | null;
@@ -342,6 +347,8 @@ function FormEscola({ token, horarios, onDone }: { token: string; horarios: stri
 export default function EventoPublicoPage({ params }: { params: { token: string } }) {
   const { token } = params;
   const [resultado, setResultado] = useState<any | null>(null);
+  const [encarregado, setEncarregado] = useState<Record<string, any> | undefined>(undefined);
+  const [formKey, setFormKey] = useState(0);
   const { data, isLoading, isError } = useQuery<EventoPublico>({
     queryKey: ['evento-publico', token],
     queryFn: async () => {
@@ -382,12 +389,14 @@ export default function EventoPublicoPage({ params }: { params: { token: string 
           <>
             <header className="mb-8">
               <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
-                {data.tipo === 'OPEN_DAY' ? 'Open Day' : 'Evento'} · Pré-inscrição
+                {data.formularioTipo === 'PROGRAMA' ? 'Programa' : data.tipo === 'OPEN_DAY' ? 'Open Day' : 'Evento'} · {data.formularioTipo === 'PROGRAMA' ? 'Inscrição' : 'Pré-inscrição'}
               </span>
               <h1 className="text-3xl sm:text-4xl font-black text-gray-900 mt-1 mb-4">{data.nome}</h1>
               <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-gray-600">
                 <span className="inline-flex items-center gap-1.5"><Calendar className="w-4 h-4 text-gray-400" />
-                  {new Date(data.data).toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  {data.formularioTipo === 'PROGRAMA' && data.periodo
+                    ? `${fmtDia(data.periodo.inicio)}${data.periodo.fim ? ` a ${fmtDia(data.periodo.fim)}` : ''} · segunda a sexta`
+                    : new Date(data.data).toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 </span>
                 {data.hora && <span className="inline-flex items-center gap-1.5"><Clock className="w-4 h-4 text-gray-400" />{data.hora}</span>}
                 {(data.local || data.unidade) && (
@@ -405,7 +414,9 @@ export default function EventoPublicoPage({ params }: { params: { token: string 
               )}
             </header>
 
-            {resultado ? (
+            {resultado && data.formularioTipo === 'PROGRAMA' ? (
+              <ResultadoProgramaCard r={resultado} onOutra={() => { setResultado(null); setFormKey((k) => k + 1); }} />
+            ) : resultado ? (
               <div className="text-center py-12 border border-green-100 bg-green-50/50 rounded-2xl px-6">
                 <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-4" />
                 <h2 className="text-xl font-bold text-gray-900 mb-2">Pré-inscrição recebida!</h2>
@@ -423,6 +434,10 @@ export default function EventoPublicoPage({ params }: { params: { token: string 
                 <AlertCircle className="w-10 h-10 text-gray-300 mx-auto mb-3" />
                 <p className="text-gray-700 font-medium">{data.motivoFechado ?? 'As pré-inscrições estão encerradas.'}</p>
               </div>
+            ) : data.formularioTipo === 'PROGRAMA' ? (
+              <FormPrograma key={formKey} token={token} pacotes={data.pacotes ?? []} hoje={data.hoje ?? new Date().toISOString().slice(0, 10)}
+                periodo={data.periodo ?? { inicio: data.hoje ?? new Date().toISOString().slice(0, 10), fim: null }} inicial={encarregado}
+                onDone={(r, enc) => { setResultado(r); setEncarregado(enc); }} />
             ) : data.formularioTipo === 'ESCOLA' ? (
               <FormEscola token={token} horarios={data.formulario.horarios} onDone={setResultado} />
             ) : (

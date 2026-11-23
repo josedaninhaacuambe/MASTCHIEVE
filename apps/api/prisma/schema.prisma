@@ -1009,6 +1009,7 @@ model Evento {
   tipo                String   @default("OPEN_DAY") // OPEN_DAY|COMPETICAO|OUTRO
   nome                String
   data                DateTime
+  dataFim             DateTime? // fim do período (programas de vários dias, ex.: férias)
   unidadeId           String?
   programa            String?  @db.Text
   capacidade          Int?
@@ -1020,7 +1021,7 @@ model Evento {
   hora                String?
   local               String?
   // Formulário público de pré-inscrição
-  formularioTipo      String   @default("INDIVIDUAL") // INDIVIDUAL (Open Day) | ESCOLA (voucher escolas)
+  formularioTipo      String   @default("INDIVIDUAL") // INDIVIDUAL (Open Day) | ESCOLA (voucher escolas) | PROGRAMA (férias, com pacotes)
   formularioCampos    String?  @db.Text // JSON: { campos: string[], horarios?: string[] }
   inscricoesAbertas   Boolean  @default(false)
   tokenPublico        String?  @unique
@@ -1034,10 +1035,32 @@ model Evento {
   participantes EventoParticipante[]
   inscricoes    EventoInscricao[]
   comunicacoes  EventoComunicacao[]
+  pacotes       EventoPacote[]
 
   @@index([tipo])
   @@index([estado])
   @@map("eventos")
+}
+
+// Pacotes/preços de um evento do tipo PROGRAMA (ex.: Diário, Semanal...).
+// Separados da tabela `pacotes` (mensalidades de atletas) de propósito.
+model EventoPacote {
+  id        String   @id @default(uuid())
+  eventoId  String
+  nome      String
+  descricao String?  @db.Text
+  preco     Float
+  dias      Int? // dias úteis cobertos (1, 5, 10, 20...)
+  ativo     Boolean  @default(true)
+  ordem     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  evento        Evento               @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  participantes EventoParticipante[]
+
+  @@index([eventoId])
+  @@map("evento_pacotes")
 }
 
 // Uma submissão do formulário público. INDIVIDUAL → 1 participante;
@@ -1331,9 +1354,20 @@ model EventoParticipante {
   autorizacaoImagem Boolean?
   leadId            String?
   submetidoEm       DateTime?
+  // Programa (férias): pacote escolhido, com preço copiado no momento da inscrição
+  eventoPacoteId       String?
+  pacoteNome           String?
+  pacotePreco          Float?
+  dataInicioPretendida DateTime? @db.Date
+  dataFimPrevista      DateTime? @db.Date
+  // Validação pela secretaria (ADMIN / ASSISTENTE_ADMIN)
+  validadoEm           DateTime?
+  validadoPorId        String?
+  motivoRejeicao       String?   @db.Text
   createdAt         DateTime  @default(now())
 
   evento    Evento                   @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  pacote    EventoPacote?            @relation(fields: [eventoPacoteId], references: [id], onDelete: SetNull)
   student   Student?                 @relation(fields: [studentId], references: [id])
   pagamento Payment?                 @relation(fields: [pagamentoId], references: [id])
   inscricao EventoInscricao?         @relation(fields: [inscricaoId], references: [id], onDelete: SetNull)
@@ -1343,6 +1377,7 @@ model EventoParticipante {
   @@index([eventoId])
   @@index([estado])
   @@index([inscricaoId])
+  @@index([eventoPacoteId])
   @@map("evento_participantes")
 }
 
@@ -1897,6 +1932,9 @@ model Formacao {
   propostoPorId String
   aprovadoPorId String?
   aprovadoEm    DateTime?
+  // Capacidade máxima de participantes (null = sem limite definido)
+  vagas         Int?
+  local         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -1909,18 +1947,27 @@ model Formacao {
 }
 
 model FuncionarioFormacao {
-  id             String   @id @default(uuid())
-  formacaoId     String
-  funcionarioId  String
-  estado         String   @default("INSCRITO") // INSCRITO|CONCLUIDO|DESISTIU
-  notaFinal      Float?
-  certificadoUrl String?
-  createdAt      DateTime @default(now())
+  id                 String    @id @default(uuid())
+  formacaoId         String
+  funcionarioId      String
+  estado             String    @default("INSCRITO") // INSCRITO|CONCLUIDO|DESISTIU|CANCELADA
+  notaFinal          Float?
+  certificadoUrl     String?
+  observacoes        String?   @db.Text
+  inscritoPorId      String?
+  canceladoEm        DateTime?
+  canceladoPorId     String?
+  motivoCancelamento String?   @db.Text
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
 
   formacao    Formacao    @relation(fields: [formacaoId], references: [id], onDelete: Cascade)
   funcionario Funcionario @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
 
+  // Um colaborador só tem uma inscrição por formação; reinscrever reactiva a mesma linha.
   @@unique([formacaoId, funcionarioId])
+  @@index([funcionarioId])
+  @@index([estado])
   @@map("rh_funcionario_formacoes")
 }
 

@@ -84,7 +84,7 @@ const navItems = [
   { href: '/rh/ferias-faltas',  icon: CalendarX,        label: 'Férias / Faltas',        roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
   { href: '/rh/folha-pagamento', icon: Banknote,        label: 'Folha de Pagamento',     roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
   { href: '/rh/disciplina',     icon: Gavel,            label: 'Disciplina',              roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
-  { href: '/rh/formacao',       icon: GraduationCap,    label: 'Formação',                roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
+  { href: '/rh/formacao',       icon: GraduationCap,    label: 'Formação e Inscrições',   roles: ['GESTOR_RH', 'SUPER_ADMIN', 'ADMIN', 'ASSISTENTE_ADMIN'], group: 'rh' },
   { href: '/rh/desligamento',   icon: LogOut,           label: 'Desligamento',           roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
   { href: '/rh/documentos',     icon: FolderOpen,       label: 'Documentos RH',          roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
   { href: '/rh/relatorios',     icon: PieChart,         label: 'Relatórios RH',          roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },

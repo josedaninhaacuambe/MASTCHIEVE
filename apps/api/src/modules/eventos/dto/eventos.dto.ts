@@ -1,5 +1,5 @@
 import {
-  ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsDateString, IsEmail, IsIn, IsInt, IsOptional, IsString, IsUUID,
+  ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsDateString, IsEmail, IsIn, IsInt, IsNumber, IsOptional, IsString, IsUUID,
   Matches, Max, MaxLength, Min, MinLength, ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -66,7 +66,62 @@ export class PreInscricaoEscolaDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(0, { message: 'Pedido inválido' }) website?: string;
 }
 
+// ─── Formulário público: PROGRAMA (férias, com pacotes) ────────────────────
+
+const DIA = /^\d{4}-\d{2}-\d{2}$/;
+
+export class InscricaoProgramaDto {
+  // Criança
+  @ApiProperty() @trim() @IsString() @MinLength(3, { message: 'Indique o nome completo da criança' }) @MaxLength(120) nomeCrianca: string;
+  @ApiProperty({ example: '2016-05-20' }) @trim() @Matches(DIA, { message: 'Data de nascimento inválida' }) dataNascimento: string;
+  @ApiPropertyOptional({ enum: ['F', 'M'] }) @vazioParaUndefined() @IsOptional() @IsIn(['F', 'M']) genero?: 'F' | 'M';
+  @ApiPropertyOptional() @vazioParaUndefined() @IsOptional() @IsString() @MaxLength(150) escola?: string;
+  @ApiPropertyOptional({ enum: NIVEIS_NATACAO }) @vazioParaUndefined() @IsOptional() @IsIn(NIVEIS_NATACAO as unknown as string[]) nivelNatacao?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() condicaoSaude?: boolean;
+  @ApiPropertyOptional() @vazioParaUndefined() @IsOptional() @IsString() @MaxLength(500) condicaoSaudeDetalhe?: string;
+  // Encarregado
+  @ApiProperty() @trim() @IsString() @MinLength(3, { message: 'Indique o nome do encarregado' }) @MaxLength(120) nomeEncarregado: string;
+  @ApiPropertyOptional() @vazioParaUndefined() @IsOptional() @IsString() @MaxLength(40) parentesco?: string;
+  @ApiProperty() @trim() @Matches(TELEFONE, { message: TELEFONE_MSG }) contacto: string;
+  @ApiPropertyOptional() @vazioParaUndefined() @IsOptional() @Matches(TELEFONE, { message: TELEFONE_MSG }) contactoAlternativo?: string;
+  @ApiPropertyOptional() @vazioParaUndefined() @IsOptional() @IsEmail({}, { message: 'Email inválido' }) @MaxLength(120) email?: string;
+  @ApiPropertyOptional() @vazioParaUndefined() @IsOptional() @IsString() @MaxLength(200) pessoaAutorizadaRecolha?: string;
+  // Pacote
+  @ApiProperty() @IsUUID('all', { message: 'Escolha um pacote' }) pacoteId: string;
+  @ApiProperty({ example: '2026-11-23' }) @trim() @Matches(DIA, { message: 'Data de início inválida' }) dataInicio: string;
+  @ApiPropertyOptional() @vazioParaUndefined() @IsOptional() @IsString() @MaxLength(1000) observacoes?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() autorizacaoImagem?: boolean;
+  @ApiProperty() @IsBoolean() declaracao: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(0, { message: 'Pedido inválido' }) website?: string;
+}
+
 // ─── Staff ─────────────────────────────────────────────────────────────────
+
+export class PacoteEventoDto {
+  @ApiProperty() @trim() @IsString() @MinLength(2) @MaxLength(60) nome: string;
+  @ApiPropertyOptional() @vazioParaUndefined() @IsOptional() @IsString() @MaxLength(300) descricao?: string;
+  @ApiProperty() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Preço inválido' }) @Min(0) @Max(10000000) preco: number;
+  @ApiPropertyOptional({ description: 'Dias úteis cobertos (1 = diário, 5 = semanal...)' })
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(200) dias?: number | null;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() ativo?: boolean;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(999) ordem?: number;
+}
+
+export class ValidarParticipanteDto {
+  @ApiPropertyOptional({ description: 'Avisar o encarregado (WhatsApp na caixa de saída e/ou email, se existir contacto)' })
+  @IsOptional() @IsBoolean() avisar?: boolean;
+  @ApiPropertyOptional() @vazioParaUndefined() @IsOptional() @IsString() @MaxLength(500) nota?: string;
+}
+
+export class RejeitarParticipanteDto {
+  @ApiProperty() @trim() @IsString() @MinLength(3, { message: 'Indique o motivo' }) @MaxLength(1000) motivo: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() avisar?: boolean;
+}
+
+export class AlterarPacoteParticipanteDto {
+  @ApiProperty() @IsUUID() pacoteId: string;
+  @ApiPropertyOptional() @vazioParaUndefined() @IsOptional() @Matches(DIA, { message: 'Data de início inválida' }) dataInicio?: string;
+}
 
 export class EstadoParticipanteDto {
   @ApiProperty({ enum: ESTADOS_PARTICIPANTE }) @IsIn(ESTADOS_PARTICIPANTE as unknown as string[]) estado: string;

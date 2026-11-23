@@ -1,11 +1,19 @@
-import { Controller, Get, Post, Put, Patch, Delete, Param, Body, Query, UseGuards, Request, Res } from '@nestjs/common';
+import {
+  Controller, Get, Post, Put, Patch, Delete, Param, Body, Query, UseGuards, Request, Res, ParseUUIDPipe,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { EventosService } from './eventos.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { AppRole, Roles } from '../../common/decorators/roles.decorator';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { ComunicacaoEventoDto, EstadoParticipanteDto, PartilharComLeadsDto, WalkInDto } from './dto/eventos.dto';
+import {
+  AlterarPacoteParticipanteDto, ComunicacaoEventoDto, EstadoParticipanteDto, PacoteEventoDto, PartilharComLeadsDto,
+  RejeitarParticipanteDto, ValidarParticipanteDto, WalkInDto,
+} from './dto/eventos.dto';
+
+// Validar/rejeitar inscrições do formulário público: secretaria e administração.
+const VALIDACAO: AppRole[] = ['ADMIN', 'ASSISTENTE_ADMIN'];
 
 @ApiTags('eventos')
 @ApiBearerAuth()
@@ -56,6 +64,47 @@ export class EventosController {
   @Delete('participantes/:participanteId')
   removeParticipante(@Param('participanteId') participanteId: string, @Request() req: any) {
     return this.svc.removeParticipante(participanteId, req.user.id);
+  }
+
+  // ─── Programa (férias): pacotes e validação ────────────────────────────────
+
+  @Get(':id/pacotes')
+  listarPacotes(@Param('id', ParseUUIDPipe) id: string) { return this.svc.listarPacotes(id); }
+
+  @Post(':id/pacotes')
+  @Roles('ADMIN')
+  criarPacote(@Param('id', ParseUUIDPipe) id: string, @Body() dto: PacoteEventoDto, @Request() req: any) {
+    return this.svc.criarPacote(id, dto, req.user.id);
+  }
+
+  @Put('pacotes/:pacoteId')
+  @Roles('ADMIN')
+  actualizarPacote(@Param('pacoteId', ParseUUIDPipe) pacoteId: string, @Body() dto: PacoteEventoDto, @Request() req: any) {
+    return this.svc.actualizarPacote(pacoteId, dto, req.user.id);
+  }
+
+  @Delete('pacotes/:pacoteId')
+  @Roles('ADMIN')
+  removerPacote(@Param('pacoteId', ParseUUIDPipe) pacoteId: string, @Request() req: any) {
+    return this.svc.removerPacote(pacoteId, req.user.id);
+  }
+
+  @Put('participantes/:participanteId/validar')
+  @Roles(...VALIDACAO)
+  validar(@Param('participanteId', ParseUUIDPipe) participanteId: string, @Body() dto: ValidarParticipanteDto, @Request() req: any) {
+    return this.svc.validarParticipante(participanteId, dto, req.user.id);
+  }
+
+  @Put('participantes/:participanteId/rejeitar')
+  @Roles(...VALIDACAO)
+  rejeitar(@Param('participanteId', ParseUUIDPipe) participanteId: string, @Body() dto: RejeitarParticipanteDto, @Request() req: any) {
+    return this.svc.rejeitarParticipante(participanteId, dto, req.user.id);
+  }
+
+  @Put('participantes/:participanteId/pacote')
+  @Roles(...VALIDACAO)
+  alterarPacote(@Param('participanteId', ParseUUIDPipe) participanteId: string, @Body() dto: AlterarPacoteParticipanteDto, @Request() req: any) {
+    return this.svc.alterarPacoteParticipante(participanteId, dto, req.user.id);
   }
 
   @Get(':id/comunicacoes')

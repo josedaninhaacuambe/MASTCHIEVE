@@ -27,6 +27,7 @@ export default function AssistenteDashboardPage() {
     { href: '/students/new', icon: UserPlus, label: 'Registar Atleta', desc: 'Lançar dados de um novo atleta', color: 'from-blue-500 to-indigo-600' },
     { href: '/rh/funcionarios', icon: Users, label: 'Registar Funcionário', desc: 'Admissão de novo colaborador', color: 'from-violet-500 to-purple-600' },
     { href: '/leads', icon: TrendingUp, label: 'Novo Lead', desc: 'CRM — captação de potenciais clientes', color: 'from-emerald-500 to-teal-600' },
+    { href: '/rh/formacao', icon: GraduationCap, label: 'Inscrições em Formações', desc: 'Inscrever colaboradores, vagas e histórico', color: 'from-indigo-500 to-blue-600' },
     { href: '/instructors', icon: GraduationCap, label: 'Instrutores', desc: 'Consultar equipa técnica', color: 'from-amber-500 to-orange-600' },
     { href: '/comunicacao', icon: Megaphone, label: 'Comunicação', desc: 'Newsletters, informes e promoções', color: 'from-pink-500 to-rose-600' },
     { href: '/assistente/whatsapp', icon: MessageSquare, label: 'WhatsApp — Envios', desc: pendentes ? `${pendentes} mensagem${pendentes === 1 ? '' : 's'} por enviar` : 'Fila de envio pós-inscrição', color: 'from-green-500 to-emerald-600', badge: pendentes },
