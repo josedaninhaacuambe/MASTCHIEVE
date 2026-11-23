@@ -28,6 +28,11 @@ const NIVEIS = [
   { v: 'NAO', l: 'Não sabe nadar' }, { v: 'POUCO', l: 'Pouco' }, { v: 'RAZOAVEL', l: 'Razoável' }, { v: 'BEM', l: 'Bem' },
 ];
 
+const PROVAS = [
+  { v: 'CHOURICO', l: 'Chouriço' }, { v: 'PRANCHA', l: 'Prancha' }, { v: 'BRACOS', l: 'Braços' },
+  { v: 'CRAWL', l: 'Crawl' }, { v: 'COSTAS', l: 'Costas' }, { v: 'BRUCOS', l: 'Bruços' },
+];
+
 const input = 'w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500';
 const labelCls = 'block text-sm font-medium text-gray-700 mb-1.5';
 
@@ -73,7 +78,7 @@ function primeiroDiaUtil(periodo: { inicio: string; fim: string | null }, hoje: 
   return periodo.fim && dia > periodo.fim ? base : dia;
 }
 
-const DADOS_CRIANCA = ['nomeCrianca', 'dataNascimento', 'genero', 'escola', 'nivelNatacao', 'condicaoSaude', 'condicaoSaudeDetalhe', 'autorizacaoImagem'];
+const DADOS_CRIANCA = ['nomeCrianca', 'dataNascimento', 'genero', 'escola', 'nivelNatacao', 'provas', 'condicaoSaude', 'condicaoSaudeDetalhe', 'autorizacaoImagem'];
 
 export function FormPrograma({ token, pacotes, periodo, hoje, onDone, inicial }: {
   token: string;
@@ -119,49 +124,41 @@ export function FormPrograma({ token, pacotes, periodo, hoje, onDone, inicial }:
   };
 
   return (
-    <form onSubmit={submeter} className="space-y-7">
+    <form onSubmit={submeter} className="space-y-5">
       <input type="text" tabIndex={-1} autoComplete="off" value={f.website} onChange={(e) => set('website', e.target.value)}
         className="hidden" aria-hidden="true" />
 
-      <section className="space-y-3">
-        <h2 className="text-base font-bold text-gray-900">1. Escolha o pacote</h2>
+      <Seccao n={1} titulo="Pacote e início">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {pacotes.map((p) => {
             const sel = f.pacoteId === p.id;
             return (
-              <button key={p.id} type="button" onClick={() => set('pacoteId', p.id)}
-                className={`text-left rounded-2xl border-2 px-4 py-3 transition ${sel ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-gray-900">{p.nome}</span>
-                  {sel && <CheckCircle2 className="w-5 h-5 text-blue-600 flex-shrink-0" />}
-                </div>
-                <p className="text-2xl font-black text-blue-700 mt-1">{fmtMt(p.preco)}</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {p.dias ? `${p.dias} dia${p.dias > 1 ? 's' : ''} úte${p.dias > 1 ? 'is' : 'il'}` : ''}
-                  {p.dias && p.descricao ? ' · ' : ''}{p.descricao ?? ''}
-                </p>
+              <button key={p.id} type="button" onClick={() => set('pacoteId', p.id)} aria-pressed={sel}
+                className={`relative text-left rounded-xl border px-4 py-3 transition ${sel ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-gray-200 hover:border-gray-300 bg-white'}`}>
+                {sel && <CheckCircle2 className="absolute top-3 right-3 w-5 h-5 text-blue-600" />}
+                <span className="block text-sm font-semibold text-gray-900 pr-6">{p.nome}</span>
+                <span className="block text-xl font-black text-gray-900 mt-1">{fmtMt(p.preco)}</span>
+                {p.dias ? <span className="block text-xs text-gray-500">{p.dias} dia{p.dias > 1 ? 's' : ''}</span> : null}
               </button>
             );
           })}
         </div>
-        <Campo label="A partir de que dia?" obrigatorio
-          ajuda={`De segunda a sexta, entre ${fmtDia(periodo.inicio)}${periodo.fim ? ` e ${fmtDia(periodo.fim)}` : ''}.`}>
-          <div className="flex items-center gap-2">
-            <CalendarDays className="w-5 h-5 text-gray-400" />
-            <input type="date" className={input} required min={minimo} max={periodo.fim ?? undefined}
+        <Campo label="Começa em" obrigatorio ajuda={`Dias úteis · ${fmtDia(periodo.inicio)}${periodo.fim ? ` a ${fmtDia(periodo.fim)}` : ''}`}>
+          <div className="relative">
+            <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <input type="date" className={`${input} pl-9`} required min={minimo} max={periodo.fim ?? undefined}
               value={f.dataInicio ?? ''} onChange={(e) => set('dataInicio', e.target.value)} />
           </div>
-          {(diaSemana === 0 || diaSemana === 6) && <p className="text-xs text-amber-600 mt-1">Esse dia é fim-de-semana — escolha um dia útil.</p>}
+          {(diaSemana === 0 || diaSemana === 6) && <p className="text-xs text-amber-600 mt-1">Escolha um dia útil.</p>}
         </Campo>
-      </section>
+      </Seccao>
 
-      <section className="space-y-4">
-        <h2 className="text-base font-bold text-gray-900">2. Dados da criança</h2>
-        <Campo label="Nome completo da criança" obrigatorio>
+      <Seccao n={2} titulo="Criança">
+        <Campo label="Nome completo" obrigatorio>
           <input className={input} required minLength={3} maxLength={120} value={f.nomeCrianca ?? ''} onChange={(e) => set('nomeCrianca', e.target.value)} />
         </Campo>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Campo label="Data de nascimento" obrigatorio>
+        <div className="grid grid-cols-2 gap-3">
+          <Campo label="Nascimento" obrigatorio>
             <input type="date" className={input} required max={hoje} value={f.dataNascimento ?? ''} onChange={(e) => set('dataNascimento', e.target.value)} />
           </Campo>
           <Campo label="Género">
@@ -170,81 +167,113 @@ export function FormPrograma({ token, pacotes, periodo, hoje, onDone, inicial }:
             </select>
           </Campo>
         </div>
-        <Campo label="Escola que frequenta">
+        <Campo label="Escola">
           <input className={input} maxLength={150} value={f.escola ?? ''} onChange={(e) => set('escola', e.target.value)} />
         </Campo>
         <Campo label="Sabe nadar?">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {NIVEIS.map((n) => (
-              <button key={n.v} type="button" onClick={() => set('nivelNatacao', n.v)}
-                className={`py-2 rounded-xl text-sm border transition ${f.nivelNatacao === n.v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>
-                {n.l}
-              </button>
-            ))}
-          </div>
+          <Chips opcoes={NIVEIS} valor={f.nivelNatacao ? [f.nivelNatacao] : []} onToggle={(v) => set('nivelNatacao', f.nivelNatacao === v ? undefined : v)} cols="grid-cols-2 sm:grid-cols-4" />
         </Campo>
-        <Campo label="Tem alguma condição de saúde ou alergia que devamos conhecer?">
-          <SimNao value={f.condicaoSaude} onChange={(v) => set('condicaoSaude', v)} />
-          {f.condicaoSaude && (
-            <textarea className={`${input} mt-2`} rows={2} maxLength={500} placeholder="Qual?" value={f.condicaoSaudeDetalhe ?? ''}
-              onChange={(e) => set('condicaoSaudeDetalhe', e.target.value)} />
-          )}
+        <Campo label="Provas em que quer participar">
+          <Chips opcoes={PROVAS} valor={f.provas ?? []} cols="grid-cols-3"
+            onToggle={(v) => set('provas', (f.provas ?? []).includes(v) ? f.provas.filter((x: string) => x !== v) : [...(f.provas ?? []), v])} />
         </Campo>
-        <Campo label="Autoriza fotografias/vídeos da criança durante as actividades?">
-          <SimNao value={f.autorizacaoImagem} onChange={(v) => set('autorizacaoImagem', v)} />
-        </Campo>
-      </section>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Campo label="Condição de saúde / alergia?">
+            <SimNao value={f.condicaoSaude} onChange={(v) => set('condicaoSaude', v)} />
+          </Campo>
+          <Campo label="Autoriza fotos/vídeos?">
+            <SimNao value={f.autorizacaoImagem} onChange={(v) => set('autorizacaoImagem', v)} />
+          </Campo>
+        </div>
+        {f.condicaoSaude && (
+          <textarea className={input} rows={2} maxLength={500} placeholder="Qual condição ou alergia?" value={f.condicaoSaudeDetalhe ?? ''}
+            onChange={(e) => set('condicaoSaudeDetalhe', e.target.value)} />
+        )}
+      </Seccao>
 
-      <section className="space-y-4">
-        <h2 className="text-base font-bold text-gray-900">3. Encarregado de educação</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <Seccao n={3} titulo="Encarregado">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Campo label="Nome completo" obrigatorio>
             <input className={input} required minLength={3} maxLength={120} value={f.nomeEncarregado ?? ''} onChange={(e) => set('nomeEncarregado', e.target.value)} />
           </Campo>
           <Campo label="Parentesco">
-            <input className={input} maxLength={40} placeholder="Mãe, pai, tio..." value={f.parentesco ?? ''} onChange={(e) => set('parentesco', e.target.value)} />
+            <input className={input} maxLength={40} placeholder="Mãe, pai…" value={f.parentesco ?? ''} onChange={(e) => set('parentesco', e.target.value)} />
           </Campo>
-          <Campo label="Contacto (telefone / WhatsApp)" obrigatorio>
+          <Campo label="Telefone / WhatsApp" obrigatorio>
             <input type="tel" className={input} required placeholder="+258 84 123 4567" value={f.contacto ?? ''} onChange={(e) => set('contacto', e.target.value)} />
           </Campo>
-          <Campo label="Contacto alternativo">
-            <input type="tel" className={input} value={f.contactoAlternativo ?? ''} onChange={(e) => set('contactoAlternativo', e.target.value)} />
-          </Campo>
-          <Campo label="Email (opcional, para a confirmação)">
+          <Campo label="Email">
             <input type="email" className={input} value={f.email ?? ''} onChange={(e) => set('email', e.target.value)} />
           </Campo>
-          <Campo label="Quem pode ir buscar a criança">
-            <input className={input} maxLength={200} placeholder="Nome(s)" value={f.pessoaAutorizadaRecolha ?? ''} onChange={(e) => set('pessoaAutorizadaRecolha', e.target.value)} />
-          </Campo>
         </div>
-        <Campo label="Observações">
-          <textarea className={input} rows={2} maxLength={1000} value={f.observacoes ?? ''} onChange={(e) => set('observacoes', e.target.value)} />
-        </Campo>
-      </section>
-
-      {pacote && (
-        <div className="rounded-2xl bg-gray-900 text-white px-5 py-4 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs text-gray-300">Resumo</p>
-            <p className="font-semibold">{pacote.nome}{f.dataInicio ? ` · a partir de ${fmtDia(f.dataInicio)}` : ''}</p>
+        <details className="group">
+          <summary className="text-sm text-blue-700 font-medium cursor-pointer select-none list-none">+ Mais dados (opcional)</summary>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+            <Campo label="Contacto alternativo">
+              <input type="tel" className={input} value={f.contactoAlternativo ?? ''} onChange={(e) => set('contactoAlternativo', e.target.value)} />
+            </Campo>
+            <Campo label="Quem pode ir buscar">
+              <input className={input} maxLength={200} placeholder="Nome(s)" value={f.pessoaAutorizadaRecolha ?? ''} onChange={(e) => set('pessoaAutorizadaRecolha', e.target.value)} />
+            </Campo>
+            <div className="sm:col-span-2">
+              <Campo label="Observações">
+                <textarea className={input} rows={2} maxLength={1000} value={f.observacoes ?? ''} onChange={(e) => set('observacoes', e.target.value)} />
+              </Campo>
+            </div>
           </div>
-          <p className="text-xl font-black">{fmtMt(pacote.preco)}</p>
-        </div>
-      )}
+        </details>
+      </Seccao>
 
-      <label className="flex items-start gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4 cursor-pointer">
-        <input type="checkbox" checked={f.declaracao} onChange={(e) => set('declaracao', e.target.checked)} className="mt-0.5 w-4 h-4 accent-blue-600" />
-        <span className="text-sm text-gray-700">
-          Declaro que sou o encarregado de educação (ou estou autorizado por ele), que as informações são verdadeiras e autorizo a
-          Mastchieve a utilizá-las apenas para gerir esta inscrição e para me contactar sobre o programa.<span className="text-red-500"> *</span>
-        </span>
-      </label>
-      {erro && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{erro}</p>}
-      <button type="submit" disabled={enviando}
-        className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold px-8 py-3.5 rounded-2xl shadow-lg shadow-blue-500/25 transition disabled:opacity-60">
-        {enviando && <Loader2 className="w-4 h-4 animate-spin" />} {enviando ? 'A submeter...' : 'Submeter inscrição'}
-      </button>
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 space-y-4 shadow-sm">
+        {pacote && (
+          <div className="flex items-center justify-between gap-3 pb-4 border-b border-gray-100">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">{pacote.nome}</p>
+              {f.dataInicio && <p className="text-xs text-gray-500">Início {fmtDia(f.dataInicio)}</p>}
+            </div>
+            <p className="text-2xl font-black text-gray-900">{fmtMt(pacote.preco)}</p>
+          </div>
+        )}
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" checked={f.declaracao} onChange={(e) => set('declaracao', e.target.checked)} className="mt-0.5 w-4 h-4 accent-blue-600" />
+          <span className="text-xs text-gray-600">
+            Sou o encarregado (ou autorizado), os dados são verdadeiros e a Mastchieve só os usa para esta inscrição.<span className="text-red-500"> *</span>
+          </span>
+        </label>
+        {erro && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{erro}</p>}
+        <button type="submit" disabled={enviando}
+          className="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3.5 rounded-xl transition disabled:opacity-60">
+          {enviando && <Loader2 className="w-4 h-4 animate-spin" />} {enviando ? 'A submeter…' : 'Submeter inscrição'}
+        </button>
+      </div>
     </form>
+  );
+}
+
+function Seccao({ n, titulo, children }: { n: number; titulo: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 space-y-4 shadow-sm">
+      <h2 className="flex items-center gap-2.5 text-sm font-bold text-gray-900 uppercase tracking-wide">
+        <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center">{n}</span>{titulo}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function Chips({ opcoes, valor, onToggle, cols }: { opcoes: { v: string; l: string }[]; valor: string[]; onToggle: (v: string) => void; cols: string }) {
+  return (
+    <div className={`grid ${cols} gap-2`}>
+      {opcoes.map((o) => {
+        const sel = valor.includes(o.v);
+        return (
+          <button key={o.v} type="button" onClick={() => onToggle(o.v)} aria-pressed={sel}
+            className={`py-2 rounded-xl text-sm border transition ${sel ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>
+            {o.l}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

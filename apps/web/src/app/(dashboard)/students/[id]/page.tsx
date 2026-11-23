@@ -59,6 +59,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import Link from 'next/link';
 import { abrirRecibo } from '@/lib/recibo';
 import PacoteDoAtleta from '@/components/students/PacoteDoAtleta';
+import FilhosEAcesso from '@/components/students/FilhosEAcesso';
 
 // ─── Tab definition ────────────────────────────────────────────────────────────
 const tabs = ['Desempenho', 'Feedbacks IA', 'Módulos', 'Planos de Treino', 'Financeiro', 'Documentos', 'Histórico'] as const;
@@ -626,6 +627,11 @@ export default function StudentDetailPage() {
                 </span>
               )}
 
+              {student.etiqueta === 'BM' && (
+                <span title={student.trabalhadorBm ? `Trabalhador do BM: ${student.trabalhadorBm}` : 'Banco de Moçambique'}
+                  className="text-xs px-2.5 py-1 rounded-full font-medium bg-indigo-100 text-indigo-700">BM</span>
+              )}
+
               {/* Class */}
               {enrollment && (
                 <span className="text-xs text-gray-400">{enrollment.class.name}</span>
@@ -703,9 +709,12 @@ export default function StudentDetailPage() {
         )}
       </div>
 
+      {canManageQr && <FilhosEAcesso student={student} onAbrirQr={() => setShowQrModal(true)} />}
+
       {showEditModal && (
         <StudentEditModal
           student={student}
+          podeGerirAlocacao={canManageQr}
           onClose={() => setShowEditModal(false)}
         />
       )}
@@ -1057,12 +1066,18 @@ export default function StudentDetailPage() {
         {/* FINANCEIRO */}
         {activeTab === 'Financeiro' && (
           <div className="space-y-4">
-            <PacoteDoAtleta
-              studentId={id as string}
-              pacote={student.pacote}
-              podeAlterar={canManageQr}
-              onChange={() => { refetchStudent(); qc.invalidateQueries({ queryKey: ['pacotes'] }); }}
-            />
+            {student.etiqueta === 'BM' ? (
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-800">
+                Atleta do Banco de Moçambique — sem pacote de pagamento e fora da geração automática de mensalidades.
+              </div>
+            ) : (
+              <PacoteDoAtleta
+                studentId={id as string}
+                pacote={student.pacote}
+                podeAlterar={canManageQr}
+                onChange={() => { refetchStudent(); qc.invalidateQueries({ queryKey: ['pacotes'] }); }}
+              />
+            )}
             {/* Financial summary row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-green-50 border border-green-100 rounded-xl p-4">

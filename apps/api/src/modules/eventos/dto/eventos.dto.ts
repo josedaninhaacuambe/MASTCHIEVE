@@ -79,6 +79,8 @@ export class InscricaoProgramaDto {
   @ApiPropertyOptional({ enum: NIVEIS_NATACAO }) @vazioParaUndefined() @IsOptional() @IsIn(NIVEIS_NATACAO as unknown as string[]) nivelNatacao?: string;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() condicaoSaude?: boolean;
   @ApiPropertyOptional() @vazioParaUndefined() @IsOptional() @IsString() @MaxLength(500) condicaoSaudeDetalhe?: string;
+  @ApiPropertyOptional({ enum: PROVAS, isArray: true, description: 'Provas em que quer participar' })
+  @IsOptional() @IsArray() @ArrayMaxSize(PROVAS.length) @IsIn(PROVAS as unknown as string[], { each: true }) provas?: string[];
   // Encarregado
   @ApiProperty() @trim() @IsString() @MinLength(3, { message: 'Indique o nome do encarregado' }) @MaxLength(120) nomeEncarregado: string;
   @ApiPropertyOptional() @vazioParaUndefined() @IsOptional() @IsString() @MaxLength(40) parentesco?: string;
@@ -121,6 +123,15 @@ export class RejeitarParticipanteDto {
 export class AlterarPacoteParticipanteDto {
   @ApiProperty() @IsUUID() pacoteId: string;
   @ApiPropertyOptional() @vazioParaUndefined() @IsOptional() @Matches(DIA, { message: 'Data de início inválida' }) dataInicio?: string;
+}
+
+const paraBool = () => Transform(({ value }) => (value === 'true' || value === true ? true : value === 'false' || value === false ? false : value));
+
+/** Campos que acompanham o upload (multipart) ou a edição de uma imagem. */
+export class ImagemEventoDto {
+  @ApiPropertyOptional() @vazioParaUndefined() @IsOptional() @IsString() @MaxLength(150) legenda?: string;
+  @ApiPropertyOptional({ description: 'Marcar como cartaz principal' }) @IsOptional() @paraBool() @IsBoolean() cartaz?: boolean;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(999) ordem?: number;
 }
 
 export class EstadoParticipanteDto {

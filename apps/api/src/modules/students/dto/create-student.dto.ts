@@ -1,8 +1,10 @@
-import { IsString, IsOptional, IsEnum, IsDateString, IsBoolean, IsArray, IsEmail, IsUUID, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsDateString, IsBoolean, IsArray, IsEmail, IsUUID, ValidateNested, IsIn, MaxLength, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 const GenderValues = ['MALE', 'FEMALE', 'OTHER'] as const;
+/** Etiquetas de atleta. BM = colaborador / familiar do Banco de Moçambique (não usa pacotes de pagamento). */
+export const ETIQUETAS_ATLETA = ['BM'] as const;
 
 export class GuardianDto {
   @ApiProperty() @IsString() firstName: string;
@@ -29,6 +31,12 @@ export class CreateStudentDto {
   @ApiPropertyOptional() @IsOptional() @IsString() autorizacaoImagemDoc?: string;
   @ApiPropertyOptional({ description: 'Pacote de frequência contratado; define o valor da mensalidade' })
   @IsOptional() @IsUUID() pacoteId?: string | null;
+  @ApiPropertyOptional({ enum: ETIQUETAS_ATLETA, nullable: true, description: 'BM = Banco de Moçambique: o atleta não usa pacotes nem entra na geração automática de mensalidades' })
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @IsIn(ETIQUETAS_ATLETA as unknown as string[]) etiqueta?: string | null;
+  @ApiPropertyOptional({ description: 'Nome do trabalhador do BM a que o atleta está associado' })
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @MaxLength(120) trabalhadorBm?: string | null;
+  @ApiPropertyOptional({ description: 'Turma onde o atleta fica inscrito (tem de ser da mesma unidade)' })
+  @IsOptional() @IsUUID() classId?: string;
   @ApiPropertyOptional({ description: 'Na inscrição: cria logo a mensalidade do mês corrente com o preço do pacote' })
   @IsOptional() @IsBoolean() gerarPrimeiraMensalidade?: boolean;
   @ApiPropertyOptional({ type: [GuardianDto] })

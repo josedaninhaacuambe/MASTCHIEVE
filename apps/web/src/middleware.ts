@@ -34,6 +34,8 @@ export function middleware(request: NextRequest) {
   // Public paths — always accessible
   // Formulário público de pré-inscrição em eventos (/evento/<token>)
   if (pathname.startsWith('/evento/')) return NextResponse.next();
+  // Link de acesso de uso único enviado pela secretaria (/acesso/<token>)
+  if (pathname.startsWith('/acesso/')) return NextResponse.next();
 
   if (PUBLIC_PATHS.includes(pathname)) {
     // If authenticated non-visitor tries to access /login or /register → redirect to dashboard

@@ -4,9 +4,10 @@ import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { PacotesTab, ValidacaoPrograma, MODELO_MERGULHA, diaLocalStr, fmtDiaIso } from './programa-eventos';
+import { ImagensTab } from './imagens-eventos';
 import {
   Plus, Calendar, MapPin, Users, Award, ClipboardList, X, Check, Trash2, Search, Link2, Copy, Lock, Unlock,
-  Pencil, Download, Send, MessageSquare, ChevronDown, ChevronUp, Clock, RefreshCw, UserCheck, Package, Sparkles,
+  Pencil, Download, Send, MessageSquare, ChevronDown, ChevronUp, Clock, RefreshCw, UserCheck, Package, Sparkles, Image as ImageIcon,
 } from 'lucide-react';
 
 const ESTADOS_CORES: Record<string, string> = { PLANEADO:'bg-blue-100 text-blue-700', REALIZADO:'bg-green-100 text-green-700', CANCELADO:'bg-red-100 text-red-700' };
@@ -707,11 +708,13 @@ function EventoManageModal({ evento, onClose, onSaved }: { evento: any; onClose:
   const podeValidar = ['SUPER_ADMIN', 'ADMIN', 'ASSISTENTE_ADMIN'].includes(role);
   const podeEditarPacotes = ['SUPER_ADMIN', 'ADMIN'].includes(role);
   const ePrograma = evento.formularioTipo === 'PROGRAMA';
-  type Tab = 'participantes' | 'pacotes' | 'comunicacao' | 'checklist';
+  const podeEditarImagens = ['SUPER_ADMIN', 'ADMIN', 'ASSISTENTE_ADMIN'].includes(role);
+  type Tab = 'participantes' | 'pacotes' | 'imagens' | 'comunicacao' | 'checklist';
   const [tab, setTab] = useState<Tab>('participantes');
   const tabs: { k: Tab; l: string; i: any }[] = [
     { k: 'participantes', l: ePrograma ? 'Inscrições' : 'Participantes', i: Users },
     ...(ePrograma ? [{ k: 'pacotes' as Tab, l: 'Pacotes', i: Package }] : []),
+    { k: 'imagens', l: 'Imagens', i: ImageIcon },
     { k: 'comunicacao', l: 'Comunicação', i: Send },
     { k: 'checklist', l: 'Materiais', i: ClipboardList },
   ];
@@ -738,6 +741,7 @@ function EventoManageModal({ evento, onClose, onSaved }: { evento: any; onClose:
         <div className="p-5">
           {tab === 'participantes' && <ParticipantesTab evento={evento} podeValidar={podeValidar} />}
           {tab === 'pacotes' && <PacotesTab evento={evento} podeEditar={podeEditarPacotes} />}
+          {tab === 'imagens' && <ImagensTab evento={evento} podeEditar={podeEditarImagens} onChanged={onSaved} />}
           {tab === 'comunicacao' && <ComunicacaoTab evento={evento} />}
           {tab === 'checklist' && <ChecklistTab evento={evento} onSaved={onSaved} />}
         </div>
@@ -810,6 +814,12 @@ export default function EventosPage() {
           )}
           {eventos.map((e: any) => (
             <div key={e.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+              {e.imagens?.length > 0 && (
+                <button onClick={() => setManageEvento(e)} className="block bg-gray-50 border-b border-gray-100" title="Ver imagens do evento">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={e.imagens[0].url} alt={e.imagens[0].legenda || `Cartaz — ${e.nome}`} className="w-full h-40 object-cover" loading="lazy" />
+                </button>
+              )}
               <div className="px-5 pt-5 pb-4 flex-1">
                 <div className="flex items-start justify-between mb-3 gap-2">
                   <div className="min-w-0">

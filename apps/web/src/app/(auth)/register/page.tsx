@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Waves, Sparkles, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2,
-  User, Mail, Lock, Phone, GraduationCap, Dumbbell, Globe, Calendar, Users2,
+  User, Mail, Lock, Phone, GraduationCap, Dumbbell, Globe, Calendar, Users2, MapPin,
 } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import api from '@/lib/api';
@@ -108,7 +108,15 @@ function RegisterForm({ role, onBack }: { role: Role; onBack: () => void }) {
     phone: '',
     dateOfBirth: '',
     gender: 'OTHER',
+    unidadeId: '',
   });
+  const [unidades, setUnidades] = useState<{ id: string; nome: string; endereco?: string | null }[] | null>(null);
+  useEffect(() => {
+    if (role !== 'STUDENT') return;
+    api.get('/auth/unidades')
+      .then(({ data }) => setUnidades(data?.data ?? data ?? []))
+      .catch(() => setUnidades([]));
+  }, [role]);
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -169,8 +177,14 @@ function RegisterForm({ role, onBack }: { role: Role; onBack: () => void }) {
           phone: form.phone || undefined,
         };
         if (role === 'STUDENT') {
+          if (!form.unidadeId) {
+            setError('Escolha a unidade onde quer treinar.');
+            setLoading(false);
+            return;
+          }
           dto.dateOfBirth = form.dateOfBirth || undefined;
           dto.gender = form.gender;
+          dto.unidadeId = form.unidadeId;
         }
         res = await api.post('/auth/register', dto);
       }
@@ -336,6 +350,38 @@ function RegisterForm({ role, onBack }: { role: Role; onBack: () => void }) {
             />
           </div>
         </div>
+
+        {/* STUDENT-only: unidade mais próxima */}
+        {role === 'STUDENT' && (
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Unidade mais próxima para as aulas</label>
+            {!unidades || unidades.length === 0 ? (
+              <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5">
+                {unidades ? 'Não há unidades disponíveis de momento. Tente mais tarde.' : 'A carregar unidades…'}
+              </p>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {unidades.map((u) => {
+                  const activa = form.unidadeId === u.id;
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => setForm((p) => ({ ...p, unidadeId: u.id }))}
+                      className={`flex items-start gap-2 text-left rounded-xl border px-3 py-2.5 transition-all ${activa ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/30' : 'border-gray-200 bg-gray-50 hover:bg-white'}`}
+                    >
+                      <MapPin className={`w-4 h-4 mt-0.5 shrink-0 ${activa ? 'text-blue-600' : 'text-gray-400'}`} />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-gray-800">{u.nome}</span>
+                        {u.endereco && <span className="block text-xs text-gray-500 truncate">{u.endereco}</span>}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* STUDENT-only: date of birth + gender */}
         {role === 'STUDENT' && (

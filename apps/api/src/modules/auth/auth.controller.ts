@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, HttpCode, HttpStatus, Param } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto, RegisterVisitorDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { QrLoginDto } from './dto/qr-login.dto';
+import { DefinirPasswordConviteDto } from './dto/convite.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SetMetadata } from '@nestjs/common';
 
@@ -21,6 +22,32 @@ export class AuthController {
   @ApiOperation({ summary: 'Registo público de atleta, instrutor ou visitante' })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  @Public()
+  @Get('unidades')
+  @ApiOperation({ summary: 'Unidades disponíveis para a inscrição (nome e endereço)' })
+  unidades() {
+    return this.authService.unidadesParaInscricao();
+  }
+
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ short: { limit: 5, ttl: 1000 } })
+  @Get('convite/:token')
+  @ApiOperation({ summary: 'Validar um link de acesso de uso único' })
+  verConvite(@Param('token') token: string) {
+    return this.authService.verConvite(token);
+  }
+
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ short: { limit: 3, ttl: 1000 } })
+  @Post('convite/:token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Definir a password com um link de acesso de uso único' })
+  usarConvite(@Param('token') token: string, @Body() dto: DefinirPasswordConviteDto) {
+    return this.authService.usarConvite(token, dto.password);
   }
 
   @Public()

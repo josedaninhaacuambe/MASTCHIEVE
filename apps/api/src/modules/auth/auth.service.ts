@@ -13,6 +13,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { RegisterDto, RegisterVisitorDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { EmailService } from '../email/email.service';
+import { hashTokenConvite, tokenConviteValido, emailGeradoAutomaticamente } from '../../common/utils/convite-acesso.util';
 
 @Injectable()
 export class AuthService {
@@ -30,6 +31,15 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const exists = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (exists) throw new ConflictException('Email já registado');
+
+    // O atleta escolhe a unidade mais próxima entre as unidades activas.
+    let unidadeId: string | undefined;
+    if (dto.role === 'STUDENT') {
+      if (!dto.unidadeId) throw new BadRequestException('Escolha a unidade onde quer treinar.');
+      const unidade = await this.prisma.unidade.findUnique({ where: { id: dto.unidadeId }, select: { id: true, ativo: true } });
+      if (!unidade?.ativo) throw new BadRequestException('A unidade escolhida não está disponível.');
+      unidadeId = unidade.id;
+    }
 
     const hashed = await bcrypt.hash(dto.password, 12);
     const user = await this.prisma.user.create({
@@ -51,6 +61,7 @@ export class AuthService {
               dateOfBirth: dto.dateOfBirth || new Date(),
               gender: dto.gender || 'OTHER',
               phone: dto.phone,
+              unidadeId,
             },
           },
         }),
@@ -64,6 +75,60 @@ export class AuthService {
     await this.saveRefreshToken(user.id, tokens.refreshToken);
     this.email.sendWelcome(dto.email, dto.firstName, dto.role).catch(() => {});
     return { user: this.sanitizeUser(user), ...tokens };
+  }
+
+  /** Lista pública mínima das unidades para o formulário de inscrição (sem contactos internos). */
+  unidadesParaInscricao() {
+    return this.prisma.unidade.findMany({
+      where: { ativo: true },
+      orderBy: { nome: 'asc' },
+      select: { id: true, nome: true, endereco: true },
+    });
+  }
+
+  private async conviteValido(token: string) {
+    if (!tokenConviteValido(token)) throw new BadRequestException('Link de acesso inválido.');
+    const convite = await this.prisma.conviteAcesso.findUnique({
+      where: { tokenHash: hashTokenConvite(token) },
+      include: {
+        user: {
+          select: {
+            id: true, email: true, isActive: true,
+            student: { select: { firstName: true } },
+            parent: { select: { firstName: true } },
+          },
+        },
+      },
+    });
+    if (!convite || convite.usadoEm || convite.expiraEm < new Date() || !convite.user.isActive) {
+      throw new BadRequestException('Este link de acesso expirou ou já foi usado. Peça um novo à secretaria.');
+    }
+    return convite;
+  }
+
+  /** Dados mínimos para a página do convite: o primeiro nome e o email com que vai entrar. */
+  async verConvite(token: string) {
+    const c = await this.conviteValido(token);
+    return {
+      nome: c.user.parent?.firstName ?? c.user.student?.firstName ?? null,
+      email: c.user.email,
+      emailGerado: emailGeradoAutomaticamente(c.user.email),
+      expiraEm: c.expiraEm,
+    };
+  }
+
+  /** Define a password a partir do convite. O link fica gasto e as sessões anteriores terminam. */
+  async usarConvite(token: string, password: string) {
+    const c = await this.conviteValido(token);
+    const hashed = await bcrypt.hash(password, 12);
+    await this.prisma.$transaction(async (tx) => {
+      // updateMany com usadoEm null garante uso único mesmo com dois pedidos em simultâneo.
+      const gasto = await tx.conviteAcesso.updateMany({ where: { id: c.id, usadoEm: null }, data: { usadoEm: new Date() } });
+      if (gasto.count !== 1) throw new BadRequestException('Este link de acesso já foi usado.');
+      await tx.user.update({ where: { id: c.userId }, data: { password: hashed, refreshToken: null } });
+      await tx.conviteAcesso.updateMany({ where: { userId: c.userId, usadoEm: null }, data: { usadoEm: new Date() } });
+    });
+    return { email: c.user.email };
   }
 
   async login(dto: LoginDto) {

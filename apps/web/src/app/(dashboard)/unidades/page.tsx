@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Building2, MapPin, Users, Phone, Plus, Trash2, Pencil } from 'lucide-react';
+import { Building2, MapPin, Users, Phone, Plus, Trash2, Pencil, Eye } from 'lucide-react';
+import DetalheUnidade from './detalhe-unidade';
 
 const TIPOS = ['PRINCIPAL', 'COMUNITARIO', 'PREMIUM'];
 
@@ -81,6 +82,7 @@ export default function UnidadesPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [detalheId, setDetalheId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
 
   const load = async () => {
@@ -132,7 +134,7 @@ export default function UnidadesPage() {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <span className="text-xs text-teal-600 font-bold tracking-wider">{u.codigo}</span>
-                    <h3 className="font-bold text-gray-900 text-lg mt-0.5">{u.nome}</h3>
+                    <button onClick={() => setDetalheId(u.id)} className="block text-left font-bold text-gray-900 text-lg mt-0.5 hover:text-teal-700">{u.nome}</button>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${u.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{u.ativo ? 'Ativa' : 'Inativa'}</span>
@@ -162,6 +164,10 @@ export default function UnidadesPage() {
                     <div className="text-xs text-gray-400">Instrutores</div>
                   </div>
                 </div>
+                <button onClick={() => setDetalheId(u.id)}
+                  className="mt-4 w-full flex items-center justify-center gap-2 border border-teal-200 text-teal-700 hover:bg-teal-50 py-2 rounded-lg text-sm font-medium transition">
+                  <Eye className="w-4 h-4" /> Ver turmas e atletas
+                </button>
               </div>
             </div>
           ))}
@@ -181,6 +187,7 @@ export default function UnidadesPage() {
         </div>
       )}
 
+      {detalheId && <DetalheUnidade unidadeId={detalheId} onClose={() => setDetalheId(null)} />}
       {editing && (
         <EditUnidadeModal unidade={editing} onClose={() => setEditing(null)} onSaved={load} />
       )}

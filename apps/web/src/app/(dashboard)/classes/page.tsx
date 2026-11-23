@@ -108,7 +108,7 @@ function CreateClassModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Cap. máxima</label>
             <input
-              type="number" min={1} max={50}
+              type="number" min={1} max={40}
               value={form.maxStudents}
               onChange={(e) => setForm((f) => ({ ...f, maxStudents: Number(e.target.value) }))}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mastchieve-500"

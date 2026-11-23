@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
+import { useAuthStore } from '@/stores/auth.store';
+import { BarraAlocacao, FILTROS_VAZIOS, FiltrosAtletas, PainelFiltrosAtletas, filtrosParaParams } from '@/components/students/FiltrosAlocacaoAtletas';
 
 const CAMPO_LABEL: Record<string, string> = {
   firstName: 'Nome',
@@ -348,11 +350,16 @@ export default function StudentsPage() {
   const [campanhaFilter, setCampanhaFilter] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [filtros, setFiltros] = useState<FiltrosAtletas>(FILTROS_VAZIOS);
+  const [seleccionados, setSeleccionados] = useState<string[]>([]);
+  const { user } = useAuthStore();
+  const podeAlocar = ['ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN'].includes(user?.role ?? '');
+  const alternar = (id: string) => setSeleccionados((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['students', page, search],
+    queryKey: ['students', page, search, filtros],
     queryFn: async () => {
-      const params = new URLSearchParams({ page: String(page), limit: '20', ...(search && { search }) });
+      const params = new URLSearchParams({ page: String(page), limit: '20', ...(search && { search }), ...filtrosParaParams(filtros) });
       const { data } = await api.get(`/students?${params}`);
       return data;
     },
@@ -395,6 +402,7 @@ export default function StudentsPage() {
     setLevelFilter('');
     setIrregularOnly(false);
     setCampanhaFilter('');
+    setFiltros(FILTROS_VAZIOS);
     setPage(1);
   };
 
@@ -526,6 +534,23 @@ export default function StudentsPage() {
         </div>
       </div>
 
+      {podeAlocar && <PainelFiltrosAtletas value={filtros} onChange={(f) => { setFiltros(f); setPage(1); }} />}
+
+      {podeAlocar && filtered.length > 0 && (
+        <div className="flex items-center gap-3 text-sm">
+          <button
+            onClick={() => {
+              const ids = filtered.map((s: any) => s.id);
+              const todos = ids.every((id: string) => seleccionados.includes(id));
+              setSeleccionados((s) => (todos ? s.filter((x) => !ids.includes(x)) : Array.from(new Set([...s, ...ids]))));
+            }}
+            className="text-mastchieve-700 hover:underline font-medium">
+            {filtered.every((s: any) => seleccionados.includes(s.id)) ? 'Desmarcar esta página' : 'Seleccionar esta página para alocar'}
+          </button>
+          {seleccionados.length > 0 && <span className="text-gray-500">{seleccionados.length} seleccionado(s)</span>}
+        </div>
+      )}
+
       {/* Error banner */}
       {isError && (
         <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
@@ -576,6 +601,10 @@ export default function StudentsPage() {
                         {initials}
                       </div>
                       <div className="flex items-center gap-1.5">
+                        {podeAlocar && (
+                          <input type="checkbox" checked={seleccionados.includes(student.id)} onChange={() => alternar(student.id)}
+                            aria-label="Seleccionar para alocar" className="w-4 h-4 rounded border-gray-300 text-mastchieve-600" />
+                        )}
                         {/* Status dot */}
                         <span className={cn('w-2 h-2 rounded-full flex-shrink-0',
                           student.isActive ? 'bg-green-500' : 'bg-gray-300')}
@@ -603,6 +632,14 @@ export default function StudentsPage() {
                       {student.categoria?.irregular && (
                         <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-red-100 text-red-700">
                           Irregular
+                        </span>
+                      )}
+                      {student.etiqueta === 'BM' && (
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-indigo-100 text-indigo-700">BM</span>
+                      )}
+                      {student.enrollments?.[0]?.class?.name && (
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-600 truncate max-w-[10rem]">
+                          {student.enrollments[0].class.name}
                         </span>
                       )}
                       {student.categoria?.campanha && (
@@ -729,6 +766,10 @@ export default function StudentsPage() {
                     <tr key={student.id} className="hover:bg-gray-50 transition">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
+                          {podeAlocar && (
+                            <input type="checkbox" checked={seleccionados.includes(student.id)} onChange={() => alternar(student.id)}
+                              aria-label="Seleccionar para alocar" className="w-4 h-4 rounded border-gray-300 text-mastchieve-600" />
+                          )}
                           <div className={cn('w-9 h-9 bg-gradient-to-br rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0', grad)}>
                             {getInitials(student.firstName, student.lastName)}
                           </div>
@@ -831,6 +872,8 @@ export default function StudentsPage() {
           </div>
         </div>
       )}
+
+      {podeAlocar && <BarraAlocacao ids={seleccionados} onLimpar={() => setSeleccionados([])} />}
     </div>
   );
 }

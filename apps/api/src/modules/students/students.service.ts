@@ -1,7 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
+import { AdicionarFilhoDto, AlocarAtletasDto } from './dto/filho.dto';
+import { gerarTokenConvite, VALIDADE_CONVITE_HORAS, emailGeradoAutomaticamente } from '../../common/utils/convite-acesso.util';
 import { StudentsReportService } from './students-report.service';
 import { EmailService } from '../email/email.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
@@ -11,6 +13,16 @@ import { mesclarRegistosDesempenho } from '../avaliacoes/normalizar-desempenho.u
 import { resolveContactoAtleta } from '../../common/utils/contacto-atleta.util';
 import * as XLSX from 'xlsx';
 import { randomUUID } from 'crypto';
+
+const ROLES_GESTAO_ATLETA = ['ADMIN', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN'];
+/** Atletas com esta etiqueta (Banco de Moçambique) não usam pacotes de pagamento. */
+export const ETIQUETA_SEM_PACOTE = 'BM';
+
+function limparTexto(v: unknown, max: number): string | null {
+  if (typeof v !== 'string') return null;
+  const t = v.trim().replace(/\s+/g, ' ');
+  return t ? t.slice(0, max) : null;
+}
 
 const CAMPOS_ALIASES: Record<string, string[]> = {
   firstName: ['nome', 'primeironome', 'firstname'],
@@ -165,6 +177,38 @@ export class StudentsService {
     return null;
   }
 
+  /**
+   * Resolve as turmas que correspondem aos filtros de turma, módulo (fase) e horário.
+   * Devolve null quando nenhum destes filtros foi pedido.
+   */
+  private async turmasPorFiltro(f: { classId?: string; moduleId?: string; dia?: string; hora?: string }): Promise<string[] | null> {
+    const classId = typeof f.classId === 'string' && f.classId ? f.classId : null;
+    const moduleId = typeof f.moduleId === 'string' && f.moduleId ? f.moduleId : null;
+    const dia = typeof f.dia === 'string' && f.dia ? f.dia.toUpperCase() : null;
+    const hora = typeof f.hora === 'string' && /^\d{2}:\d{2}$/.test(f.hora) ? f.hora : null;
+    if (!classId && !moduleId && !dia && !hora) return null;
+    if (classId && !moduleId && !dia && !hora) return [classId];
+
+    const turmas = await this.prisma.class.findMany({
+      where: classId ? { id: classId } : {},
+      select: { id: true, moduleIds: true, schedules: true },
+    });
+    const lerJson = (s: string | null): any[] => {
+      if (!s) return [];
+      try { const v = JSON.parse(s); return Array.isArray(v) ? v : []; } catch { return []; }
+    };
+    return turmas
+      .filter((t) => !moduleId || lerJson(t.moduleIds).includes(moduleId))
+      .filter((t) => {
+        if (!dia && !hora) return true;
+        return lerJson(t.schedules).some((h: any) =>
+          (!dia || String(h?.day ?? h?.dayOfWeek ?? '').toUpperCase() === dia) &&
+          (!hora || String(h?.startTime ?? '').slice(0, 5) === hora),
+        );
+      })
+      .map((t) => t.id);
+  }
+
   async findAll(query: any, userId?: string, role?: string) {
     const page = Math.max(1, parseInt(query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(query.limit) || 20));
@@ -181,12 +225,34 @@ export class StudentsService {
         OR: [{ firstName: { contains: p } }, { lastName: { contains: p } }],
       }));
     }
-    if (classId) {
-      where.enrollments = { some: { classId, isActive: true } };
+    const unidadeIds = await this.resolveUnidadeIdsDoUsuario(userId, role);
+    // Filtro de unidade pedido: só é aplicado dentro das unidades a que o utilizador tem acesso.
+    const unidadePedida = typeof query.unidadeId === 'string' && query.unidadeId ? query.unidadeId : null;
+    if (unidadeIds && unidadePedida) {
+      where.unidadeId = { in: unidadeIds.includes(unidadePedida) ? [unidadePedida] : [] };
+    } else if (unidadeIds) {
+      where.unidadeId = { in: unidadeIds };
+    } else if (unidadePedida === 'SEM_UNIDADE') {
+      where.unidadeId = null;
+    } else if (unidadePedida) {
+      where.unidadeId = unidadePedida;
     }
 
-    const unidadeIds = await this.resolveUnidadeIdsDoUsuario(userId, role);
-    if (unidadeIds) where.unidadeId = { in: unidadeIds };
+    if (typeof query.etiqueta === 'string' && query.etiqueta) {
+      where.etiqueta = query.etiqueta === 'SEM_ETIQUETA' ? null : query.etiqueta;
+    }
+
+    if (query.semTurma === 'true' || query.semTurma === true) {
+      where.enrollments = { none: { isActive: true } };
+    } else {
+      const turmas = await this.turmasPorFiltro({
+        classId,
+        moduleId: query.moduleId,
+        dia: query.dia,
+        hora: query.hora,
+      });
+      if (turmas) where.enrollments = { some: { classId: { in: turmas }, isActive: true } };
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.student.findMany({
@@ -393,10 +459,18 @@ export class StudentsService {
       camposEmFalta: camposEmFalta.length ? JSON.stringify(camposEmFalta) : undefined,
       unidadeId,
       pacoteId: undefined as string | undefined,
+      etiqueta: dto.etiqueta || null,
+      trabalhadorBm: limparTexto(dto.trabalhadorBm, 120),
     };
 
+    if (studentData.etiqueta === ETIQUETA_SEM_PACOTE && dto.pacoteId) {
+      throw new BadRequestException('Atletas do Banco de Moçambique (BM) não têm pacote de pagamento.');
+    }
     const pacote = dto.pacoteId ? await this.validarPacote(dto.pacoteId) : null;
     if (pacote) studentData.pacoteId = pacote.id;
+
+    // A turma é validada antes de criar o atleta, para não ficar um registo a meio.
+    if (dto.classId) await this.validarTurmaParaAtleta(dto.classId, unidadeId ?? null);
 
     let user: { student?: any };
 
@@ -495,8 +569,12 @@ export class StudentsService {
         action: 'STUDENT_CRIADO',
         entity: 'Student',
         entityId: user.student.id,
-        newValues: { firstName, lastName, guardians: dto.guardians?.length ?? 0, pacoteId: pacote?.id },
+        newValues: { firstName, lastName, guardians: dto.guardians?.length ?? 0, pacoteId: pacote?.id, etiqueta: studentData.etiqueta, classId: dto.classId },
       });
+    }
+
+    if (dto.classId && user.student) {
+      await this.matricularNaTurma(user.student.id, dto.classId, unidadeId ?? null, actorUserId);
     }
 
     // O preço do pacote reflecte-se logo na inscrição: primeira mensalidade com o valor do pacote.
@@ -581,7 +659,7 @@ export class StudentsService {
     }
 
     // O encarregado não escolhe pacote/preço: isso é feito pela administração.
-    const { guardians, pacoteId: _p, gerarPrimeiraMensalidade: _g, ...childDto } = dto;
+    const { guardians, pacoteId: _p, gerarPrimeiraMensalidade: _g, etiqueta: _e, trabalhadorBm: _t, classId: _c, ...childDto } = dto;
     const created = await this.create(childDto, actorUserId);
     if (created.student) {
       await this.prisma.studentParent.create({
@@ -589,6 +667,271 @@ export class StudentsService {
       });
     }
     return created;
+  }
+
+  /** O assistente administrativo só gere atletas da sua unidade. ADMIN / SUPER_ADMIN gerem todas. */
+  private async assertAtletaNaUnidadeDoActor(student: { unidadeId: string | null }, actorUserId?: string, actorRole?: string) {
+    if (actorRole !== 'ASSISTENTE_ADMIN' || !actorUserId) return;
+    const minha = await this.unidadeDoFuncionario(actorUserId);
+    if (!minha) throw new ForbiddenException('A sua conta não tem unidade atribuída — peça a um Admin para a configurar em RH → Funcionários.');
+    if (student.unidadeId !== minha) throw new ForbiddenException('Este atleta pertence a outra unidade.');
+  }
+
+  private idade(dataNascimento: Date, ref = new Date()): number {
+    let anos = ref.getFullYear() - dataNascimento.getFullYear();
+    const m = ref.getMonth() - dataNascimento.getMonth();
+    if (m < 0 || (m === 0 && ref.getDate() < dataNascimento.getDate())) anos--;
+    return anos;
+  }
+
+  /** Filhos (educandos) ligados à conta de um atleta adulto. */
+  async listarFilhos(studentId: string, actorUserId?: string, actorRole?: string) {
+    const atleta = await this.prisma.student.findUnique({
+      where: { id: studentId },
+      select: { unidadeId: true, user: { select: { parent: { select: { id: true } } } } },
+    });
+    if (!atleta) throw new NotFoundException('Atleta não encontrado');
+    await this.assertAtletaNaUnidadeDoActor(atleta, actorUserId, actorRole);
+    const parentId = atleta.user?.parent?.id;
+    if (!parentId) return [];
+    const ligacoes = await this.prisma.studentParent.findMany({
+      where: { parentId },
+      include: {
+        student: {
+          select: {
+            id: true, firstName: true, lastName: true, dateOfBirth: true, isActive: true, etiqueta: true,
+            enrollments: { where: { isActive: true }, select: { class: { select: { id: true, name: true } } } },
+          },
+        },
+      },
+    });
+    return ligacoes.filter((l) => l.student.id !== studentId).map((l) => l.student);
+  }
+
+  /**
+   * A secretaria inscreve um filho de um atleta adulto: o atleta passa a ser também encarregado
+   * (o perfil continua a ser de atleta) e o filho fica na mesma unidade, com a turma indicada.
+   */
+  async adicionarFilho(studentId: string, dto: AdicionarFilhoDto, actorUserId: string, actorRole?: string) {
+    const atleta = await this.prisma.student.findUnique({
+      where: { id: studentId },
+      include: { user: { select: { id: true, parent: { select: { id: true } } } } },
+    });
+    if (!atleta) throw new NotFoundException('Atleta não encontrado');
+    await this.assertAtletaNaUnidadeDoActor(atleta, actorUserId, actorRole);
+    if (this.idade(atleta.dateOfBirth) < 18) throw new BadRequestException('Só atletas maiores de idade podem ter filhos associados.');
+    if (!atleta.userId || !atleta.user) throw new BadRequestException('Este atleta não tem conta de acesso própria.');
+
+    const nascimento = new Date(dto.dateOfBirth);
+    if (isNaN(nascimento.getTime()) || nascimento > new Date()) throw new BadRequestException('Data de nascimento inválida.');
+    if (nascimento <= atleta.dateOfBirth) throw new BadRequestException('O filho tem de ser mais novo do que o encarregado.');
+    if (dto.classId) await this.validarTurmaParaAtleta(dto.classId, atleta.unidadeId);
+
+    const filho = await this.prisma.$transaction(async (tx) => {
+      let parentId = atleta.user!.parent?.id;
+      if (!parentId) {
+        // Não se inventam contactos: sem telefone do atleta, o encarregado fica sem telefone.
+        const parent = await tx.parent.create({
+          data: {
+            userId: atleta.userId!,
+            firstName: atleta.firstName,
+            lastName: atleta.lastName,
+            phone: atleta.phone?.trim() || '',
+            relationship: dto.relationship?.trim() || 'Pai/Mãe',
+          },
+        });
+        parentId = parent.id;
+      }
+      const criado = await tx.student.create({
+        data: {
+          firstName: dto.firstName.trim(),
+          lastName: dto.lastName.trim(),
+          dateOfBirth: nascimento,
+          gender: dto.gender,
+          medicalNotes: dto.medicalNotes?.trim() || undefined,
+          unidadeId: atleta.unidadeId,
+          // Os filhos de trabalhadores do BM seguem a mesma regra (sem pacotes).
+          etiqueta: atleta.etiqueta,
+          trabalhadorBm: atleta.etiqueta ? atleta.trabalhadorBm || `${atleta.firstName} ${atleta.lastName}`.trim() : null,
+          estadoInscricao: 'DOCUMENTOS_PENDENTES',
+        },
+      });
+      await tx.studentParent.create({ data: { studentId: criado.id, parentId, isPrimary: true } });
+      return criado;
+    });
+
+    await this.audit.log({
+      userId: actorUserId,
+      action: 'FILHO_ASSOCIADO',
+      entity: 'Student',
+      entityId: filho.id,
+      newValues: { encarregadoStudentId: studentId, classId: dto.classId ?? null },
+    });
+
+    let avisoTurma: string | null = null;
+    if (dto.classId) {
+      try {
+        await this.matricularNaTurma(filho.id, dto.classId, atleta.unidadeId, actorUserId);
+      } catch (e: any) {
+        avisoTurma = e?.message ?? 'Não foi possível inscrever na turma.';
+      }
+    }
+    return { ...filho, avisoTurma };
+  }
+
+  /**
+   * Gera um link de uso único (72 h) para o atleta / encarregado definir a própria password.
+   * Nunca é enviada uma password: quem recebe o link escolhe-a. Os links anteriores deixam de valer.
+   */
+  async criarConviteAcesso(studentId: string, actorUserId: string, actorRole?: string) {
+    const atleta = await this.prisma.student.findUnique({
+      where: { id: studentId },
+      select: {
+        id: true, firstName: true, lastName: true, unidadeId: true, userId: true, phone: true,
+        user: { select: { email: true, isActive: true, parent: { select: { phone: true } } } },
+      },
+    });
+    if (!atleta) throw new NotFoundException('Atleta não encontrado');
+    await this.assertAtletaNaUnidadeDoActor(atleta, actorUserId, actorRole);
+    if (!atleta.userId || !atleta.user) throw new BadRequestException('Este atleta não tem conta própria — o acesso é feito pela conta do encarregado.');
+    if (!atleta.user.isActive) throw new BadRequestException('A conta deste atleta está desactivada.');
+
+    const { token, tokenHash } = gerarTokenConvite();
+    const expiraEm = new Date(Date.now() + VALIDADE_CONVITE_HORAS * 3600 * 1000);
+    await this.prisma.$transaction([
+      this.prisma.conviteAcesso.updateMany({ where: { userId: atleta.userId, usadoEm: null }, data: { usadoEm: new Date() } }),
+      this.prisma.conviteAcesso.create({ data: { userId: atleta.userId, tokenHash, expiraEm, criadoPorId: actorUserId } }),
+    ]);
+    await this.audit.log({
+      userId: actorUserId,
+      action: 'CONVITE_ACESSO_CRIADO',
+      entity: 'Student',
+      entityId: studentId,
+      newValues: { expiraEm },
+    });
+
+    const appUrl = (process.env.APP_URL ?? 'http://localhost:4300').replace(/\/$/, '');
+    const telefone = atleta.phone?.trim() || atleta.user.parent?.phone?.trim() || null;
+    return {
+      link: `${appUrl}/acesso/${token}`,
+      expiraEm,
+      email: atleta.user.email,
+      emailGerado: emailGeradoAutomaticamente(atleta.user.email),
+      // Só para o botão "Partilhar por WhatsApp" — se não houver telefone, não se assume envio.
+      telefone,
+      nome: `${atleta.firstName} ${atleta.lastName}`.trim(),
+    };
+  }
+
+  /**
+   * Coloca vários atletas numa unidade e/ou turma. Cada atleta é tratado à parte: os que não
+   * puderem ser alocados (outra unidade, turma lotada) são devolvidos com o motivo.
+   */
+  async alocarAtletas(dto: AlocarAtletasDto, actorUserId: string, actorRole?: string) {
+    if (!dto.unidadeId && !dto.classId) throw new BadRequestException('Escolha a unidade e/ou a turma.');
+    const ids = Array.from(new Set(dto.studentIds));
+    let unidadeDestino = dto.unidadeId ?? null;
+
+    if (dto.classId) {
+      const turma = await this.prisma.class.findUnique({ where: { id: dto.classId }, select: { unidadeId: true } });
+      if (!turma) throw new BadRequestException('A turma escolhida não existe.');
+      if (unidadeDestino && turma.unidadeId && turma.unidadeId !== unidadeDestino) {
+        throw new BadRequestException('A turma escolhida pertence a outra unidade.');
+      }
+      unidadeDestino = unidadeDestino ?? turma.unidadeId ?? null;
+    }
+    if (dto.unidadeId) {
+      const u = await this.prisma.unidade.findUnique({ where: { id: dto.unidadeId }, select: { ativo: true } });
+      if (!u?.ativo) throw new BadRequestException('A unidade escolhida não existe ou está desactivada.');
+    }
+    if (actorRole === 'ASSISTENTE_ADMIN') {
+      const minha = await this.unidadeDoFuncionario(actorUserId);
+      if (!minha) throw new ForbiddenException('A sua conta não tem unidade atribuída.');
+      if (unidadeDestino && unidadeDestino !== minha) throw new ForbiddenException('Só pode alocar atletas na sua unidade.');
+    }
+
+    const atletas = await this.prisma.student.findMany({ where: { id: { in: ids } }, select: { id: true, unidadeId: true, firstName: true, lastName: true } });
+    const minhaUnidade = actorRole === 'ASSISTENTE_ADMIN' ? await this.unidadeDoFuncionario(actorUserId) : null;
+    const resultado = { alocados: 0, falhas: [] as { studentId: string; nome: string; motivo: string }[] };
+
+    for (const a of atletas) {
+      const nome = `${a.firstName} ${a.lastName}`.trim();
+      try {
+        // O assistente só mexe em atletas da sua unidade ou ainda sem unidade.
+        if (minhaUnidade && a.unidadeId && a.unidadeId !== minhaUnidade) throw new ForbiddenException('Atleta de outra unidade.');
+        const unidadeFinal = dto.unidadeId ?? (a.unidadeId || unidadeDestino);
+        if (dto.unidadeId && a.unidadeId !== dto.unidadeId) {
+          await this.prisma.student.update({ where: { id: a.id }, data: { unidadeId: dto.unidadeId } });
+        } else if (!a.unidadeId && unidadeDestino) {
+          await this.prisma.student.update({ where: { id: a.id }, data: { unidadeId: unidadeDestino } });
+        }
+        if (dto.classId) await this.matricularNaTurma(a.id, dto.classId, unidadeFinal ?? null, actorUserId);
+        resultado.alocados++;
+      } catch (e: any) {
+        resultado.falhas.push({ studentId: a.id, nome, motivo: e?.message ?? 'Erro' });
+      }
+    }
+    const encontrados = new Set(atletas.map((a) => a.id));
+    for (const id of ids) if (!encontrados.has(id)) resultado.falhas.push({ studentId: id, nome: '', motivo: 'Atleta não encontrado' });
+
+    await this.audit.log({
+      userId: actorUserId,
+      action: 'ATLETAS_ALOCADOS',
+      entity: 'Student',
+      newValues: { total: ids.length, alocados: resultado.alocados, unidadeId: dto.unidadeId ?? null, classId: dto.classId ?? null },
+    });
+    return resultado;
+  }
+
+  /** Unidade do funcionário (assistente administrativo) — usada para limitar onde pode inscrever atletas. */
+  private async unidadeDoFuncionario(userId: string): Promise<string | null> {
+    const f = await this.prisma.funcionario.findUnique({ where: { userId }, select: { unidadeId: true } });
+    return f?.unidadeId ?? null;
+  }
+
+  /** A turma tem de existir, estar activa e pertencer à mesma unidade do atleta. */
+  private async validarTurmaParaAtleta(classId: string, unidadeId: string | null) {
+    const turma = await this.prisma.class.findUnique({
+      where: { id: classId },
+      select: { id: true, name: true, status: true, unidadeId: true, maxStudents: true, _count: { select: { enrollments: { where: { isActive: true } } } } },
+    });
+    if (!turma) throw new BadRequestException('A turma escolhida não existe.');
+    if (turma.status && turma.status !== 'ACTIVE') throw new BadRequestException('A turma escolhida não está activa.');
+    if (turma.unidadeId && unidadeId && turma.unidadeId !== unidadeId) {
+      throw new BadRequestException('A turma escolhida pertence a outra unidade. Escolha uma turma da unidade do atleta.');
+    }
+    if (turma._count.enrollments >= turma.maxStudents) throw new ConflictException(`A turma ${turma.name} está lotada.`);
+    return turma;
+  }
+
+  /** Inscreve o atleta na turma, com a capacidade verificada dentro de uma transacção (linha da turma bloqueada). */
+  private async matricularNaTurma(studentId: string, classId: string, unidadeId: string | null, actorUserId?: string) {
+    await this.validarTurmaParaAtleta(classId, unidadeId);
+    const enrollment = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM classes WHERE id = ${classId} FOR UPDATE`;
+      const [turma, activos, existente] = await Promise.all([
+        tx.class.findUnique({ where: { id: classId }, select: { maxStudents: true, name: true } }),
+        tx.enrollment.count({ where: { classId, isActive: true } }),
+        tx.enrollment.findUnique({ where: { studentId_classId: { studentId, classId } }, select: { isActive: true } }),
+      ]);
+      if (existente?.isActive) return null;
+      if (!turma || activos >= turma.maxStudents) throw new ConflictException(`A turma ${turma?.name ?? ''} está lotada.`.trim());
+      return tx.enrollment.upsert({
+        where: { studentId_classId: { studentId, classId } },
+        create: { studentId, classId },
+        update: { isActive: true },
+      });
+    });
+    if (enrollment && actorUserId) {
+      await this.audit.log({
+        userId: actorUserId,
+        action: 'CLASS_MATRICULA',
+        entity: 'Enrollment',
+        entityId: enrollment.id,
+        newValues: { classId, studentId },
+      });
+    }
+    return enrollment;
   }
 
   /** Pacote tem de existir e estar activo para ser atribuído. */
@@ -636,16 +979,44 @@ export class StudentsService {
 
   async update(id: string, dto: UpdateStudentDto, actorUserId?: string, actorRole?: string) {
     const before = await this.findOne(id);
-    const { gerarPrimeiraMensalidade, guardians: _guardians, ...resto } = dto as any;
+    const { gerarPrimeiraMensalidade, guardians: _guardians, classId, email: _email, ...resto } = dto as any;
     const data: any = { ...resto };
+    const gestao = ROLES_GESTAO_ATLETA.includes(actorRole ?? '');
 
+    // Unidade, turma e etiqueta definem onde o atleta treina e como paga: só a administração.
+    if ((dto.unidadeId !== undefined || classId !== undefined || dto.etiqueta !== undefined || dto.trabalhadorBm !== undefined) && !gestao) {
+      throw new ForbiddenException('Só a administração pode alterar a unidade, a turma ou a etiqueta do atleta.');
+    }
+    if (dto.unidadeId !== undefined) {
+      if (!dto.unidadeId) throw new BadRequestException('O atleta tem de ficar numa unidade.');
+      const unidade = await this.prisma.unidade.findUnique({ where: { id: dto.unidadeId }, select: { ativo: true } });
+      if (!unidade?.ativo) throw new BadRequestException('A unidade escolhida não existe ou está desactivada.');
+      if (actorRole === 'ASSISTENTE_ADMIN' && actorUserId) {
+        const minha = await this.unidadeDoFuncionario(actorUserId);
+        if (!minha || minha !== dto.unidadeId) {
+          throw new ForbiddenException('Só pode colocar atletas na unidade a que está atribuído(a).');
+        }
+      }
+    }
+    if (dto.trabalhadorBm !== undefined) data.trabalhadorBm = limparTexto(dto.trabalhadorBm, 120);
+    if (dto.etiqueta !== undefined) data.etiqueta = dto.etiqueta || null;
+
+    const etiquetaFinal = dto.etiqueta !== undefined ? data.etiqueta : (before as any).etiqueta;
     if (dto.pacoteId !== undefined) {
       // O pacote define o valor cobrado: só a administração o pode alterar.
-      if (!['ADMIN', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN'].includes(actorRole ?? '')) {
+      if (!gestao) {
         throw new BadRequestException('Só a administração pode alterar o pacote do atleta.');
+      }
+      if (dto.pacoteId && etiquetaFinal === ETIQUETA_SEM_PACOTE) {
+        throw new BadRequestException('Atletas do Banco de Moçambique (BM) não têm pacote de pagamento.');
       }
       data.pacoteId = dto.pacoteId ? (await this.validarPacote(dto.pacoteId)).id : null;
     }
+    // Ao marcar como BM, o pacote deixa de se aplicar (fica registado na auditoria).
+    if (etiquetaFinal === ETIQUETA_SEM_PACOTE && (before as any).pacoteId) data.pacoteId = null;
+
+    const unidadeFinal = dto.unidadeId !== undefined ? dto.unidadeId : (before as any).unidadeId;
+    if (classId) await this.validarTurmaParaAtleta(classId, unidadeFinal ?? null);
 
     if ((before as any).camposEmFalta) {
       let emFalta: string[] = [];
@@ -655,6 +1026,7 @@ export class StudentsService {
     }
 
     const updated = await this.prisma.student.update({ where: { id }, data });
+    if (classId) await this.matricularNaTurma(id, classId, unidadeFinal ?? null, actorUserId);
     if (actorUserId) {
       await this.audit.log({
         userId: actorUserId,

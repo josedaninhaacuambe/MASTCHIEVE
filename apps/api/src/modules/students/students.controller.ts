@@ -11,6 +11,7 @@ import { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentQueryDto } from './dto/student-query.dto';
 import { ChamadaAtencaoDto } from './dto/chamada-atencao.dto';
 import { ResetStudentPasswordDto } from './dto/reset-password.dto';
+import { AdicionarFilhoDto, AlocarAtletasDto } from './dto/filho.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -46,6 +47,13 @@ export class StudentsController {
   @ApiOperation({ summary: 'Listar atletas' })
   findAll(@Query() query: StudentQueryDto, @CurrentUser('id') userId: string, @CurrentUser('role') role: string) {
     return this.studentsService.findAll(query, userId, role);
+  }
+
+  @Post('alocar')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Alocar atletas seleccionados a uma unidade e/ou turma' })
+  alocar(@Body() dto: AlocarAtletasDto, @CurrentUser('id') userId: string, @CurrentUser('role') role: string) {
+    return this.studentsService.alocarAtletas(dto, userId, role);
   }
 
   @Get('check-duplicate')
@@ -90,6 +98,27 @@ export class StudentsController {
   @ApiOperation({ summary: 'Checklist de documentos obrigatórios de inscrição' })
   getChecklist(@Param('id') id: string) {
     return this.studentsService.getChecklist(id);
+  }
+
+  @Get(':id/filhos')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Filhos associados a um atleta adulto' })
+  listarFilhos(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentUser('role') role: string) {
+    return this.studentsService.listarFilhos(id, userId, role);
+  }
+
+  @Post(':id/filhos')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Inscrever um filho de um atleta adulto (com turma)' })
+  adicionarFilho(@Param('id') id: string, @Body() dto: AdicionarFilhoDto, @CurrentUser('id') userId: string, @CurrentUser('role') role: string) {
+    return this.studentsService.adicionarFilho(id, dto, userId, role);
+  }
+
+  @Post(':id/convite-acesso')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Gerar link de uso único para o atleta / encarregado definir a password' })
+  criarConviteAcesso(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentUser('role') role: string) {
+    return this.studentsService.criarConviteAcesso(id, userId, role);
   }
 
   @Post(':id/qr-code')

@@ -19,7 +19,7 @@ export class CreateClassDto {
 
   @ApiProperty({ default: 12 })
   @Type(() => Number)
-  @IsInt() @Min(1) @Max(100)
+  @IsInt() @Min(1) @Max(40, { message: "A capacidade máxima de uma turma é 40 atletas" })
   maxStudents: number = 12;
 
   @ApiPropertyOptional() @IsOptional() @IsString() description?: string;

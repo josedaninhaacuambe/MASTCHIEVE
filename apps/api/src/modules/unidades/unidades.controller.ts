@@ -4,6 +4,7 @@ import { UnidadesService } from './unidades.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 const TIPOS_UNIDADE = ['PRINCIPAL', 'COMUNITARIO', 'PREMIUM'];
@@ -37,6 +38,9 @@ export class UnidadesController {
   @Get() findAll() { return this.svc.findAll(); }
   @Get(':id') findOne(@Param('id') id: string) { return this.svc.findOne(id); }
   @Get(':id/stats') stats(@Param('id') id: string) { return this.svc.stats(id); }
+  @Get(':id/detalhe')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
+  detalhe(@Param('id') id: string, @CurrentUser() user: any) { return this.svc.detalhe(id, user); }
 
   @Post()
   @Roles('ADMIN', 'SUPER_ADMIN')

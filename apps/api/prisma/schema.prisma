@@ -70,6 +70,7 @@ model User {
   dispositivosQuiosqueCriados DispositivoQuiosque[]   @relation("DispositivoCriado")
   presencasLancadas           RegistoPresenca[]       @relation("PresencaLancadaManualmente")
   qrCredenciaisEmitidas       StudentQrCredential[]   @relation("StudentQrCredentialCriada")
+  convitesAcesso              ConviteAcesso[]         @relation("ConviteAcessoUser")
 
   @@index([email])
   @@index([role])
@@ -154,6 +155,8 @@ model Student {
   autorizacaoImagemDoc  String?
   leadId                String?   @unique
   pacoteId              String?
+  etiqueta              String?   @db.VarChar(40) // BM = colaborador / familiar do Banco de Moçambique (sem pacotes)
+  trabalhadorBm         String?   @db.VarChar(120) // nome do trabalhador do BM a que o atleta está associado
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -189,7 +192,25 @@ model Student {
   @@index([isActive])
   @@index([unidadeId])
   @@index([pacoteId])
+  @@index([etiqueta])
   @@map("students")
+}
+
+// ─── Convite de acesso (link de uso único para definir a password) ─────────
+
+model ConviteAcesso {
+  id          String    @id @default(uuid())
+  userId      String
+  tokenHash   String    @unique @db.VarChar(64) // SHA-256 hex do token; o token em claro nunca é guardado
+  expiraEm    DateTime
+  usadoEm     DateTime?
+  criadoPorId String?
+  createdAt   DateTime  @default(now())
+
+  user User @relation("ConviteAcessoUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("convites_acesso")
 }
 
 // ─── QR Code de acesso (login sem password) ────────────────────────────────
@@ -1005,29 +1026,29 @@ model Incidente {
 // ─── Eventos / Open Day (SOP 07) ─────────────────────────────────────────────
 
 model Evento {
-  id                  String   @id @default(uuid())
-  tipo                String   @default("OPEN_DAY") // OPEN_DAY|COMPETICAO|OUTRO
+  id                  String    @id @default(uuid())
+  tipo                String    @default("OPEN_DAY") // OPEN_DAY|COMPETICAO|OUTRO
   nome                String
   data                DateTime
   dataFim             DateTime? // fim do período (programas de vários dias, ex.: férias)
   unidadeId           String?
-  programa            String?  @db.Text
+  programa            String?   @db.Text
   capacidade          Int?
-  estado              String   @default("PLANEADO") // PLANEADO|REALIZADO|CANCELADO
-  notas               String?  @db.Text
-  checklistMateriais  String?  @db.Text // JSON: [{texto, checked}]
-  relatorioPos        String?  @db.Text
-  descricao           String?  @db.Text
+  estado              String    @default("PLANEADO") // PLANEADO|REALIZADO|CANCELADO
+  notas               String?   @db.Text
+  checklistMateriais  String?   @db.Text // JSON: [{texto, checked}]
+  relatorioPos        String?   @db.Text
+  descricao           String?   @db.Text
   hora                String?
   local               String?
   // Formulário público de pré-inscrição
-  formularioTipo      String   @default("INDIVIDUAL") // INDIVIDUAL (Open Day) | ESCOLA (voucher escolas) | PROGRAMA (férias, com pacotes)
-  formularioCampos    String?  @db.Text // JSON: { campos: string[], horarios?: string[] }
-  inscricoesAbertas   Boolean  @default(false)
-  tokenPublico        String?  @unique
+  formularioTipo      String    @default("INDIVIDUAL") // INDIVIDUAL (Open Day) | ESCOLA (voucher escolas) | PROGRAMA (férias, com pacotes)
+  formularioCampos    String?   @db.Text // JSON: { campos: string[], horarios?: string[] }
+  inscricoesAbertas   Boolean   @default(false)
+  tokenPublico        String?   @unique
   linkInscricaoAtleta String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   unidade       Unidade?             @relation(fields: [unidadeId], references: [id])
   certificados  Certificado[]
@@ -1036,10 +1057,29 @@ model Evento {
   inscricoes    EventoInscricao[]
   comunicacoes  EventoComunicacao[]
   pacotes       EventoPacote[]
+  imagens       EventoImagem[]
 
   @@index([tipo])
   @@index([estado])
   @@map("eventos")
+}
+
+// Imagens/cartazes de um evento. São públicas (aparecem no link de inscrição).
+model EventoImagem {
+  id          String   @id @default(uuid())
+  eventoId    String
+  url         String // /uploads/<nome aleatório>
+  legenda     String?
+  cartaz      Boolean  @default(false) // imagem principal (no máximo uma por evento)
+  ordem       Int      @default(0)
+  tamanho     Int? // bytes
+  criadoPorId String?
+  createdAt   DateTime @default(now())
+
+  evento Evento @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+
+  @@index([eventoId])
+  @@map("evento_imagens")
 }
 
 // Pacotes/preços de um evento do tipo PROGRAMA (ex.: Diário, Semanal...).
@@ -1337,23 +1377,23 @@ model AtendimentoEncarregado {
 }
 
 model EventoParticipante {
-  id                String    @id @default(uuid())
-  eventoId          String
-  studentId         String?
-  nome              String?
-  contacto          String?
-  presente          Boolean   @default(false)
-  pagamentoId       String?
-  email             String?
+  id                   String    @id @default(uuid())
+  eventoId             String
+  studentId            String?
+  nome                 String?
+  contacto             String?
+  presente             Boolean   @default(false)
+  pagamentoId          String?
+  email                String?
   // Preencher o formulário nunca marca presença: PRESENTE só pelo staff.
-  estado            String    @default("PRE_INSCRITO") // PRE_INSCRITO|CONFIRMADO|PRESENTE|AUSENTE|CANCELADO
-  origem            String    @default("MANUAL") // MANUAL|PRE_INSCRICAO|WALK_IN
-  inscricaoId       String?
-  dataNascimento    DateTime?
-  dadosFormulario   String?   @db.Text // JSON: respostas específicas deste participante
-  autorizacaoImagem Boolean?
-  leadId            String?
-  submetidoEm       DateTime?
+  estado               String    @default("PRE_INSCRITO") // PRE_INSCRITO|CONFIRMADO|PRESENTE|AUSENTE|CANCELADO
+  origem               String    @default("MANUAL") // MANUAL|PRE_INSCRICAO|WALK_IN
+  inscricaoId          String?
+  dataNascimento       DateTime?
+  dadosFormulario      String?   @db.Text // JSON: respostas específicas deste participante
+  autorizacaoImagem    Boolean?
+  leadId               String?
+  submetidoEm          DateTime?
   // Programa (férias): pacote escolhido, com preço copiado no momento da inscrição
   eventoPacoteId       String?
   pacoteNome           String?
@@ -1364,7 +1404,7 @@ model EventoParticipante {
   validadoEm           DateTime?
   validadoPorId        String?
   motivoRejeicao       String?   @db.Text
-  createdAt         DateTime  @default(now())
+  createdAt            DateTime  @default(now())
 
   evento    Evento                   @relation(fields: [eventoId], references: [id], onDelete: Cascade)
   pacote    EventoPacote?            @relation(fields: [eventoPacoteId], references: [id], onDelete: SetNull)

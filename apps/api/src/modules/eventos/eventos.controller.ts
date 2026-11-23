@@ -1,6 +1,10 @@
 import {
   Controller, Get, Post, Put, Patch, Delete, Param, Body, Query, UseGuards, Request, Res, ParseUUIDPipe,
+  UseInterceptors, UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiConsumes } from '@nestjs/swagger';
+import { imagemEventoFilter, imagemEventoStorage, MAX_BYTES_IMAGEM_EVENTO } from './eventos-imagens.util';
 import { Response } from 'express';
 import { EventosService } from './eventos.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -8,12 +12,14 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { AppRole, Roles } from '../../common/decorators/roles.decorator';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import {
-  AlterarPacoteParticipanteDto, ComunicacaoEventoDto, EstadoParticipanteDto, PacoteEventoDto, PartilharComLeadsDto,
+  AlterarPacoteParticipanteDto, ComunicacaoEventoDto, EstadoParticipanteDto, ImagemEventoDto, PacoteEventoDto, PartilharComLeadsDto,
   RejeitarParticipanteDto, ValidarParticipanteDto, WalkInDto,
 } from './dto/eventos.dto';
 
 // Validar/rejeitar inscrições do formulário público: secretaria e administração.
 const VALIDACAO: AppRole[] = ['ADMIN', 'ASSISTENTE_ADMIN'];
+// Imagens e cartazes ficam públicos no link: só administração e secretaria os publicam.
+const GESTAO_IMAGENS: AppRole[] = ['ADMIN', 'ASSISTENTE_ADMIN'];
 
 @ApiTags('eventos')
 @ApiBearerAuth()
@@ -64,6 +70,35 @@ export class EventosController {
   @Delete('participantes/:participanteId')
   removeParticipante(@Param('participanteId') participanteId: string, @Request() req: any) {
     return this.svc.removeParticipante(participanteId, req.user.id);
+  }
+
+  // ─── Imagens / cartazes ────────────────────────────────────────────────────
+
+  @Get(':id/imagens')
+  listarImagens(@Param('id', ParseUUIDPipe) id: string) { return this.svc.listarImagens(id); }
+
+  @Post(':id/imagens')
+  @Roles(...GESTAO_IMAGENS)
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: imagemEventoStorage, fileFilter: imagemEventoFilter, limits: { fileSize: MAX_BYTES_IMAGEM_EVENTO, files: 1 },
+  }))
+  adicionarImagem(
+    @Param('id', ParseUUIDPipe) id: string, @UploadedFile() file: Express.Multer.File, @Body() dto: ImagemEventoDto, @Request() req: any,
+  ) {
+    return this.svc.adicionarImagem(id, file, dto, req.user.id);
+  }
+
+  @Put('imagens/:imagemId')
+  @Roles(...GESTAO_IMAGENS)
+  actualizarImagem(@Param('imagemId', ParseUUIDPipe) imagemId: string, @Body() dto: ImagemEventoDto, @Request() req: any) {
+    return this.svc.actualizarImagem(imagemId, dto, req.user.id);
+  }
+
+  @Delete('imagens/:imagemId')
+  @Roles(...GESTAO_IMAGENS)
+  removerImagem(@Param('imagemId', ParseUUIDPipe) imagemId: string, @Request() req: any) {
+    return this.svc.removerImagem(imagemId, req.user.id);
   }
 
   // ─── Programa (férias): pacotes e validação ────────────────────────────────

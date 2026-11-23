@@ -405,10 +405,15 @@ export class FinancialService {
     const valorPadrao = amount !== undefined && amount !== null && `${amount}` !== '' ? Number(amount) : undefined;
     if (valorPadrao !== undefined && (!Number.isFinite(valorPadrao) || valorPadrao < 0)) throw new BadRequestException('Valor inválido.');
 
-    const students = await this.prisma.student.findMany({
-      where: { isActive: true },
-      select: { id: true, pacote: { select: { nome: true, preco: true } } },
-    });
+    // Atletas BM (Banco de Moçambique) não usam pacotes e ficam fora da geração automática.
+    // (etiqueta NULL tem de ser incluída explicitamente: em SQL, NULL <> 'BM' não é verdadeiro.)
+    const [students, excluidosBm] = await Promise.all([
+      this.prisma.student.findMany({
+        where: { isActive: true, OR: [{ etiqueta: null }, { etiqueta: { not: 'BM' } }] },
+        select: { id: true, pacote: { select: { nome: true, preco: true } } },
+      }),
+      this.prisma.student.count({ where: { isActive: true, etiqueta: 'BM' } }),
+    ]);
     const dueDate = new Date(year, month - 1, 10);
     let created = 0;
     let comPacote = 0;
@@ -431,7 +436,7 @@ export class FinancialService {
       created++;
       if (s.pacote) comPacote++;
     }
-    return { created, comPacote, semValor, total: students.length, month, year };
+    return { created, comPacote, semValor, excluidosBm, total: students.length, month, year };
   }
 
   async getFinancialSummary(year: number) {

@@ -22,6 +22,7 @@ interface EventoPublico {
   hoje?: string;
   pacotes?: PacotePublico[];
   formulario: { campos: string[]; horarios: string[] };
+  imagens?: { url: string; legenda?: string | null; cartaz: boolean }[];
   inscricoesAbertas: boolean;
   motivoFechado?: string | null;
 }
@@ -357,9 +358,11 @@ export default function EventoPublicoPage({ params }: { params: { token: string 
     },
     retry: false,
   });
+  const cartaz = data?.imagens?.find((i) => i.cartaz) ?? null;
+  const galeria = (data?.imagens ?? []).filter((i) => i !== cartaz);
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className={`min-h-screen flex flex-col ${data?.formularioTipo === 'PROGRAMA' ? 'bg-gray-50' : 'bg-white'}`}>
       <nav className="border-b border-gray-100">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-2.5">
           <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
@@ -388,10 +391,16 @@ export default function EventoPublicoPage({ params }: { params: { token: string 
         {data && (
           <>
             <header className="mb-8">
+              {cartaz && (
+                <a href={cartaz.url} target="_blank" rel="noopener noreferrer" className="block mb-6 rounded-2xl overflow-hidden border border-gray-100 bg-gray-50">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={cartaz.url} alt={cartaz.legenda || `Cartaz — ${data.nome}`} className="w-full max-h-[70vh] object-contain" />
+                </a>
+              )}
               <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
                 {data.formularioTipo === 'PROGRAMA' ? 'Programa' : data.tipo === 'OPEN_DAY' ? 'Open Day' : 'Evento'} · {data.formularioTipo === 'PROGRAMA' ? 'Inscrição' : 'Pré-inscrição'}
               </span>
-              <h1 className="text-3xl sm:text-4xl font-black text-gray-900 mt-1 mb-4">{data.nome}</h1>
+              <h1 className="text-3xl sm:text-4xl font-black text-gray-900 mt-1 mb-3 tracking-tight">{data.nome}</h1>
               <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-gray-600">
                 <span className="inline-flex items-center gap-1.5"><Calendar className="w-4 h-4 text-gray-400" />
                   {data.formularioTipo === 'PROGRAMA' && data.periodo
@@ -405,11 +414,34 @@ export default function EventoPublicoPage({ params }: { params: { token: string 
                   </span>
                 )}
               </div>
-              {data.descricao && <p className="text-gray-700 mt-5 whitespace-pre-wrap leading-relaxed">{data.descricao}</p>}
-              {data.programa && (
-                <div className="mt-5 bg-blue-50/60 border border-blue-100 rounded-2xl p-4">
-                  <h2 className="text-sm font-semibold text-gray-900 mb-1">Programa</h2>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.programa}</p>
+              {data.formularioTipo === 'PROGRAMA' ? (
+                (data.descricao || data.programa) && (
+                  <details className="mt-4 rounded-xl border border-gray-200 bg-white px-4 py-3">
+                    <summary className="text-sm font-medium text-blue-700 cursor-pointer select-none">Ver detalhes do programa</summary>
+                    {data.descricao && <p className="text-sm text-gray-700 mt-3 whitespace-pre-wrap leading-relaxed">{data.descricao}</p>}
+                    {data.programa && <p className="text-sm text-gray-700 mt-3 whitespace-pre-wrap">{data.programa}</p>}
+                  </details>
+                )
+              ) : (
+                <>
+                  {data.descricao && <p className="text-gray-700 mt-5 whitespace-pre-wrap leading-relaxed">{data.descricao}</p>}
+                  {data.programa && (
+                    <div className="mt-5 bg-blue-50/60 border border-blue-100 rounded-2xl p-4">
+                      <h2 className="text-sm font-semibold text-gray-900 mb-1">Programa</h2>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.programa}</p>
+                    </div>
+                  )}
+                </>
+              )}
+              {galeria.length > 0 && (
+                <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {galeria.map((img) => (
+                    <a key={img.url} href={img.url} target="_blank" rel="noopener noreferrer" className="block rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={img.url} alt={img.legenda || 'Imagem do evento'} className="w-full h-32 object-cover" loading="lazy" />
+                      {img.legenda && <span className="block text-xs text-gray-600 px-2 py-1 truncate">{img.legenda}</span>}
+                    </a>
+                  ))}
                 </div>
               )}
             </header>

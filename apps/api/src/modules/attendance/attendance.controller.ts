@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Res, Use
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AttendanceService } from './attendance.service';
+import { RelatorioDiarioService } from './relatorio-diario.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -15,7 +16,27 @@ import {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('attendance')
 export class AttendanceController {
-  constructor(private service: AttendanceService) {}
+  constructor(private service: AttendanceService, private relatorioDiario: RelatorioDiarioService) {}
+
+  @Get('relatorio-diario')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Presenças diárias por turno (nome, trabalhador do BM, contacto, módulo, idade)' })
+  relatorioDiarioJson(@Query('data') data: string, @Query('unidadeId') unidadeId: string, @CurrentUser() user: any) {
+    return this.relatorioDiario.gerar(data, unidadeId || undefined, user);
+  }
+
+  @Get('relatorio-diario/export')
+  @Roles('ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Exportar as presenças diárias em Excel (modelo da folha de presenças)' })
+  async relatorioDiarioExcel(@Query('data') data: string, @Query('unidadeId') unidadeId: string, @CurrentUser() user: any, @Res() res: Response) {
+    const { buffer, nomeFicheiro } = await this.relatorioDiario.exportar(data, unidadeId || undefined, user);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${nomeFicheiro}"`,
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
+  }
 
   @Post('sessions/:sessionId/bulk')
   @Roles('ADMIN', 'INSTRUCTOR')

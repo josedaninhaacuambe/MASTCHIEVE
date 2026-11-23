@@ -1,14 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from '@/lib/toast';
-import { Pencil, X, AlertCircle, KeyRound } from 'lucide-react';
+import { Pencil, X, AlertCircle, KeyRound, MapPin } from 'lucide-react';
 
 interface Props {
   student: any;
   onClose: () => void;
+  /** Admin / assistente administrativo: pode definir unidade, turma e etiqueta BM. */
+  podeGerirAlocacao?: boolean;
 }
 
 const genderOptions = [
@@ -28,8 +30,30 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-mastchieve-500 transition';
 
-export default function StudentEditModal({ student, onClose }: Props) {
+export default function StudentEditModal({ student, onClose, podeGerirAlocacao = false }: Props) {
   const qc = useQueryClient();
+  const turmasActuais: { id: string; name: string }[] = (student.enrollments ?? [])
+    .filter((en: any) => en.isActive !== false && en.class)
+    .map((en: any) => ({ id: en.class.id, name: en.class.name }));
+  const [aloc, setAloc] = useState({
+    unidadeId: student.unidadeId ?? '',
+    classId: '',
+    bm: student.etiqueta === 'BM',
+    trabalhadorBm: student.trabalhadorBm ?? '',
+  });
+  const { data: unidades = [] } = useQuery({
+    queryKey: ['unidades-select'],
+    queryFn: async () => { const { data } = await api.get('/unidades'); return (data.data ?? data ?? []).filter((u: any) => u.ativo !== false); },
+    enabled: podeGerirAlocacao,
+  });
+  const { data: turmas = [] } = useQuery({
+    queryKey: ['turmas-unidade', aloc.unidadeId],
+    queryFn: async () => {
+      const { data } = await api.get(`/classes?limit=100&status=ACTIVE&unidadeId=${aloc.unidadeId}`);
+      return data.data?.data ?? data.data ?? [];
+    },
+    enabled: podeGerirAlocacao && !!aloc.unidadeId,
+  });
   const [form, setForm] = useState({
     firstName: student.firstName ?? '',
     lastName: student.lastName ?? '',
@@ -61,7 +85,7 @@ export default function StudentEditModal({ student, onClose }: Props) {
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const payload: Record<string, any> = {
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         dateOfBirth: form.dateOfBirth,
@@ -73,6 +97,15 @@ export default function StudentEditModal({ student, onClose }: Props) {
         autorizacaoImagem: form.autorizacaoImagem,
         autorizacaoImagemDoc: form.autorizacaoImagemDoc || undefined,
       };
+      if (podeGerirAlocacao) {
+        // Só envia o que mudou: o servidor valida a unidade, a capacidade e a unidade da turma.
+        if (aloc.unidadeId && aloc.unidadeId !== (student.unidadeId ?? '')) payload.unidadeId = aloc.unidadeId;
+        if (aloc.classId) payload.classId = aloc.classId;
+        const etiqueta = aloc.bm ? 'BM' : null;
+        if (etiqueta !== (student.etiqueta ?? null)) payload.etiqueta = etiqueta;
+        const trab = aloc.bm ? aloc.trabalhadorBm.trim() || null : null;
+        if (trab !== (student.trabalhadorBm ?? null)) payload.trabalhadorBm = trab;
+      }
       await api.put(`/students/${student.id}`, payload);
     },
     onSuccess: () => {
@@ -149,6 +182,53 @@ export default function StudentEditModal({ student, onClose }: Props) {
               </select>
             </Field>
           </div>
+
+          {podeGerirAlocacao && (
+            <div className="rounded-xl border border-gray-200 p-4 space-y-3">
+              <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5" /> Unidade e turma
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Unidade">
+                  <select value={aloc.unidadeId} onChange={(e) => setAloc((a) => ({ ...a, unidadeId: e.target.value, classId: '' }))} className={inputCls}>
+                    <option value="">— Escolher —</option>
+                    {unidades.map((u: any) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+                  </select>
+                </Field>
+                <Field label="Adicionar à turma">
+                  <select value={aloc.classId} onChange={(e) => setAloc((a) => ({ ...a, classId: e.target.value }))} className={inputCls} disabled={!aloc.unidadeId}>
+                    <option value="">— Nenhuma —</option>
+                    {turmas
+                      .filter((t: any) => !turmasActuais.some((c) => c.id === t.id))
+                      .map((t: any) => {
+                        const cheia = (t.enrolledCount ?? 0) >= t.maxStudents;
+                        return <option key={t.id} value={t.id} disabled={cheia}>{t.name} ({t.enrolledCount ?? 0}/{t.maxStudents}){cheia ? ' — lotada' : ''}</option>;
+                      })}
+                  </select>
+                </Field>
+              </div>
+              {turmasActuais.length > 0 && (
+                <p className="text-xs text-gray-500">Turmas actuais: {turmasActuais.map((t) => t.name).join(', ')}</p>
+              )}
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={aloc.bm}
+                  onChange={(e) => setAloc((a) => ({ ...a, bm: e.target.checked }))}
+                  className="mt-0.5 w-4 h-4 rounded border-gray-300 text-mastchieve-600 focus:ring-mastchieve-500"
+                />
+                <span className="text-sm text-gray-700">
+                  Banco de Moçambique (BM)
+                  <span className="block text-xs text-gray-500">Sem pacotes de pagamento e fora da geração automática de mensalidades.</span>
+                </span>
+              </label>
+              {aloc.bm && (
+                <Field label="Trabalhador do BM">
+                  <input value={aloc.trabalhadorBm} onChange={(e) => setAloc((a) => ({ ...a, trabalhadorBm: e.target.value }))} maxLength={120} className={inputCls} placeholder="Nome do trabalhador (o próprio ou o pai/mãe)" />
+                </Field>
+              )}
+            </div>
+          )}
 
           <Field label="Telefone">
             <input value={form.phone} onChange={(e) => set('phone', e.target.value)} className={inputCls} placeholder="+258 8X XXX XXXX" />

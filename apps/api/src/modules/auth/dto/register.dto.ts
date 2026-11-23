@@ -1,4 +1,4 @@
-import { IsEmail, IsIn, IsString, MinLength, IsEnum, IsOptional } from 'class-validator';
+import { IsEmail, IsIn, IsString, MinLength, IsEnum, IsOptional, IsUUID } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export const RoleValues = ['ADMIN', 'INSTRUCTOR', 'STUDENT', 'PARENT', 'FINANCIAL', 'MANAGER', 'VISITOR', 'GESTOR_RH', 'SUPER_ADMIN'] as const;
@@ -41,6 +41,11 @@ export class RegisterDto {
   @IsOptional()
   @IsEnum(GenderValues)
   gender?: string;
+
+  @ApiPropertyOptional({ description: 'Unidade onde o atleta quer treinar (obrigatória para atletas)' })
+  @IsOptional()
+  @IsUUID()
+  unidadeId?: string;
 }
 
 export class RegisterVisitorDto {

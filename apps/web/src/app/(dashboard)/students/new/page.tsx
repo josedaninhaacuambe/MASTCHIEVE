@@ -45,16 +45,22 @@ export default function NewStudentPage() {
   const [form, setForm] = useState({
     firstName: '', lastName: '', dateOfBirth: '', gender: 'MALE',
     email: '', phone: '', emergencyContact: '', emergencyPhone: '', medicalNotes: '', classId: '', unidadeId: '', pacoteId: '', gerarPrimeiraMensalidade: true,
-    autorizacaoImagem: false, autorizacaoImagemDoc: '',
+    autorizacaoImagem: false, autorizacaoImagemDoc: '', bm: false, trabalhadorBm: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [guardians, setGuardians] = useState<Guardian[]>([]);
   const [duplicateWarning, setDuplicateWarning] = useState<any[] | null>(null);
   const [checkingDuplicate, setCheckingDuplicate] = useState(false);
 
+  // Turmas da unidade escolhida (o servidor confirma a unidade e a capacidade ao inscrever).
   const { data: classes } = useQuery({
-    queryKey: ['classes-select'],
-    queryFn: async () => { const { data } = await api.get('/classes?limit=50&status=ACTIVE'); return data.data ?? []; },
+    queryKey: ['classes-select', form.unidadeId],
+    queryFn: async () => {
+      const filtro = form.unidadeId ? `&unidadeId=${form.unidadeId}` : '';
+      const { data } = await api.get(`/classes?limit=100&status=ACTIVE${filtro}`);
+      return data.data?.data ?? data.data ?? [];
+    },
+    enabled: !precisaEscolherUnidade || !!form.unidadeId,
   });
 
   const { data: pacotes } = useQuery({
@@ -70,7 +76,12 @@ export default function NewStudentPage() {
   });
 
   const set = (field: string, value: string | boolean) => {
-    setForm((f) => ({ ...f, [field]: value }));
+    setForm((f) => ({
+      ...f,
+      [field]: value,
+      ...(field === 'unidadeId' && { classId: '' }),
+      ...(field === 'bm' && value === true && { pacoteId: '' }),
+    }));
     setErrors((e) => { const n = { ...e }; delete n[field]; return n; });
   };
 
@@ -117,7 +128,9 @@ export default function NewStudentPage() {
         ...(form.emergencyPhone && { emergencyPhone: form.emergencyPhone }),
         ...(form.medicalNotes && { medicalNotes: form.medicalNotes }),
         ...(form.unidadeId && { unidadeId: form.unidadeId }),
-        ...(form.pacoteId && { pacoteId: form.pacoteId, gerarPrimeiraMensalidade: form.gerarPrimeiraMensalidade }),
+        ...(!form.bm && form.pacoteId && { pacoteId: form.pacoteId, gerarPrimeiraMensalidade: form.gerarPrimeiraMensalidade }),
+        ...(form.bm && { etiqueta: 'BM', ...(form.trabalhadorBm.trim() && { trabalhadorBm: form.trabalhadorBm.trim() }) }),
+        ...(form.classId && { classId: form.classId }),
         autorizacaoImagem: form.autorizacaoImagem,
         ...(form.autorizacaoImagemDoc && { autorizacaoImagemDoc: form.autorizacaoImagemDoc }),
         ...(guardians.length && {
@@ -126,14 +139,8 @@ export default function NewStudentPage() {
             .map((g) => ({ ...g, email: g.email.trim() || undefined, relationship: g.relationship || undefined })),
         }),
       };
+      // A inscrição na turma é feita pelo servidor, depois de validar unidade e capacidade.
       const res = await api.post('/students', payload);
-      const studentId = res.data.data?.student?.id;
-
-      // Enroll in class if selected
-      if (studentId && form.classId) {
-        await api.post(`/classes/${form.classId}/enroll`, { studentId });
-      }
-
       return res.data.data;
     },
     onSuccess: (data) => {
@@ -313,14 +320,28 @@ export default function NewStudentPage() {
           Turma & Notas Médicas
         </h2>
         <Field label="Inscrever em turma (opcional)">
-          <select value={form.classId} onChange={(e) => set('classId', e.target.value)} className={inputCls}>
-            <option value="">— Nenhuma turma por agora —</option>
-            {(classes ?? []).map((c: any) => (
-              <option key={c.id} value={c.id}>{c.name} ({c.enrolledCount}/{c.maxStudents})</option>
-            ))}
+          <select value={form.classId} onChange={(e) => set('classId', e.target.value)} className={inputCls} disabled={precisaEscolherUnidade && !form.unidadeId}>
+            <option value="">{precisaEscolherUnidade && !form.unidadeId ? '— Escolha primeiro a unidade —' : '— Nenhuma turma por agora —'}</option>
+            {(classes ?? []).map((c: any) => {
+              const cheia = (c.enrolledCount ?? 0) >= c.maxStudents;
+              return <option key={c.id} value={c.id} disabled={cheia}>{c.name} ({c.enrolledCount ?? 0}/{c.maxStudents}){cheia ? ' — lotada' : ''}</option>;
+            })}
           </select>
         </Field>
-        <Field label="Pacote / plano de pagamento">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" checked={form.bm} onChange={(e) => set('bm', e.target.checked)}
+            className="mt-0.5 w-4 h-4 rounded border-gray-300 text-mastchieve-600 focus:ring-mastchieve-500" />
+          <span className="text-sm text-gray-700">
+            Atleta do Banco de Moçambique (BM)
+            <span className="block text-xs text-gray-500">Não tem pacote de pagamento nem mensalidades automáticas.</span>
+          </span>
+        </label>
+        {form.bm && (
+          <Field label="Trabalhador do BM">
+            <input value={form.trabalhadorBm} onChange={(e) => set('trabalhadorBm', e.target.value)} maxLength={120} className={inputCls} placeholder="Nome do trabalhador (o próprio ou o pai/mãe)" />
+          </Field>
+        )}
+        {!form.bm && <><Field label="Pacote / plano de pagamento">
           <select value={form.pacoteId} onChange={(e) => set('pacoteId', e.target.value)} className={inputCls}>
             <option value="">— Sem pacote (definir depois) —</option>
             {(pacotes ?? []).map((p: any) => (
@@ -342,7 +363,7 @@ export default function NewStudentPage() {
               Gerar já a mensalidade deste mês ({Number(pacoteEscolhido.preco).toLocaleString('pt-PT', { minimumFractionDigits: 2 })} MT)
             </span>
           </label>
-        )}
+        )}</>}
         <Field label="Notas médicas / observações">
           <textarea
             value={form.medicalNotes}

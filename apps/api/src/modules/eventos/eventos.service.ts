@@ -2,6 +2,9 @@ import {
   Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException, GoneException,
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
+import { open, unlink } from 'fs/promises';
+import { join } from 'path';
+import { formatoPorAssinatura, MAX_IMAGENS_POR_EVENTO } from './eventos-imagens.util';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
@@ -15,9 +18,12 @@ import {
   validarInicioPrograma,
 } from './eventos-formulario.util';
 import {
-  AlterarPacoteParticipanteDto, ComunicacaoEventoDto, InscricaoProgramaDto, PacoteEventoDto, PartilharComLeadsDto,
+  AlterarPacoteParticipanteDto, ComunicacaoEventoDto, ImagemEventoDto, InscricaoProgramaDto, PacoteEventoDto, PartilharComLeadsDto,
   PreInscricaoEscolaDto, PreInscricaoIndividualDto, RejeitarParticipanteDto, ValidarParticipanteDto, WalkInDto,
 } from './dto/eventos.dto';
+
+const IMAGEM_SELECT = { id: true, url: true, legenda: true, cartaz: true, ordem: true } as const;
+const ORDEM_IMAGENS = [{ cartaz: 'desc' as const }, { ordem: 'asc' as const }, { createdAt: 'asc' as const }];
 
 // Campos do evento que o staff pode gravar (evita mass-assignment).
 const CAMPOS_EVENTO = [
@@ -112,7 +118,11 @@ export class EventosService {
     if (query.unidadeId) where.unidadeId = query.unidadeId;
     const eventos = await this.prisma.evento.findMany({
       where, orderBy: { data: 'desc' },
-      include: { unidade: { select: { nome: true, codigo: true } }, _count: { select: { certificados: true, leads: true, participantes: true } } },
+      include: {
+        unidade: { select: { nome: true, codigo: true } },
+        _count: { select: { certificados: true, leads: true, participantes: true } },
+        imagens: { select: IMAGEM_SELECT, orderBy: ORDEM_IMAGENS },
+      },
     });
     const ids = eventos.map((e) => e.id);
     const contagens = await this.contarPreInscricoes(ids);
@@ -402,7 +412,10 @@ export class EventosService {
     if (!token || token.length < 16 || token.length > 64) throw new NotFoundException('Evento não encontrado');
     const ev = await this.prisma.evento.findUnique({
       where: { tokenPublico: token },
-      include: { unidade: { select: { nome: true, endereco: true } } },
+      include: {
+        unidade: { select: { nome: true, endereco: true } },
+        imagens: { select: { url: true, legenda: true, cartaz: true }, orderBy: ORDEM_IMAGENS },
+      },
     });
     if (!ev) throw new NotFoundException('Evento não encontrado');
     return ev;
@@ -425,6 +438,7 @@ export class EventosService {
       unidade: ev.unidade?.nome ?? null,
       formularioTipo: ev.formularioTipo,
       formulario: lerConfigFormulario(ev.formularioTipo, ev.formularioCampos),
+      imagens: ev.imagens,
       inscricoesAbertas: ev.inscricoesAbertas && ev.estado === 'PLANEADO' && vagas !== 0,
       motivoFechado: !ev.inscricoesAbertas || ev.estado !== 'PLANEADO'
         ? 'As pré-inscrições para este evento estão encerradas.'
@@ -606,6 +620,7 @@ export class EventosService {
       periodo,
       hoje,
       pacotes,
+      imagens: ev.imagens ?? [],
       inscricoesAbertas: aberto,
       motivoFechado: aberto
         ? null
@@ -687,6 +702,7 @@ export class EventosService {
           dataNascimento: diaParaDate(dto.dataNascimento),
           dadosFormulario: JSON.stringify({
             idade, genero: dto.genero, escola: dto.escola, nivelNatacao: dto.nivelNatacao,
+            provas: dto.provas?.length ? Array.from(new Set(dto.provas)) : undefined,
             condicaoSaude: dto.condicaoSaude, condicaoSaudeDetalhe: dto.condicaoSaude ? dto.condicaoSaudeDetalhe : undefined,
           }),
           autorizacaoImagem: dto.autorizacaoImagem === undefined ? null : !!dto.autorizacaoImagem,
@@ -711,6 +727,98 @@ export class EventosService {
   }
 
   // ─── Pacotes do evento (staff) ─────────────────────────────────────────────
+
+  // ─── Imagens / cartazes ────────────────────────────────────────────────────
+
+  private async apagarFicheiro(url?: string | null) {
+    if (!url?.startsWith('/uploads/') || url.includes('..')) return;
+    await unlink(join(process.cwd(), url.replace(/^\//, ''))).catch(() => undefined);
+  }
+
+  private async lerAssinatura(caminho: string): Promise<Buffer> {
+    const fh = await open(caminho, 'r');
+    try {
+      const buf = Buffer.alloc(12);
+      const { bytesRead } = await fh.read(buf, 0, 12, 0);
+      return buf.subarray(0, bytesRead);
+    } finally {
+      await fh.close();
+    }
+  }
+
+  async listarImagens(eventoId: string) {
+    return this.prisma.eventoImagem.findMany({ where: { eventoId }, select: IMAGEM_SELECT, orderBy: ORDEM_IMAGENS });
+  }
+
+  async adicionarImagem(eventoId: string, file: Express.Multer.File, dto: ImagemEventoDto, actorUserId: string) {
+    if (!file) throw new BadRequestException('Nenhuma imagem enviada (JPEG, PNG ou WEBP, máx. 8 MB)');
+    const url = `/uploads/${file.filename}`;
+    try {
+      const formato = formatoPorAssinatura(await this.lerAssinatura(file.path));
+      if (!formato || formato !== file.mimetype) throw new BadRequestException('O ficheiro não é uma imagem JPEG, PNG ou WEBP válida');
+      const ev = await this.prisma.evento.findUnique({ where: { id: eventoId }, select: { id: true } });
+      if (!ev) throw new NotFoundException('Evento não encontrado');
+      const imagem = await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM eventos WHERE id = ${eventoId} FOR UPDATE`;
+        const total = await tx.eventoImagem.count({ where: { eventoId } });
+        if (total >= MAX_IMAGENS_POR_EVENTO) {
+          throw new BadRequestException(`Máximo de ${MAX_IMAGENS_POR_EVENTO} imagens por evento — remova alguma primeiro`);
+        }
+        const cartaz = dto.cartaz === true || total === 0;
+        if (cartaz) await tx.eventoImagem.updateMany({ where: { eventoId, cartaz: true }, data: { cartaz: false } });
+        return tx.eventoImagem.create({
+          data: { eventoId, url, legenda: dto.legenda ?? null, cartaz, ordem: dto.ordem ?? total, tamanho: file.size, criadoPorId: actorUserId },
+          select: IMAGEM_SELECT,
+        });
+      });
+      await this.audit.log({
+        userId: actorUserId, action: 'EVENTO_IMAGEM_ADICIONADA', entity: 'Evento', entityId: eventoId,
+        newValues: { imagemId: imagem.id, cartaz: imagem.cartaz, tamanho: file.size },
+      });
+      return imagem;
+    } catch (e) {
+      await this.apagarFicheiro(url);
+      throw e;
+    }
+  }
+
+  async actualizarImagem(imagemId: string, dto: ImagemEventoDto, actorUserId: string) {
+    const img = await this.prisma.eventoImagem.findUnique({ where: { id: imagemId } });
+    if (!img) throw new NotFoundException('Imagem não encontrada');
+    const data: any = {};
+    if (dto.legenda !== undefined) data.legenda = dto.legenda || null;
+    if (dto.ordem !== undefined) data.ordem = dto.ordem;
+    if (dto.cartaz === true) data.cartaz = true;
+    const atualizada = await this.prisma.$transaction(async (tx) => {
+      if (dto.cartaz === true) {
+        await tx.eventoImagem.updateMany({ where: { eventoId: img.eventoId, cartaz: true, NOT: { id: imagemId } }, data: { cartaz: false } });
+      }
+      return tx.eventoImagem.update({ where: { id: imagemId }, data, select: IMAGEM_SELECT });
+    });
+    await this.audit.log({
+      userId: actorUserId, action: 'EVENTO_IMAGEM_ACTUALIZADA', entity: 'Evento', entityId: img.eventoId,
+      oldValues: { legenda: img.legenda, cartaz: img.cartaz, ordem: img.ordem }, newValues: { imagemId, ...data },
+    });
+    return atualizada;
+  }
+
+  async removerImagem(imagemId: string, actorUserId: string) {
+    const img = await this.prisma.eventoImagem.findUnique({ where: { id: imagemId } });
+    if (!img) throw new NotFoundException('Imagem não encontrada');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.eventoImagem.delete({ where: { id: imagemId } });
+      if (img.cartaz) {
+        const proxima = await tx.eventoImagem.findFirst({ where: { eventoId: img.eventoId }, orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }] });
+        if (proxima) await tx.eventoImagem.update({ where: { id: proxima.id }, data: { cartaz: true } });
+      }
+    });
+    await this.apagarFicheiro(img.url);
+    await this.audit.log({
+      userId: actorUserId, action: 'EVENTO_IMAGEM_REMOVIDA', entity: 'Evento', entityId: img.eventoId,
+      oldValues: { imagemId, url: img.url, cartaz: img.cartaz },
+    });
+    return { ok: true };
+  }
 
   async listarPacotes(eventoId: string) {
     const ev = await this.prisma.evento.findUnique({ where: { id: eventoId }, select: { id: true } });

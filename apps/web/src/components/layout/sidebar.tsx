@@ -16,7 +16,7 @@ import {
   AlertTriangle, Fish, Award, Calendar, Trophy, Megaphone, Building2, Shield, Zap, Bell,
   Briefcase, UserPlus, FileSignature, IdCard, CalendarClock, ClipboardCheck, CalendarX,
   Banknote, Gavel, FolderOpen, PieChart, Fingerprint, ChevronDown,
-  Users2, Boxes, DoorOpen, MessageSquareWarning, FileBarChart, CalendarCheck, Package,
+  Users2, Boxes, DoorOpen, MessageSquareWarning, FileBarChart, CalendarCheck, Package, FileSpreadsheet,
 } from 'lucide-react';
 
 type NavGroupKey = 'pedagogico' | 'seguranca' | 'crm' | 'administrativo' | 'rh' | 'sistema';
@@ -73,6 +73,7 @@ const navItems = [
   { href: '/reclamacoes',         icon: MessageSquareWarning, label: 'Reclamações e Sugestões', roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER', 'PARENT'], group: 'administrativo' },
   { href: '/relatorios-mensais',  icon: FileBarChart,   label: 'Relatórios Mensais',     roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'], group: 'administrativo' },
   { href: '/rotina-diaria',       icon: CalendarCheck,  label: 'Rotina Diária',          roles: ['ASSISTENTE_ADMIN', 'ADMIN', 'MANAGER'], group: 'administrativo' },
+  { href: '/presencas-diarias',   icon: FileSpreadsheet, label: 'Presenças Diárias',     roles: ['ASSISTENTE_ADMIN', 'ADMIN'], group: 'administrativo' },
   // Recursos Humanos — Gestor de RH + Super Admin
   { href: '/rh',                icon: Briefcase,        label: 'RH — Painel',            roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
   { href: '/rh/funcionarios',   icon: Users,            label: 'Funcionários',           roles: ['ADMIN', 'GESTOR_RH', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN'], group: 'rh' },

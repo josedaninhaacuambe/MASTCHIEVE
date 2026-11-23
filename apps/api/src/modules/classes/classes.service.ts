@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { CertificacoesService } from '../recursos-humanos/certificacoes/certificacoes.service';
 import { AuditService } from '../../common/audit/audit.service';
+
+export const MAX_CAPACIDADE_TURMA = 40;
 
 @Injectable()
 export class ClassesService {
@@ -68,6 +70,7 @@ export class ClassesService {
       where.OR = [{ instructorId: query.instructorId }, { instrutores: { some: { instructorId: query.instructorId } } }];
     }
     if (query.search) where.name = { contains: query.search };
+    if (typeof query.unidadeId === 'string' && query.unidadeId) where.unidadeId = query.unidadeId;
 
     const [data, total] = await Promise.all([
       this.prisma.class.findMany({
@@ -168,6 +171,16 @@ export class ClassesService {
       // A atribuição de instrutores é decisão da gestão.
       delete dto.instructorId;
       delete dto.instructorIds;
+    }
+
+    if (dto.maxStudents !== undefined && dto.maxStudents !== null && Number(dto.maxStudents) !== existing.maxStudents) {
+      const cap = Number(dto.maxStudents);
+      if (!Number.isInteger(cap) || cap < 1 || cap > MAX_CAPACIDADE_TURMA) {
+        throw new BadRequestException(`A capacidade da turma tem de ser entre 1 e ${MAX_CAPACIDADE_TURMA} atletas`);
+      }
+      const activos = await this.prisma.enrollment.count({ where: { classId: id, isActive: true } });
+      if (cap < activos) throw new BadRequestException(`A turma já tem ${activos} atletas inscritos — a capacidade não pode ser menor`);
+      dto.maxStudents = cap;
     }
 
     if (dto.instructorId) await this.assertInstrutorCertificado(dto.instructorId);
