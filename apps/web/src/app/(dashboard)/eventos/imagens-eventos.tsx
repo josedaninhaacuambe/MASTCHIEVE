@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { ImagePlus, Star, Trash2, Check } from 'lucide-react';
 import { erroMsg } from './programa-eventos';
+import { srcImagemEvento } from '@/lib/imagem-evento';
 
 const MAX_MB = 8;
 const MAX_IMAGENS = 12;
@@ -94,9 +95,9 @@ export function ImagensTab({ evento, podeEditar, onChanged }: { evento: any; pod
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {imagens.map((img) => (
             <div key={img.id} className={`rounded-xl border overflow-hidden ${img.cartaz ? 'border-amber-400 ring-1 ring-amber-300' : 'border-gray-200'}`}>
-              <a href={img.url} target="_blank" rel="noopener noreferrer" className="block bg-gray-50">
+              <a href={srcImagemEvento(img.url)} target="_blank" rel="noopener noreferrer" className="block bg-gray-50">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img.url} alt={img.legenda || 'Imagem do evento'} className="w-full h-44 object-contain" loading="lazy" />
+                <img src={srcImagemEvento(img.url)} alt={img.legenda || 'Imagem do evento'} className="w-full h-44 object-contain" loading="lazy" />
               </a>
               <div className="p-2 space-y-2">
                 {img.cartaz && <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700"><Star className="w-3.5 h-3.5 fill-amber-400" />Cartaz principal</span>}

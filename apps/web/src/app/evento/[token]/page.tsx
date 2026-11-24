@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { Waves, Loader2, AlertCircle, Calendar, Clock, MapPin, CheckCircle2, Plus, Trash2 } from 'lucide-react';
+import { Waves, Loader2, AlertCircle, Calendar, Clock, MapPin, CheckCircle2, Plus, Trash2, Sparkles, ArrowDown, ChevronDown, Expand, X } from 'lucide-react';
 import api from '@/lib/api';
 import { FormPrograma, ResultadoProgramaCard, fmtDia, type PacotePublico } from './form-programa';
+import { srcImagemEvento } from '@/lib/imagem-evento';
 
 interface EventoPublico {
   nome: string;
@@ -360,128 +361,246 @@ export default function EventoPublicoPage({ params }: { params: { token: string 
   });
   const cartaz = data?.imagens?.find((i) => i.cartaz) ?? null;
   const galeria = (data?.imagens ?? []).filter((i) => i !== cartaz);
+  const [ampliada, setAmpliada] = useState<{ src: string; alt: string } | null>(null);
+
+  useEffect(() => {
+    if (!ampliada) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAmpliada(null); };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, [ampliada]);
+
+  const ePrograma = data?.formularioTipo === 'PROGRAMA';
+  const rotulo = ePrograma ? 'Programa exclusivo' : data?.tipo === 'OPEN_DAY' ? 'Open Day' : 'Evento exclusivo';
+  const dataTexto = data
+    ? ePrograma && data.periodo
+      ? `${fmtDia(data.periodo.inicio)}${data.periodo.fim ? ` a ${fmtDia(data.periodo.fim)}` : ''}`
+      : new Date(data.data).toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+  const podeInscrever = !!data && data.inscricoesAbertas && !resultado;
+  const srcCartaz = cartaz ? srcImagemEvento(cartaz.url) : '';
 
   return (
-    <div className={`min-h-screen flex flex-col ${data?.formularioTipo === 'PROGRAMA' ? 'bg-gray-50' : 'bg-white'}`}>
-      <nav className="border-b border-gray-100">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
-            <Waves className="w-5 h-5 text-white" />
+    <div className="relative min-h-screen flex flex-col bg-[#05070d] text-white overflow-x-hidden">
+      {/* Fundo: o próprio cartaz desfocado, com halos de luz */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[115vh] overflow-hidden">
+        {srcCartaz && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={srcCartaz} alt="" className="absolute inset-0 w-full h-full object-cover scale-125 blur-3xl opacity-30" />
+        )}
+        <div className="absolute -top-40 -left-32 w-[36rem] h-[36rem] rounded-full bg-blue-600/30 blur-[120px]" />
+        <div className="absolute top-20 -right-40 w-[32rem] h-[32rem] rounded-full bg-cyan-400/20 blur-[120px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#05070d]/40 via-[#05070d]/70 to-[#05070d]" />
+        <div className="absolute inset-0 opacity-[0.07] [background-image:radial-gradient(white_1px,transparent_1px)] [background-size:22px_22px]" />
+      </div>
+
+      <nav className="relative z-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+              <Waves className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-xl tracking-tight">Mastchieve</span>
           </div>
-          <span className="font-bold text-xl text-gray-900 tracking-tight">Mastchieve</span>
+          {data && (
+            <span className="hidden sm:inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.25em] text-amber-200/90 border border-amber-200/25 bg-amber-200/5 rounded-full px-3.5 py-1.5">
+              <Sparkles className="w-3.5 h-3.5" /> Convite
+            </span>
+          )}
         </div>
       </nav>
 
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-10">
+      <main className="relative z-10 flex-1 w-full">
         {isLoading && (
-          <div className="flex flex-col items-center justify-center py-24 text-gray-400">
-            <Loader2 className="w-8 h-8 animate-spin mb-3" /> A carregar...
+          <div className="flex flex-col items-center justify-center py-40 text-white/50">
+            <Loader2 className="w-8 h-8 animate-spin mb-3" /> A carregar…
           </div>
         )}
 
         {isError && (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <AlertCircle className="w-10 h-10 text-gray-300 mb-4" />
-            <h1 className="text-xl font-bold text-gray-900 mb-2">Evento não encontrado</h1>
-            <p className="text-gray-500 text-sm max-w-sm">O link pode estar incorrecto ou já não estar disponível.</p>
-            <Link href="/" className="mt-6 text-blue-600 text-sm font-semibold hover:underline">Voltar à página inicial</Link>
+          <div className="flex flex-col items-center justify-center py-40 px-4 text-center">
+            <AlertCircle className="w-10 h-10 text-white/30 mb-4" />
+            <h1 className="text-2xl font-bold mb-2">Evento não encontrado</h1>
+            <p className="text-white/60 text-sm max-w-sm">O link pode estar incorrecto ou já não estar disponível.</p>
+            <Link href="/" className="mt-6 text-cyan-300 text-sm font-semibold hover:underline">Voltar à página inicial</Link>
           </div>
         )}
 
         {data && (
           <>
-            <header className="mb-8">
-              {cartaz && (
-                <a href={cartaz.url} target="_blank" rel="noopener noreferrer" className="block mb-6 rounded-2xl overflow-hidden border border-gray-100 bg-gray-50">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={cartaz.url} alt={cartaz.legenda || `Cartaz — ${data.nome}`} className="w-full max-h-[70vh] object-contain" />
-                </a>
-              )}
-              <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
-                {data.formularioTipo === 'PROGRAMA' ? 'Programa' : data.tipo === 'OPEN_DAY' ? 'Open Day' : 'Evento'} · {data.formularioTipo === 'PROGRAMA' ? 'Inscrição' : 'Pré-inscrição'}
-              </span>
-              <h1 className="text-3xl sm:text-4xl font-black text-gray-900 mt-1 mb-3 tracking-tight">{data.nome}</h1>
-              <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-gray-600">
-                <span className="inline-flex items-center gap-1.5"><Calendar className="w-4 h-4 text-gray-400" />
-                  {data.formularioTipo === 'PROGRAMA' && data.periodo
-                    ? `${fmtDia(data.periodo.inicio)}${data.periodo.fim ? ` a ${fmtDia(data.periodo.fim)}` : ''} · segunda a sexta`
-                    : new Date(data.data).toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                </span>
-                {data.hora && <span className="inline-flex items-center gap-1.5"><Clock className="w-4 h-4 text-gray-400" />{data.hora}</span>}
-                {(data.local || data.unidade) && (
-                  <span className="inline-flex items-center gap-1.5"><MapPin className="w-4 h-4 text-gray-400" />
-                    {[data.local, data.unidade].filter(Boolean).join(' — ')}
-                  </span>
+            {/* Hero */}
+            <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-4 pb-16 lg:pt-10 lg:pb-24">
+              <div className={`grid gap-10 lg:gap-16 items-center ${cartaz ? 'lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]' : ''}`}>
+                {cartaz && (
+                  <div className="relative mx-auto w-full max-w-md lg:max-w-none">
+                    <div aria-hidden className="absolute -inset-6 rounded-[2.5rem] bg-gradient-to-br from-cyan-400/25 via-blue-600/10 to-amber-300/20 blur-2xl" />
+                    <button type="button" onClick={() => setAmpliada({ src: srcCartaz, alt: cartaz.legenda || `Cartaz — ${data.nome}` })}
+                      className="group relative block w-full rounded-[1.75rem] p-px bg-gradient-to-br from-amber-200/70 via-white/15 to-cyan-300/60 shadow-2xl shadow-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                      aria-label="Ampliar cartaz">
+                      <span className="block overflow-hidden rounded-[calc(1.75rem-1px)] bg-black">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={srcCartaz} alt={cartaz.legenda || `Cartaz — ${data.nome}`}
+                          className="w-full max-h-[78vh] object-contain transition-transform duration-700 group-hover:scale-[1.02]" />
+                      </span>
+                      <span className="absolute bottom-4 right-4 inline-flex items-center gap-1.5 text-xs font-medium bg-black/60 backdrop-blur-md border border-white/15 rounded-full px-3 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Expand className="w-3.5 h-3.5" /> Ampliar
+                      </span>
+                    </button>
+                  </div>
                 )}
+
+                <div className={cartaz ? '' : 'max-w-3xl mx-auto text-center'}>
+                  <span className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.3em] text-amber-200">
+                    <span className="w-8 h-px bg-gradient-to-r from-transparent to-amber-200" />
+                    {rotulo}
+                  </span>
+                  <h1 className="mt-5 text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] bg-gradient-to-br from-white via-white to-cyan-100/70 bg-clip-text text-transparent break-words">
+                    {data.nome}
+                  </h1>
+
+                  <dl className={`mt-8 grid gap-3 ${cartaz ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+                    <InfoChip icon={<Calendar className="w-4 h-4" />} label={ePrograma ? 'Período' : 'Data'}
+                      valor={ePrograma ? `${dataTexto} · segunda a sexta` : dataTexto} />
+                    {data.hora && <InfoChip icon={<Clock className="w-4 h-4" />} label="Hora" valor={data.hora} />}
+                    {(data.local || data.unidade) && (
+                      <InfoChip icon={<MapPin className="w-4 h-4" />} label="Local" valor={[data.local, data.unidade].filter(Boolean).join(' — ')} />
+                    )}
+                  </dl>
+
+                  {data.descricao && (
+                    <p className={`mt-8 text-base sm:text-lg text-white/70 leading-relaxed whitespace-pre-wrap ${ePrograma ? 'line-clamp-6' : ''}`}>
+                      {data.descricao}
+                    </p>
+                  )}
+
+                  <div className={`mt-10 flex flex-wrap items-center gap-4 ${cartaz ? '' : 'justify-center'}`}>
+                    {podeInscrever ? (
+                      <a href="#inscricao"
+                        className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-200 via-amber-300 to-amber-400 text-[#1a1203] font-bold px-7 py-3.5 shadow-lg shadow-amber-500/20 hover:shadow-amber-400/40 hover:-translate-y-0.5 transition-all">
+                        {ePrograma ? 'Inscrever agora' : 'Reservar o meu lugar'}
+                        <ArrowDown className="w-4 h-4 transition-transform group-hover:translate-y-0.5" />
+                      </a>
+                    ) : !data.inscricoesAbertas ? (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm text-white/70">
+                        <AlertCircle className="w-4 h-4" /> {data.motivoFechado ?? 'Inscrições encerradas'}
+                      </span>
+                    ) : null}
+                    {ePrograma ? null : <span className="text-xs text-white/40">Vagas limitadas · confirmação pela nossa equipa</span>}
+                  </div>
+                </div>
               </div>
-              {data.formularioTipo === 'PROGRAMA' ? (
-                (data.descricao || data.programa) && (
-                  <details className="mt-4 rounded-xl border border-gray-200 bg-white px-4 py-3">
-                    <summary className="text-sm font-medium text-blue-700 cursor-pointer select-none">Ver detalhes do programa</summary>
-                    {data.descricao && <p className="text-sm text-gray-700 mt-3 whitespace-pre-wrap leading-relaxed">{data.descricao}</p>}
-                    {data.programa && <p className="text-sm text-gray-700 mt-3 whitespace-pre-wrap">{data.programa}</p>}
+            </section>
+
+            {/* Programa e galeria */}
+            {(data.programa || (ePrograma && data.descricao && data.descricao.length > 280) || galeria.length > 0) && (
+              <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-16 space-y-10">
+                {(data.programa || (ePrograma && data.descricao && data.descricao.length > 280)) && (
+                  <details className="group rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-xl p-6 sm:p-8" open={!ePrograma}>
+                    <summary className="flex items-center justify-between cursor-pointer select-none list-none">
+                      <span className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200">{ePrograma ? 'Detalhes do programa' : 'Programa'}</span>
+                      <ChevronDown className="w-5 h-5 text-white/50 transition-transform group-open:rotate-180" />
+                    </summary>
+                    {ePrograma && data.descricao && <p className="mt-5 text-white/75 whitespace-pre-wrap leading-relaxed">{data.descricao}</p>}
+                    {data.programa && <p className="mt-5 text-white/75 whitespace-pre-wrap leading-relaxed">{data.programa}</p>}
                   </details>
-                )
-              ) : (
-                <>
-                  {data.descricao && <p className="text-gray-700 mt-5 whitespace-pre-wrap leading-relaxed">{data.descricao}</p>}
-                  {data.programa && (
-                    <div className="mt-5 bg-blue-50/60 border border-blue-100 rounded-2xl p-4">
-                      <h2 className="text-sm font-semibold text-gray-900 mb-1">Programa</h2>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.programa}</p>
+                )}
+
+                {galeria.length > 0 && (
+                  <div>
+                    <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200 mb-5">Galeria</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+                      {galeria.map((img, i) => {
+                        const src = srcImagemEvento(img.url);
+                        return (
+                          <button key={img.url} type="button" onClick={() => setAmpliada({ src, alt: img.legenda || 'Imagem do evento' })}
+                            className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-left ${i === 0 && galeria.length > 2 ? 'md:col-span-2 md:row-span-2' : ''}`}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={src} alt={img.legenda || 'Imagem do evento'} loading="lazy"
+                              className={`w-full object-cover transition-transform duration-700 group-hover:scale-105 ${i === 0 && galeria.length > 2 ? 'h-44 md:h-full' : 'h-44'}`} />
+                            {img.legenda && (
+                              <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-3 pt-8 pb-2.5 text-xs text-white/90 truncate">{img.legenda}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Inscrição */}
+            <section id="inscricao" className="scroll-mt-6 max-w-3xl mx-auto px-4 sm:px-6 pb-20">
+              <div className="rounded-[2rem] p-px bg-gradient-to-b from-white/25 via-white/5 to-transparent shadow-2xl shadow-black/50">
+                <div className={`rounded-[calc(2rem-1px)] ${ePrograma ? 'bg-gray-50' : 'bg-white'} text-gray-900 p-5 sm:p-10`}>
+                  {!resultado && data.inscricoesAbertas && (
+                    <div className="mb-8 text-center">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.3em] text-blue-600">{ePrograma ? 'Inscrição' : 'Pré-inscrição'}</span>
+                      <h2 className="mt-2 text-2xl sm:text-3xl font-black tracking-tight">Garanta a sua participação</h2>
+                      <p className="mt-2 text-sm text-gray-500">Preencha os dados abaixo. Leva menos de dois minutos.</p>
                     </div>
                   )}
-                </>
-              )}
-              {galeria.length > 0 && (
-                <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {galeria.map((img) => (
-                    <a key={img.url} href={img.url} target="_blank" rel="noopener noreferrer" className="block rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img.url} alt={img.legenda || 'Imagem do evento'} className="w-full h-32 object-cover" loading="lazy" />
-                      {img.legenda && <span className="block text-xs text-gray-600 px-2 py-1 truncate">{img.legenda}</span>}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </header>
 
-            {resultado && data.formularioTipo === 'PROGRAMA' ? (
-              <ResultadoProgramaCard r={resultado} onOutra={() => { setResultado(null); setFormKey((k) => k + 1); }} />
-            ) : resultado ? (
-              <div className="text-center py-12 border border-green-100 bg-green-50/50 rounded-2xl px-6">
-                <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-4" />
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Pré-inscrição recebida!</h2>
-                <p className="text-gray-600 text-sm max-w-md mx-auto">
-                  {resultado.alunos ? `${resultado.alunos} aluno(s) pré-inscrito(s). ` : ''}
-                  Entraremos em contacto para confirmar a participação. A pré-inscrição não garante lugar até à confirmação.
-                </p>
-                <p className="text-xs text-gray-400 mt-4">
-                  Referência <span className="font-mono font-semibold text-gray-600">{resultado.referencia}</span> ·{' '}
-                  {new Date(resultado.submetidoEm).toLocaleString('pt-PT')}
-                </p>
+                  {resultado && ePrograma ? (
+                    <ResultadoProgramaCard r={resultado} onOutra={() => { setResultado(null); setFormKey((k) => k + 1); }} />
+                  ) : resultado ? (
+                    <div className="text-center py-10 px-2">
+                      <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-lg shadow-green-500/30">
+                        <CheckCircle2 className="w-8 h-8 text-white" />
+                      </div>
+                      <h2 className="text-2xl font-black mb-2">Pré-inscrição recebida!</h2>
+                      <p className="text-gray-600 text-sm max-w-md mx-auto">
+                        {resultado.alunos ? `${resultado.alunos} aluno(s) pré-inscrito(s). ` : ''}
+                        Entraremos em contacto para confirmar a participação. A pré-inscrição não garante lugar até à confirmação.
+                      </p>
+                      <p className="text-xs text-gray-400 mt-5">
+                        Referência <span className="font-mono font-semibold text-gray-600">{resultado.referencia}</span> ·{' '}
+                        {new Date(resultado.submetidoEm).toLocaleString('pt-PT')}
+                      </p>
+                    </div>
+                  ) : !data.inscricoesAbertas ? (
+                    <div className="text-center py-10">
+                      <AlertCircle className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-700 font-medium">{data.motivoFechado ?? 'As pré-inscrições estão encerradas.'}</p>
+                    </div>
+                  ) : ePrograma ? (
+                    <FormPrograma key={formKey} token={token} pacotes={data.pacotes ?? []} hoje={data.hoje ?? new Date().toISOString().slice(0, 10)}
+                      periodo={data.periodo ?? { inicio: data.hoje ?? new Date().toISOString().slice(0, 10), fim: null }} inicial={encarregado}
+                      onDone={(r, enc) => { setResultado(r); setEncarregado(enc); }} />
+                  ) : data.formularioTipo === 'ESCOLA' ? (
+                    <FormEscola token={token} horarios={data.formulario.horarios} onDone={setResultado} />
+                  ) : (
+                    <FormIndividual token={token} campos={data.formulario.campos} onDone={setResultado} />
+                  )}
+                </div>
               </div>
-            ) : !data.inscricoesAbertas ? (
-              <div className="text-center py-12 border border-gray-200 bg-gray-50 rounded-2xl px-6">
-                <AlertCircle className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-700 font-medium">{data.motivoFechado ?? 'As pré-inscrições estão encerradas.'}</p>
-              </div>
-            ) : data.formularioTipo === 'PROGRAMA' ? (
-              <FormPrograma key={formKey} token={token} pacotes={data.pacotes ?? []} hoje={data.hoje ?? new Date().toISOString().slice(0, 10)}
-                periodo={data.periodo ?? { inicio: data.hoje ?? new Date().toISOString().slice(0, 10), fim: null }} inicial={encarregado}
-                onDone={(r, enc) => { setResultado(r); setEncarregado(enc); }} />
-            ) : data.formularioTipo === 'ESCOLA' ? (
-              <FormEscola token={token} horarios={data.formulario.horarios} onDone={setResultado} />
-            ) : (
-              <FormIndividual token={token} campos={data.formulario.campos} onDone={setResultado} />
-            )}
+            </section>
           </>
         )}
       </main>
 
-      <footer className="border-t border-gray-100 py-8">
-        <p className="text-center text-gray-400 text-xs">© 2026 Mastchieve. Os seus dados são usados apenas para gerir esta pré-inscrição.</p>
+      <footer className="relative z-10 border-t border-white/10 py-8">
+        <p className="text-center text-white/40 text-xs px-4">© 2026 Mastchieve. Os seus dados são usados apenas para gerir esta inscrição.</p>
       </footer>
+
+      {ampliada && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setAmpliada(null)} role="dialog" aria-modal="true">
+          <button type="button" onClick={() => setAmpliada(null)} className="absolute top-4 right-4 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white" aria-label="Fechar">
+            <X className="w-5 h-5" />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={ampliada.src} alt={ampliada.alt} className="max-w-full max-h-[92vh] object-contain rounded-xl shadow-2xl" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InfoChip({ icon, label, valor }: { icon: React.ReactNode; label: string; valor: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur-xl px-4 py-3.5 text-left">
+      <dt className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">{icon}{label}</dt>
+      <dd className="mt-1 text-sm sm:text-[15px] font-medium text-white first-letter:uppercase">{valor}</dd>
     </div>
   );
 }

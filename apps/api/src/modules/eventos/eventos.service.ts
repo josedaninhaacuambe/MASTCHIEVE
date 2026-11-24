@@ -2,9 +2,9 @@ import {
   Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException, GoneException,
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
-import { open, unlink } from 'fs/promises';
+import { access, open, unlink } from 'fs/promises';
 import { join } from 'path';
-import { formatoPorAssinatura, MAX_IMAGENS_POR_EVENTO } from './eventos-imagens.util';
+import { formatoPorAssinatura, MAX_IMAGENS_POR_EVENTO, NOME_IMAGEM_EVENTO } from './eventos-imagens.util';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
@@ -729,6 +729,16 @@ export class EventosService {
   // ─── Pacotes do evento (staff) ─────────────────────────────────────────────
 
   // ─── Imagens / cartazes ────────────────────────────────────────────────────
+
+  /** Caminho no disco de uma imagem de evento registada; 404 para qualquer outro nome. */
+  async caminhoImagemPublica(nome: string): Promise<string> {
+    if (typeof nome !== 'string' || !NOME_IMAGEM_EVENTO.test(nome)) throw new NotFoundException('Imagem não encontrada');
+    const existe = await this.prisma.eventoImagem.findFirst({ where: { url: `/uploads/${nome}` }, select: { id: true } });
+    if (!existe) throw new NotFoundException('Imagem não encontrada');
+    const caminho = join(process.cwd(), 'uploads', nome);
+    try { await access(caminho); } catch { throw new NotFoundException('Imagem não encontrada'); }
+    return caminho;
+  }
 
   private async apagarFicheiro(url?: string | null) {
     if (!url?.startsWith('/uploads/') || url.includes('..')) return;

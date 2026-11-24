@@ -6,6 +6,8 @@ import { BadRequestException } from '@nestjs/common';
 export const MIME_IMAGEM_EVENTO: Record<string, string> = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
 export const MAX_BYTES_IMAGEM_EVENTO = 8 * 1024 * 1024;
 export const MAX_IMAGENS_POR_EVENTO = 12;
+/** Nome gerado pelo servidor (ver imagemEventoStorage); qualquer outro é recusado ao servir. */
+export const NOME_IMAGEM_EVENTO = /^evento-\d{10,16}-[a-f0-9]{16}\.(jpg|png|webp)$/;
 
 /** Nome aleatório e extensão decidida pelo servidor (nunca pelo nome enviado). */
 export const imagemEventoStorage = diskStorage({
