@@ -28,11 +28,6 @@ const NIVEIS = [
   { v: 'NAO', l: 'Não sabe nadar' }, { v: 'POUCO', l: 'Pouco' }, { v: 'RAZOAVEL', l: 'Razoável' }, { v: 'BEM', l: 'Bem' },
 ];
 
-const PROVAS = [
-  { v: 'CHOURICO', l: 'Chouriço' }, { v: 'PRANCHA', l: 'Prancha' }, { v: 'BRACOS', l: 'Braços' },
-  { v: 'CRAWL', l: 'Crawl' }, { v: 'COSTAS', l: 'Costas' }, { v: 'BRUCOS', l: 'Bruços' },
-];
-
 const input = 'w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500';
 const labelCls = 'block text-sm font-medium text-gray-700 mb-1.5';
 
@@ -172,10 +167,6 @@ export function FormPrograma({ token, pacotes, periodo, hoje, onDone, inicial }:
         </Campo>
         <Campo label="Sabe nadar?">
           <Chips opcoes={NIVEIS} valor={f.nivelNatacao ? [f.nivelNatacao] : []} onToggle={(v) => set('nivelNatacao', f.nivelNatacao === v ? undefined : v)} cols="grid-cols-2 sm:grid-cols-4" />
-        </Campo>
-        <Campo label="Provas em que quer participar">
-          <Chips opcoes={PROVAS} valor={f.provas ?? []} cols="grid-cols-3"
-            onToggle={(v) => set('provas', (f.provas ?? []).includes(v) ? f.provas.filter((x: string) => x !== v) : [...(f.provas ?? []), v])} />
         </Campo>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Campo label="Condição de saúde / alergia?">

@@ -362,6 +362,7 @@ export default function EventoPublicoPage({ params }: { params: { token: string 
   const cartaz = data?.imagens?.find((i) => i.cartaz) ?? null;
   const galeria = (data?.imagens ?? []).filter((i) => i !== cartaz);
   const [ampliada, setAmpliada] = useState<{ src: string; alt: string } | null>(null);
+  const [verDetalhes, setVerDetalhes] = useState(false);
 
   useEffect(() => {
     if (!ampliada) return;
@@ -377,6 +378,7 @@ export default function EventoPublicoPage({ params }: { params: { token: string 
       ? `${fmtDia(data.periodo.inicio)}${data.periodo.fim ? ` a ${fmtDia(data.periodo.fim)}` : ''}`
       : new Date(data.data).toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     : '';
+  const temDetalhes = !!(data?.descricao?.trim() || data?.programa?.trim());
   const podeInscrever = !!data && data.inscricoesAbertas && !resultado;
   const srcCartaz = cartaz ? srcImagemEvento(cartaz.url) : '';
 
@@ -467,12 +469,6 @@ export default function EventoPublicoPage({ params }: { params: { token: string 
                     )}
                   </dl>
 
-                  {data.descricao && (
-                    <p className={`mt-8 text-base sm:text-lg text-white/70 leading-relaxed whitespace-pre-wrap ${ePrograma ? 'line-clamp-6' : ''}`}>
-                      {data.descricao}
-                    </p>
-                  )}
-
                   <div className={`mt-10 flex flex-wrap items-center gap-4 ${cartaz ? '' : 'justify-center'}`}>
                     {podeInscrever ? (
                       <a href="#inscricao"
@@ -485,6 +481,18 @@ export default function EventoPublicoPage({ params }: { params: { token: string 
                         <AlertCircle className="w-4 h-4" /> {data.motivoFechado ?? 'Inscrições encerradas'}
                       </span>
                     ) : null}
+                    {temDetalhes && (
+                      <button type="button" aria-expanded={verDetalhes} aria-controls="detalhes-evento"
+                        onClick={() => {
+                          const abrir = !verDetalhes;
+                          setVerDetalhes(abrir);
+                          if (abrir) setTimeout(() => document.getElementById('detalhes-evento')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 px-6 py-3.5 text-sm font-semibold text-white transition-colors">
+                        {verDetalhes ? 'Esconder detalhes' : 'Mais detalhes do evento'}
+                        <ChevronDown className={`w-4 h-4 transition-transform ${verDetalhes ? 'rotate-180' : ''}`} />
+                      </button>
+                    )}
                     {ePrograma ? null : <span className="text-xs text-white/40">Vagas limitadas · confirmação pela nossa equipa</span>}
                   </div>
                 </div>
@@ -492,17 +500,21 @@ export default function EventoPublicoPage({ params }: { params: { token: string 
             </section>
 
             {/* Programa e galeria */}
-            {(data.programa || (ePrograma && data.descricao && data.descricao.length > 280) || galeria.length > 0) && (
+            {((temDetalhes && verDetalhes) || galeria.length > 0) && (
               <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-16 space-y-10">
-                {(data.programa || (ePrograma && data.descricao && data.descricao.length > 280)) && (
-                  <details className="group rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-xl p-6 sm:p-8" open={!ePrograma}>
-                    <summary className="flex items-center justify-between cursor-pointer select-none list-none">
-                      <span className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200">{ePrograma ? 'Detalhes do programa' : 'Programa'}</span>
-                      <ChevronDown className="w-5 h-5 text-white/50 transition-transform group-open:rotate-180" />
-                    </summary>
-                    {ePrograma && data.descricao && <p className="mt-5 text-white/75 whitespace-pre-wrap leading-relaxed">{data.descricao}</p>}
-                    {data.programa && <p className="mt-5 text-white/75 whitespace-pre-wrap leading-relaxed">{data.programa}</p>}
-                  </details>
+                {temDetalhes && verDetalhes && (
+                  <div id="detalhes-evento" className="scroll-mt-6 rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-xl p-6 sm:p-10">
+                    <div className="flex items-center justify-between gap-3 mb-6">
+                      <span className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200">Detalhes do evento</span>
+                      <button type="button" onClick={() => setVerDetalhes(false)} className="p-2 rounded-full text-white/50 hover:text-white hover:bg-white/10" aria-label="Esconder detalhes">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="max-w-3xl space-y-4">
+                      {data.descricao && <TextoFormatado texto={data.descricao} />}
+                      {data.programa && <TextoFormatado texto={data.programa} />}
+                    </div>
+                  </div>
                 )}
 
                 {galeria.length > 0 && (
@@ -593,6 +605,28 @@ export default function EventoPublicoPage({ params }: { params: { token: string 
         </div>
       )}
     </div>
+  );
+}
+
+/** Mostra o texto do evento por parágrafos; linhas todas em maiúsculas ficam como títulos de secção. */
+function TextoFormatado({ texto }: { texto: string }) {
+  const blocos = texto.replace(/\r\n/g, '\n').split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+  const eTitulo = (l: string) => l.length <= 80 && /[A-ZÀ-Ý]/.test(l) && l === l.toLocaleUpperCase('pt-PT') && !/^\S+:\s/.test(l);
+  return (
+    <>
+      {blocos.map((b, i) => {
+        const [primeira, ...resto] = b.split('\n');
+        if (eTitulo(primeira)) {
+          return (
+            <div key={i} className={i > 0 ? 'pt-4' : ''}>
+              <h3 className={i === 0 ? 'text-xl sm:text-2xl font-black tracking-tight text-white' : 'text-xs font-bold uppercase tracking-[0.25em] text-amber-200'}>{primeira}</h3>
+              {resto.length > 0 && <p className="mt-2 text-white/75 leading-relaxed whitespace-pre-wrap">{resto.join('\n')}</p>}
+            </div>
+          );
+        }
+        return <p key={i} className="text-white/75 leading-relaxed whitespace-pre-wrap">{b}</p>;
+      })}
+    </>
   );
 }
 
