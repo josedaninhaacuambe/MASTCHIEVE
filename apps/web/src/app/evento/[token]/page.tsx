@@ -28,10 +28,6 @@ interface EventoPublico {
   motivoFechado?: string | null;
 }
 
-const PROVAS = [
-  { v: 'CHOURICO', l: 'Chouriço' }, { v: 'PRANCHA', l: 'Prancha' }, { v: 'BRACOS', l: 'Braços' },
-  { v: 'CRAWL', l: 'Crawl' }, { v: 'COSTAS', l: 'Costas' }, { v: 'BRUCOS', l: 'Bruços' },
-];
 const NIVEIS = [
   { v: 'NAO', l: 'Não sei nadar' }, { v: 'POUCO', l: 'Pouco' }, { v: 'RAZOAVEL', l: 'Razoável' }, { v: 'BEM', l: 'Bem' },
 ];
@@ -71,7 +67,7 @@ function SimNao({ value, onChange }: { value?: boolean; onChange: (v: boolean) =
 
 function FormIndividual({ token, campos, onDone }: { token: string; campos: string[]; onDone: (r: any) => void }) {
   const on = (c: string) => campos.includes(c);
-  const [f, setF] = useState<any>({ provas: [] as string[], declaracao: false, website: '' });
+  const [f, setF] = useState<any>({ declaracao: false, website: '' });
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
@@ -138,22 +134,6 @@ function FormIndividual({ token, campos, onDone }: { token: string; campos: stri
         )}
       </div>
 
-      {on('provas') && (
-        <Campo label="Provas em que quer participar">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {PROVAS.map((p) => {
-              const sel = f.provas.includes(p.v);
-              return (
-                <button key={p.v} type="button"
-                  onClick={() => set('provas', sel ? f.provas.filter((x: string) => x !== p.v) : [...f.provas, p.v])}
-                  className={`py-2 rounded-xl text-sm border transition ${sel ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>
-                  {p.l}
-                </button>
-              );
-            })}
-          </div>
-        </Campo>
-      )}
       {on('experienciaPrevia') && (
         <Campo label="Já participou anteriormente em aulas de natação?">
           <SimNao value={f.experienciaPrevia} onChange={(v) => set('experienciaPrevia', v)} />

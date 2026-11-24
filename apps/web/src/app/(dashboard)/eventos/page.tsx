@@ -24,7 +24,7 @@ const ORIGEM_LABEL: Record<string, string> = { MANUAL: 'Manual', PRE_INSCRICAO: 
 
 const CAMPOS_INDIVIDUAL = [
   { v: 'nomePreferido', l: 'Nome preferido' }, { v: 'genero', l: 'Género' }, { v: 'dataNascimento', l: 'Data de nascimento' },
-  { v: 'email', l: 'Email' }, { v: 'documentoIdentificacao', l: 'Nº documento de identificação' }, { v: 'provas', l: 'Provas' },
+  { v: 'email', l: 'Email' }, { v: 'documentoIdentificacao', l: 'Nº documento de identificação' },
   { v: 'experienciaPrevia', l: 'Experiência anterior' }, { v: 'comoConheceu', l: 'Como teve conhecimento' },
   { v: 'nivelNatacao', l: 'Sabe nadar?' }, { v: 'condicaoSaude', l: 'Condição de saúde' },
   { v: 'contactoEmergencia', l: 'Contacto de emergência' }, { v: 'instituicao', l: 'Instituição' },
