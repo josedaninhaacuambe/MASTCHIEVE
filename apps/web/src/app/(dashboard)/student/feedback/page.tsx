@@ -5,8 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { cn, timeAgo } from '@/lib/utils';
 import {
-  Brain, ChevronDown, ChevronUp, Star, Clock, CheckCircle,
-  Send, Sparkles, Play, ExternalLink, Timer, RotateCcw,
+  MessageSquareText, ChevronDown, ChevronUp, Star, Clock, CheckCircle,
+  Send, Zap, Play, ExternalLink, Timer, RotateCcw,
   Check, Dumbbell, Youtube, MessageSquare, BookOpen,
 } from 'lucide-react';
 
@@ -62,7 +62,7 @@ function ExerciseTimer({ durationMinutes }: { durationMinutes: number }) {
           <circle cx="18" cy="18" r="14" fill="none" stroke="#E5E7EB" strokeWidth="3" />
           <circle
             cx="18" cy="18" r="14" fill="none"
-            stroke={done ? '#10b981' : '#1A56DB'} strokeWidth="3" strokeLinecap="round"
+            stroke={done ? '#10b981' : '#2B3592'} strokeWidth="3" strokeLinecap="round"
             strokeDasharray={`${pct * 87.96 / 100} 87.96`}
           />
         </svg>
@@ -275,7 +275,7 @@ function ExerciseCard({ exercise, fbId, index }: { exercise: any; fbId: string; 
 
 const statusCfg: Record<string, { label: string; color: string; icon: any }> = {
   PENDING:   { label: 'Pendente',  color: 'bg-amber-100 text-amber-700 border-amber-200',   icon: Clock },
-  GENERATED: { label: 'Gerado',   color: 'bg-blue-100 text-blue-700 border-blue-200',       icon: Sparkles },
+  GENERATED: { label: 'Gerado',   color: 'bg-blue-100 text-blue-700 border-blue-200',       icon: Zap },
   REVIEWED:  { label: 'Revisto',  color: 'bg-purple-100 text-purple-700 border-purple-200', icon: Star },
   SENT:      { label: 'Recebido', color: 'bg-green-100 text-green-700 border-green-200',    icon: CheckCircle },
 };
@@ -297,7 +297,7 @@ function FeedbackCard({ fb }: { fb: any }) {
   const hasExtras = hasLessons || hasExercises;
 
   const tabs: { id: Tab; label: string; icon: any; count?: number; show: boolean }[] = ([
-    { id: 'feedback' as Tab,   label: 'Feedback IA', icon: MessageSquare, show: true },
+    { id: 'feedback' as Tab,   label: 'Feedback', icon: MessageSquare, show: true },
     { id: 'aulas' as Tab,      label: 'Aulas',        icon: Youtube,       count: lessons.length,   show: hasLessons },
     { id: 'exercicios' as Tab, label: 'Exercícios',   icon: Dumbbell,      count: exercises.length, show: hasExercises },
   ] as const).filter((t) => t.show) as { id: Tab; label: string; icon: any; count?: number; show: boolean }[];
@@ -320,7 +320,7 @@ function FeedbackCard({ fb }: { fb: any }) {
             </span>
             {confidence !== null && (
               <span className="text-xs text-violet-700 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-full font-semibold">
-                IA {confidence}%
+                Confiança {confidence}%
               </span>
             )}
             {hasLessons && (
@@ -336,7 +336,7 @@ function FeedbackCard({ fb }: { fb: any }) {
             <span className="text-xs text-gray-400 ml-auto">{timeAgo(fb.createdAt)}</span>
           </div>
           <p className="text-sm text-gray-600 mt-2 leading-relaxed line-clamp-2">
-            {text || 'A aguardar geração do feedback pela IA...'}
+            {text || 'A preparar o feedback...'}
           </p>
         </div>
 
@@ -390,8 +390,8 @@ function FeedbackCard({ fb }: { fb: any }) {
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-400 text-sm">
-                    <Brain className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    Feedback ainda a ser gerado pela IA...
+                    <MessageSquareText className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    O feedback ainda está a ser preparado...
                   </div>
                 )}
                 {fb.sentToStudentAt && (
@@ -437,7 +437,7 @@ function FeedbackCard({ fb }: { fb: any }) {
               <div className="space-y-3">
                 <p className="text-xs text-gray-500 flex items-center gap-1.5 mb-3">
                   <Youtube className="w-3.5 h-3.5 text-red-500" />
-                  Vídeos selecionados pela IA para ajudar na tua evolução
+                  Vídeos selecionados para ajudar na tua evolução
                 </p>
                 {lessons.map((lesson: any, i: number) => (
                   <LessonCard key={i} lesson={lesson} index={i} />
@@ -498,8 +498,8 @@ export default function StudentFeedbackPage() {
     <div className="space-y-5 max-w-2xl mx-auto">
       {/* Header */}
       <div>
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Os Meus Feedbacks IA</h1>
-        <p className="text-gray-500 text-sm mt-1">Relatórios, aulas e exercícios gerados pela inteligência artificial Mastchieve</p>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Os Meus Feedbacks</h1>
+        <p className="text-gray-500 text-sm mt-1">Relatórios, aulas e exercícios preparados pela Mastchieve</p>
       </div>
 
       {/* Stats row */}
@@ -541,12 +541,12 @@ export default function StudentFeedbackPage() {
       {/* AI explanation banner */}
       <div className="flex items-start gap-3 bg-gradient-to-br from-violet-50 to-blue-50 border border-violet-100 rounded-2xl p-4">
         <div className="w-8 h-8 bg-violet-600 rounded-xl flex items-center justify-center flex-shrink-0">
-          <Brain className="w-4 h-4 text-white" />
+          <MessageSquareText className="w-4 h-4 text-white" />
         </div>
         <div>
-          <div className="text-sm font-semibold text-violet-900">Como funciona o Feedback IA?</div>
+          <div className="text-sm font-semibold text-violet-900">Como funciona o feedback?</div>
           <p className="text-xs text-violet-700 mt-0.5 leading-relaxed">
-            Após cada avaliação, a IA Mastchieve analisa o teu desempenho e gera um relatório personalizado
+            Após cada avaliação, a Mastchieve analisa o teu desempenho e gera um relatório personalizado
             com <strong>feedback técnico</strong>, <strong>aulas em vídeo</strong> recomendadas e <strong>exercícios interativos</strong> para melhorar.
           </p>
         </div>
@@ -575,7 +575,7 @@ export default function StudentFeedbackPage() {
 
         {!isLoading && feedbacks.length === 0 && (
           <div className="text-center py-16 text-gray-400 bg-white rounded-2xl border-2 border-dashed border-gray-200">
-            <Brain className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <MessageSquareText className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="text-sm font-medium">Nenhum feedback encontrado</p>
             <p className="text-xs mt-1 text-gray-400">Os feedbacks são gerados automaticamente após cada avaliação</p>
           </div>

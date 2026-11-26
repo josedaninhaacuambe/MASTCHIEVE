@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/stores/auth.store';
 import Link from 'next/link';
 import {
-  BookOpen, Users, MessageSquare, Activity, Brain,
+  BookOpen, Users, MessageSquare, Activity, MessageSquareText,
   Clock, ChevronRight, AlertCircle, CheckCircle,
   TrendingUp, Zap, ClipboardList, Fish, Waves,
 } from 'lucide-react';
@@ -103,7 +103,7 @@ function EmptyState({
       {actionLabel && actionHref && (
         <Link
           href={actionHref}
-          className="text-xs font-semibold text-[#1A56DB] hover:text-blue-800 hover:underline"
+          className="text-xs font-semibold text-[#2B3592] hover:text-blue-800 hover:underline"
         >
           {actionLabel}
         </Link>
@@ -228,7 +228,7 @@ export default function InstructorPage() {
     <div className="space-y-6">
 
       {/* ── HERO BANNER ─────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1A3A9C] via-[#1A56DB] to-violet-600 p-6 md:p-8 text-white">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#232B78] via-[#2B3592] to-violet-600 p-6 md:p-8 text-white">
         {/* decorations */}
         <div className="absolute -right-12 -top-12 w-56 h-56 rounded-full bg-white/5 pointer-events-none" />
         <div className="absolute right-24 -bottom-8 w-32 h-32 rounded-full bg-white/5 pointer-events-none" />
@@ -242,10 +242,10 @@ export default function InstructorPage() {
             <h1 className="text-2xl sm:text-3xl font-black leading-tight">
               {greeting()}, {firstName}!
             </h1>
-            <p className="text-white/60 text-sm mt-1">Portal do Instrutor — Mastchieve IA</p>
+            <p className="text-white/60 text-sm mt-1">Portal do Instrutor — Mastchieve</p>
             <div className="mt-3">
               <span className="inline-flex items-center gap-1.5 bg-white/15 border border-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
-                <Brain className="w-3.5 h-3.5 text-violet-200" />
+                <MessageSquareText className="w-3.5 h-3.5 text-violet-200" />
                 INSTRUCTOR
               </span>
             </div>
@@ -318,7 +318,7 @@ export default function InstructorPage() {
           title="As Minhas Turmas"
           subtitle="Turmas activas atribuídas"
           action={
-            <Link href="/classes" className="text-xs text-[#1A56DB] font-semibold hover:underline flex items-center gap-0.5">
+            <Link href="/classes" className="text-xs text-[#2B3592] font-semibold hover:underline flex items-center gap-0.5">
               Ver todas <ChevronRight className="w-3 h-3" />
             </Link>
           }
@@ -381,7 +381,7 @@ export default function InstructorPage() {
           title="Atletas por Avaliar"
           subtitle="Sem avaliação nos últimos 7 dias"
           action={
-            <Link href="/students" className="text-xs text-[#1A56DB] font-semibold hover:underline flex items-center gap-0.5">
+            <Link href="/students" className="text-xs text-[#2B3592] font-semibold hover:underline flex items-center gap-0.5">
               Ver atletas <ChevronRight className="w-3 h-3" />
             </Link>
           }
@@ -411,7 +411,7 @@ export default function InstructorPage() {
                     href={`/students/${student.id}`}
                     className="flex items-center gap-3 px-4 py-3 hover:bg-amber-50 transition-colors"
                   >
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#1A3A9C] to-[#1A56DB] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#232B78] to-[#2B3592] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -439,9 +439,9 @@ export default function InstructorPage() {
           iconBg="bg-blue-100"
           iconColor="text-blue-600"
           title="Feedbacks por Rever"
-          subtitle="Gerados pela IA — aguardam aprovação"
+          subtitle="Gerados automaticamente — aguardam aprovação"
           action={
-            <Link href="/feedback" className="text-xs text-[#1A56DB] font-semibold hover:underline flex items-center gap-0.5">
+            <Link href="/feedback" className="text-xs text-[#2B3592] font-semibold hover:underline flex items-center gap-0.5">
               Ver todos <ChevronRight className="w-3 h-3" />
             </Link>
           }
@@ -476,7 +476,7 @@ export default function InstructorPage() {
                       <p className="text-sm font-semibold text-gray-900 truncate">{studentName}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="flex items-center gap-1 text-xs text-blue-500">
-                          <Brain className="w-3 h-3" />IA Gerado
+                          <MessageSquareText className="w-3 h-3" />Automático
                         </span>
                         {confidence && (
                           <span className="text-xs text-gray-400">{confidence}</span>
@@ -485,7 +485,7 @@ export default function InstructorPage() {
                     </div>
                     <Link
                       href={`/students/${fb.studentId}`}
-                      className="text-xs font-semibold text-white bg-[#1A56DB] hover:bg-blue-700 px-3 py-1.5 rounded-lg transition flex-shrink-0"
+                      className="text-xs font-semibold text-white bg-[#2B3592] hover:bg-blue-700 px-3 py-1.5 rounded-lg transition flex-shrink-0"
                     >
                       Revisar
                     </Link>
@@ -504,7 +504,7 @@ export default function InstructorPage() {
           title="Avaliações Recentes"
           subtitle="Últimas 5 avaliações registadas"
           action={
-            <Link href="/students" className="text-xs text-[#1A56DB] font-semibold hover:underline flex items-center gap-0.5">
+            <Link href="/students" className="text-xs text-[#2B3592] font-semibold hover:underline flex items-center gap-0.5">
               Ver atletas <ChevronRight className="w-3 h-3" />
             </Link>
           }
@@ -572,8 +572,8 @@ export default function InstructorPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Registar Presenças', icon: ClipboardList, href: '/attendance', color: 'from-blue-600 to-blue-700' },
-            { label: 'Gerar Feedback IA', icon: Brain, href: '/feedback', color: 'from-violet-600 to-purple-700' },
-            { label: 'Ver Atletas', icon: Users, href: '/students', color: 'from-[#1A3A9C] to-[#1A56DB]' },
+            { label: 'Gerar feedback', icon: MessageSquareText, href: '/feedback', color: 'from-violet-600 to-purple-700' },
+            { label: 'Ver Atletas', icon: Users, href: '/students', color: 'from-[#232B78] to-[#2B3592]' },
             { label: 'As Minhas Turmas', icon: BookOpen, href: '/classes', color: 'from-emerald-600 to-teal-600' },
           ].map((action) => {
             const Icon = action.icon;

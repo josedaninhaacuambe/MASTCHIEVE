@@ -282,7 +282,7 @@ export default function ChildDetailPage() {
             <div key={fb.id} className="bg-white border border-gray-200 rounded-2xl p-5">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs text-gray-400">{formatDate(fb.createdAt)}</span>
-                <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">IA</span>
+                <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">Auto</span>
               </div>
               <p className="text-sm text-gray-700 leading-relaxed">
                 {fb.finalText ?? fb.aiGeneratedText ?? '—'}

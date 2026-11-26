@@ -2,12 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import {
-  Waves, Sparkles, Trophy, Users, Brain, Star, ChevronRight,
-  CheckCircle2, ArrowRight, Play, Shield, Zap, TrendingUp,
-  Award, Clock, Target, BarChart3, Heart, Globe,
-} from 'lucide-react';
+import { Zap, Trophy, Users, MessageSquareText, Star, ChevronRight, CheckCircle2, ArrowRight, Play, Shield, TrendingUp, Award, Clock, Target, BarChart3, Heart, Globe } from 'lucide-react';
 
+import { Logo } from '@/components/brand/Logo';
 /* ── Animated counter ── */
 function Counter({ end, suffix = '', duration = 2000 }: { end: number; suffix?: string; duration?: number }) {
   const [count, setCount] = useState(0);
@@ -60,19 +57,19 @@ function Particles() {
 }
 
 const testimonials = [
-  { name: 'Ana Rodrigues', role: 'Atleta — 14 anos', text: 'Em 3 meses passei de bronze a ouro no módulo de costas. A IA acompanhou cada detalhe da minha evolução!', avatar: 'A', stars: 5 },
+  { name: 'Ana Rodrigues', role: 'Atleta — 14 anos', text: 'Em 3 meses passei de bronze a ouro no módulo de costas. Acompanhei cada detalhe da minha evolução!', avatar: 'A', stars: 5 },
   { name: 'Carlos Mendes', role: 'Instrutor Principal', text: 'Nunca tive uma ferramenta tão poderosa. O feedback automático poupa-me 2 horas por dia e os atletas evoluem muito mais rápido.', avatar: 'C', stars: 5 },
   { name: 'Sofia Ferreira', role: 'Pai de atleta', text: 'Consigo acompanhar em tempo real o progresso do meu filho. Os relatórios são claros e motivadores. Excelente!', avatar: 'S', stars: 5 },
   { name: 'Rui Santos', role: 'Atleta — 17 anos', text: 'Os vídeos recomendados e os exercícios personalizados fizeram toda a diferença para a minha técnica de mariposa.', avatar: 'R', stars: 5 },
 ];
 
 const features = [
-  { icon: Brain, title: 'IA Adaptativa', desc: 'Análise em tempo real do desempenho de cada atleta com recomendações personalizadas e planos de treino gerados automaticamente.', color: 'from-violet-500 to-purple-600' },
+  { icon: MessageSquareText, title: 'Planos adaptativos', desc: 'Análise em tempo real do desempenho de cada atleta com recomendações personalizadas e planos de treino gerados automaticamente.', color: 'from-violet-500 to-purple-600' },
   { icon: TrendingUp, title: 'Progresso Visual', desc: 'Dashboard interativo com gráficos de evolução, conquistas desbloqueáveis e métricas por módulo de natação.', color: 'from-blue-500 to-cyan-600' },
   { icon: BarChart3, title: 'Analytics Avançado', desc: 'KPIs em tempo real para treinadores e administradores. Decisões baseadas em dados, não em intuição.', color: 'from-emerald-500 to-teal-600' },
   { icon: Award, title: 'Gamificação', desc: 'Sistema de conquistas, níveis e badges que mantém os atletas motivados e comprometidos com a evolução.', color: 'from-orange-500 to-amber-600' },
   { icon: Shield, title: 'Gestão Financeira', desc: 'Controlo total de mensalidades, histórico de pagamentos, alertas automáticos e relatórios financeiros completos.', color: 'from-rose-500 to-pink-600' },
-  { icon: Target, title: 'Planos de Treino', desc: 'Planos gerados por IA com base no nível e objetivos de cada atleta, com vídeos de YouTube integrados.', color: 'from-indigo-500 to-blue-600' },
+  { icon: Target, title: 'Planos de Treino', desc: 'Planos ajustados ao nível e aos objetivos de cada atleta, com vídeos de apoio integrados.', color: 'from-indigo-500 to-blue-600' },
 ];
 
 const plans = [
@@ -90,7 +87,7 @@ const plans = [
     price: '99',
     period: '/mês',
     desc: 'O favorito dos campeões',
-    features: ['Atletas ilimitados', 'IA completa', 'Planos automáticos', 'Analytics avançado', 'App mobile', 'Suporte prioritário'],
+    features: ['Atletas ilimitados', 'Análises completas', 'Planos automáticos', 'Analytics avançado', 'App mobile', 'Suporte prioritário'],
     cta: 'Experimentar 14 dias',
     popular: true,
   },
@@ -120,15 +117,7 @@ export default function LandingPage() {
       {/* ── NAVBAR ── */}
       <nav className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
-              <Waves className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold text-xl text-gray-900 tracking-tight">Mastchieve</span>
-            <span className="hidden sm:flex items-center gap-1 bg-blue-50 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-blue-200">
-              <Sparkles className="w-3 h-3" /> IA
-            </span>
-          </div>
+          <Link href="/" aria-label="Mastchieve"><Logo className="h-9" /></Link>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
             <a href="#features" className="hover:text-blue-600 transition-colors">Funcionalidades</a>
             <a href="#stats" className="hover:text-blue-600 transition-colors">Resultados</a>
@@ -150,7 +139,7 @@ export default function LandingPage() {
       </nav>
 
       {/* ── HERO ── */}
-      <section className="relative min-h-screen flex items-center pt-16 overflow-hidden" style={{ background: 'linear-gradient(135deg, #0F1F5C 0%, #1A3A9C 40%, #1A56DB 70%, #0891B2 100%)' }}>
+      <section className="relative min-h-screen flex items-center pt-16 overflow-hidden" style={{ background: 'linear-gradient(135deg, #181E50 0%, #232B78 40%, #2B3592 70%, #0891B2 100%)' }}>
         <Particles />
         <div className="absolute top-1/4 right-0 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-600/20 rounded-full blur-3xl" />
@@ -176,7 +165,7 @@ export default function LandingPage() {
             </h1>
 
             <p className="text-lg text-white/75 leading-relaxed mb-8 max-w-xl">
-              IA que analisa, personaliza e acelera a evolução de cada nadador. Feedback automático, planos de treino inteligentes e dashboards em tempo real — tudo numa única plataforma.
+              Uma plataforma que acompanha, organiza e acelera a evolução de cada nadador. Feedback automático, planos de treino inteligentes e dashboards em tempo real — tudo numa única plataforma.
             </p>
 
             <div className="flex items-center gap-2 bg-amber-400/20 border border-amber-400/40 rounded-xl px-4 py-2.5 mb-8 w-fit">
@@ -247,9 +236,9 @@ export default function LandingPage() {
                 </div>
               </div>
               <div className="flex items-start gap-3 bg-violet-500/20 border border-violet-400/30 rounded-xl p-3">
-                <Brain className="w-5 h-5 text-violet-300 mt-0.5 flex-shrink-0" />
+                <MessageSquareText className="w-5 h-5 text-violet-300 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-white text-xs font-semibold mb-0.5">IA recomenda:</p>
+                  <p className="text-white text-xs font-semibold mb-0.5">Recomendação:</p>
                   <p className="text-white/70 text-[11px] leading-relaxed">Foca na rotação dos ombros durante a saída da viragem. Ver Vídeo #3 →</p>
                 </div>
               </div>
@@ -298,7 +287,7 @@ export default function LandingPage() {
               Funcionalidades que fazem a diferença
             </h2>
             <p className="text-gray-500 max-w-2xl mx-auto text-lg">
-              Uma plataforma completa, desenhada por especialistas em natação e engenheiros de IA, para maximizar o potencial de cada atleta.
+              Uma plataforma completa, desenhada por especialistas em natação e em tecnologia, para maximizar o potencial de cada atleta.
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -404,7 +393,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── CTA FINAL ── */}
-      <section className="py-24 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0F1F5C 0%, #1A3A9C 50%, #1A56DB 100%)' }}>
+      <section className="py-24 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #181E50 0%, #232B78 50%, #2B3592 100%)' }}>
         <Particles />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-white/80 px-4 py-1.5 rounded-full text-sm font-medium mb-6">
@@ -414,7 +403,7 @@ export default function LandingPage() {
             Pronto para transformar<br /> o teu clube de natação?
           </h2>
           <p className="text-white/70 text-lg mb-10 max-w-2xl mx-auto">
-            Junta-te a mais de 1.200 atletas que já estão a usar a IA para superar os seus limites. Começa hoje, sem riscos.
+            Junta-te a mais de 1.200 atletas que já estão a usar a Mastchieve para superar os seus limites. Começa hoje, sem riscos.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -437,12 +426,7 @@ export default function LandingPage() {
       <footer className="bg-gray-900 text-gray-400 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center">
-                <Waves className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-white font-bold">Mastchieve IA</span>
-            </div>
+            <Logo fundo="escuro" className="h-8" />
             <p className="text-sm">© 2026 Mastchieve. Todos os direitos reservados.</p>
             <div className="flex items-center gap-4 text-sm">
               <a href="#" className="hover:text-white transition-colors">Privacidade</a>

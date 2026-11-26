@@ -30,7 +30,7 @@ function printCertificate(c: any) {
 </style></head><body>
 <div class="cert">
   <div class="logo">MASTCHIEVE</div>
-  <div class="sub">Plataforma de Natação com IA</div>
+  <div class="sub">Plataforma de gestão de natação</div>
   <div class="declara">Certifica-se que</div>
   <div class="nome">${nomeAluno}</div>
   <div class="fase">concluiu com sucesso o módulo <strong>${c.fase?.nome ?? '—'}</strong></div>

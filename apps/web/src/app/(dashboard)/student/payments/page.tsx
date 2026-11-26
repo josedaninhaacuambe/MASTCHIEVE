@@ -12,6 +12,7 @@ import {
   Star, Info, Download, History, ChevronDown, ChevronUp,
 } from 'lucide-react';
 
+import { Logo } from '@/components/brand/Logo';
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 const MONTHS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -49,7 +50,7 @@ function ReceiptModal({ payment, onClose }: { payment: any; onClose: () => void 
             <Receipt className="w-6 h-6 text-white" />
           </div>
           <div className="text-xs text-white/70 uppercase tracking-widest">Recibo de Pagamento</div>
-          <div className="text-2xl font-bold mt-1">Mastchieve</div>
+          <Logo fundo="escuro" className="h-8 mx-auto mt-2" />
         </div>
 
         {/* Body */}

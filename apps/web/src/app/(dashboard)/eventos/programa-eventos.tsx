@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
-import { Plus, Trash2, Pencil, Check, X, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Pencil, Check, X, Zap } from 'lucide-react';
 
 export const fmtMt = (v?: number | null) => (v == null ? '' : `${Number(v).toLocaleString('pt-PT', { maximumFractionDigits: 2 })} MT`);
 /** Datas @db.Date chegam como 'YYYY-MM-DDT00:00:00.000Z' — mostra o dia sem conversão de fuso. */
@@ -167,7 +167,7 @@ export function PacotesTab({ evento, podeEditar }: { evento: any; podeEditar: bo
             <Plus className="w-3.5 h-3.5" /> Novo pacote
           </button>
           <button onClick={criarFolheto} disabled={busy} className="inline-flex items-center gap-1.5 text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-50">
-            <Sparkles className="w-3.5 h-3.5" /> Criar pacotes do folheto (750 / 1 750 / 3 000 / 5 500 MT)
+            <Zap className="w-3.5 h-3.5" /> Criar pacotes do folheto (750 / 1 750 / 3 000 / 5 500 MT)
           </button>
         </div>
       )}

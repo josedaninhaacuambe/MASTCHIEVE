@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import Link from 'next/link';
 import {
-  TrendingUp, Activity, Brain,
+  TrendingUp, Activity, MessageSquareText,
   ArrowUpRight, ArrowDownRight, Zap, Target,
   ChevronRight, CreditCard, Waves, Star, Award, Trophy, AlertCircle,
 } from 'lucide-react';
@@ -155,8 +155,8 @@ export function StudentDashboard({ user }: { user: any }) {
     },
     {
       href: '/student/feedback',
-      icon: Brain,
-      label: 'Feedback IA',
+      icon: MessageSquareText,
+      label: 'Feedback',
       sub: latestFeedback?.status === 'SENT' ? 'Novo relatório disponível!' : `${me?.feedbacks?.length ?? 0} relatórios`,
       grad: 'from-blue-600 to-cyan-600',
       glow: 'shadow-blue-500/30',
@@ -200,7 +200,7 @@ export function StudentDashboard({ user }: { user: any }) {
       {/* ══ HERO ═══════════════════════════════════════════════════════════════ */}
       <div
         className="relative overflow-hidden rounded-3xl text-white"
-        style={{ background: 'linear-gradient(135deg, #0B1640 0%, #0F1F5C 30%, #1A3A9C 65%, #1A56DB 100%)', minHeight: 260 }}
+        style={{ background: 'linear-gradient(135deg, #0B1640 0%, #181E50 30%, #232B78 65%, #2B3592 100%)', minHeight: 260 }}
       >
         {/* Decorative blobs */}
         <div className="absolute -right-20 -top-20 w-72 h-72 rounded-full bg-blue-400/10 blur-2xl pointer-events-none" />
@@ -416,7 +416,7 @@ export function StudentDashboard({ user }: { user: any }) {
                           <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
                             <circle cx="18" cy="18" r="14" fill="none" stroke="#f3f4f6" strokeWidth="4" />
                             <circle cx="18" cy="18" r="14" fill="none"
-                              stroke={['#8b5cf6','#3b82f6','#06b6d4','#10b981','#f59e0b'][i]}
+                              stroke={['#8b5cf6','#3C48A8','#06b6d4','#10b981','#f59e0b'][i]}
                               strokeWidth="4" strokeLinecap="round"
                               strokeDasharray={`${pct * 0.8796} 87.96`}
                               style={{ transition: 'stroke-dasharray 1s ease' }}
@@ -463,10 +463,10 @@ export function StudentDashboard({ user }: { user: any }) {
               <div className="px-5 py-4 flex items-center justify-between border-b border-gray-50">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-violet-600 rounded-xl flex items-center justify-center">
-                    <Brain className="w-4 h-4 text-white" />
+                    <MessageSquareText className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900 text-sm">Feedback da IA</p>
+                    <p className="font-bold text-gray-900 text-sm">Análise automática</p>
                     <p className="text-gray-400 text-[11px]">Análise personalizada para ti</p>
                   </div>
                 </div>
@@ -491,32 +491,32 @@ export function StudentDashboard({ user }: { user: any }) {
                         style={{ width: `${Math.round(latestFeedback.aiConfidenceScore * 100)}%` }} />
                     </div>
                     <span className="text-xs text-violet-600 font-bold flex-shrink-0">
-                      IA {Math.round(latestFeedback.aiConfidenceScore * 100)}% confiança
+                      {Math.round(latestFeedback.aiConfidenceScore * 100)}% confiança
                     </span>
                   </div>
                 )}
                 <div className="relative bg-gradient-to-br from-blue-50 via-indigo-50 to-violet-50 rounded-xl p-4 border border-blue-100">
                   <div className="absolute top-3 left-3 w-5 h-5 text-blue-200 text-2xl leading-none select-none">&ldquo;</div>
                   <p className="text-sm text-gray-700 leading-relaxed pl-4 line-clamp-5">
-                    {latestFeedback.finalText || latestFeedback.aiGeneratedText || 'A aguardar geração pela IA...'}
+                    {latestFeedback.finalText || latestFeedback.aiGeneratedText || 'A preparar...'}
                   </p>
                 </div>
                 <Link
                   href="/student/feedback"
                   className="mt-3 flex items-center justify-center gap-2 w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-all hover:shadow-lg hover:shadow-blue-500/25"
                 >
-                  <Brain className="w-4 h-4" /> Ver plano de treino completo
+                  <MessageSquareText className="w-4 h-4" /> Ver plano de treino completo
                 </Link>
               </div>
             </div>
           ) : (
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-6 flex items-center gap-5">
               <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center flex-shrink-0">
-                <Brain className="w-7 h-7 text-blue-500" />
+                <MessageSquareText className="w-7 h-7 text-blue-500" />
               </div>
               <div>
-                <p className="font-bold text-gray-900 mb-0.5">O teu primeiro feedback IA está a caminho</p>
-                <p className="text-gray-500 text-sm">Assim que o teu instrutor registar uma sessão, a IA irá gerar uma análise personalizada para ti.</p>
+                <p className="font-bold text-gray-900 mb-0.5">O teu primeiro feedback está a caminho</p>
+                <p className="text-gray-500 text-sm">Assim que o teu instrutor registar uma sessão, vais receber uma análise personalizada.</p>
               </div>
             </div>
           )}
@@ -615,7 +615,7 @@ export function StudentDashboard({ user }: { user: any }) {
           </div>
 
           {/* Motivational achievement card */}
-          <div className="bg-gradient-to-br from-[#0F1F5C] to-[#1A56DB] rounded-2xl p-4 text-white">
+          <div className="bg-gradient-to-br from-[#181E50] to-[#2B3592] rounded-2xl p-4 text-white">
             <div className="flex items-center gap-2 mb-3">
               <Trophy className="w-5 h-5 text-yellow-300" />
               <p className="font-bold text-sm">O teu próximo objectivo</p>

@@ -26,7 +26,7 @@ export function MobileAppBanner() {
   return (
     <div
       className="relative flex items-center gap-3 px-4 py-2.5 text-sm overflow-hidden"
-      style={{ background: 'linear-gradient(90deg, #0F1F5C 0%, #1A56DB 60%, #0891B2 100%)' }}
+      style={{ background: 'linear-gradient(90deg, #181E50 0%, #2B3592 60%, #0891B2 100%)' }}
     >
       {/* Shimmer stripe */}
       <div className="absolute inset-y-0 left-0 w-1/3 bg-white/5 skew-x-[-20deg] translate-x-[-100%] animate-[banner-shimmer_3s_ease-in-out_infinite]" />

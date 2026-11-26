@@ -7,7 +7,7 @@ import { PacotesTab, ValidacaoPrograma, MODELO_MERGULHA, diaLocalStr, fmtDiaIso 
 import { ImagensTab } from './imagens-eventos';
 import {
   Plus, Calendar, MapPin, Users, Award, ClipboardList, X, Check, Trash2, Search, Link2, Copy, Lock, Unlock,
-  Pencil, Download, Send, MessageSquare, ChevronDown, ChevronUp, Clock, RefreshCw, UserCheck, Package, Sparkles, Image as ImageIcon,
+  Pencil, Download, Send, MessageSquare, ChevronDown, ChevronUp, Clock, RefreshCw, UserCheck, Package, Zap, Image as ImageIcon,
 } from 'lucide-react';
 
 const ESTADOS_CORES: Record<string, string> = { PLANEADO:'bg-blue-100 text-blue-700', REALIZADO:'bg-green-100 text-green-700', CANCELADO:'bg-red-100 text-red-700' };
@@ -201,7 +201,7 @@ function EventoFormModal({ evento, onClose, onSaved }: { evento?: any; onClose: 
                 <button type="button"
                   onClick={() => { if (!form.nome || confirm('Substituir nome, datas, local, descrição e programa pelos do folheto?')) setForm((f) => ({ ...f, ...MODELO_MERGULHA })); }}
                   className="inline-flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100">
-                  <Sparkles className="w-3.5 h-3.5" /> Usar modelo &quot;Mergulha nas Férias&quot;
+                  <Zap className="w-3.5 h-3.5" /> Usar modelo &quot;Mergulha nas Férias&quot;
                 </button>
               </div>
             ) : form.formularioTipo === 'INDIVIDUAL' ? (

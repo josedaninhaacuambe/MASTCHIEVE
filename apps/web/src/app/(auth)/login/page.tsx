@@ -7,10 +7,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { GoogleLogin } from '@react-oauth/google';
-import { Waves, Sparkles, Eye, EyeOff, Lock, Mail, AlertCircle, XCircle } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, AlertCircle, XCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
 import { ensurePushSubscribed } from '@/lib/push';
 
+import { Logo } from '@/components/brand/Logo';
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 
 const schema = z.object({
@@ -113,17 +114,8 @@ function LoginForm() {
   return (
     <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md">
       {/* Logo (mobile) */}
-      <div className="flex items-center gap-2.5 mb-8 lg:hidden">
-        <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
-          <Waves className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <div className="font-bold text-gray-900 text-lg leading-none">Mastchieve</div>
-          <div className="flex items-center gap-1 mt-0.5">
-            <Sparkles className="w-3 h-3 text-yellow-500" />
-            <span className="text-[10px] text-gray-500 font-medium tracking-wider uppercase">IA Platform</span>
-          </div>
-        </div>
+      <div className="mb-8 lg:hidden">
+        <Logo className="h-10" />
       </div>
 
       <h1 className="text-2xl font-black text-gray-900 mb-1">Bem-vindo de volta</h1>
@@ -256,33 +248,17 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #0F1F5C 0%, #1A3A9C 50%, #1A56DB 100%)' }}>
+    <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #181E50 0%, #232B78 50%, #2B3592 100%)' }}>
         {/* Left panel */}
         <div className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-16 text-white relative overflow-hidden">
-          <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-white/5" />
-          <div className="absolute -left-8 bottom-20 w-48 h-48 rounded-full bg-white/5" />
-          <div className="relative text-center">
-            <div className="w-20 h-20 bg-white/20 rounded-3xl flex items-center justify-center mx-auto mb-8 backdrop-blur-sm border border-white/30 shadow-xl">
-              <Waves className="w-10 h-10 text-white" />
-            </div>
-            <h2 className="text-4xl font-black mb-3 tracking-tight">Mastchieve</h2>
-            <div className="flex items-center justify-center gap-1 mb-8">
-              <Sparkles className="w-4 h-4 text-yellow-300" />
-              <span className="text-white/70 text-sm font-medium uppercase tracking-widest">IA Platform</span>
-            </div>
-            <p className="text-white/60 text-base leading-relaxed max-w-sm">
-              A plataforma de gestão de atletas de natação com inteligência artificial. Transforma dados em campeões.
+          <div className="absolute inset-x-0 bottom-0 h-1 flex"><span className="flex-1 bg-brand-blue" /><span className="flex-1 bg-brand-red" /><span className="flex-1 bg-brand-green" /></div>
+          <div className="relative max-w-md w-full">
+            <Logo fundo="escuro" slogan className="h-auto w-full max-w-sm" />
+            <div className="mt-14 h-px w-16 bg-white/25" />
+            <h2 className="mt-8 text-3xl font-semibold tracking-tight leading-snug">Gestão de escolas de natação, num só lugar.</h2>
+            <p className="mt-4 text-white/60 text-base leading-relaxed">
+              Atletas, turmas, presenças, avaliações e pagamentos — organizados para a equipa Mastchieve.
             </p>
-            <div className="mt-10 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-5 text-left max-w-sm">
-              <p className="text-white/80 text-sm italic leading-relaxed">&ldquo;Em 3 meses passei de bronze a ouro. A IA da Mastchieve mudou a minha natação.&rdquo;</p>
-              <div className="flex items-center gap-2 mt-3">
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-yellow-400 to-orange-400 flex items-center justify-center text-white text-xs font-bold">A</div>
-                <div>
-                  <p className="text-white text-xs font-semibold">Ana Rodrigues</p>
-                  <p className="text-white/50 text-[10px]">Atleta — 14 anos</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 

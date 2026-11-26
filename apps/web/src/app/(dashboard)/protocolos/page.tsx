@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Shield, ChevronDown, ChevronUp, Zap, AlertTriangle, BookOpen, Activity, Brain, Settings } from 'lucide-react';
+import { Shield, ChevronDown, ChevronUp, Zap, AlertTriangle, BookOpen, Activity, MessageSquareText, Settings } from 'lucide-react';
 
 const DIM_CORES: Record<string, string> = {
   FISICA: 'bg-red-100 text-red-700 border-red-300',
@@ -17,7 +17,7 @@ const PRIO_CORES: Record<string, string> = {
   ESTRUTURANTE: 'bg-indigo-500 text-white',
 };
 const DIM_ICONS: Record<string, any> = {
-  FISICA: Activity, OPERACIONAL: Settings, EMOCIONAL: Brain, PEDAGOGICA: BookOpen, GESTAO: Shield,
+  FISICA: Activity, OPERACIONAL: Settings, EMOCIONAL: MessageSquareText, PEDAGOGICA: BookOpen, GESTAO: Shield,
 };
 
 export default function ProtocolosPage() {

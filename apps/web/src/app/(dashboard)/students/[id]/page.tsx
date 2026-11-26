@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { formatDate, formatCurrency, getInitials, levelLabel, cn } from '@/lib/utils';
 import {
-  ArrowLeft, User, Brain, Activity, BookOpen, CreditCard,
+  ArrowLeft, User, MessageSquareText, Activity, BookOpen, CreditCard,
   CheckCircle, XCircle, Clock, AlertCircle, Dumbbell, Send, TrendingUp,
   Upload, FileText, Trash2, Waves, History, FileDown, Printer,
   Mail, AlertTriangle, X, ClipboardCheck, PhoneCall, DoorOpen, QrCode, Pencil, RefreshCw,
@@ -37,7 +37,7 @@ function printProgressReport(student: any, fasesProgresso: any[]) {
   const w = window.open('', '_blank', 'width=800,height=650');
   if (!w) return;
   w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatório — ${nome}</title>
-<style>body{margin:0;font-family:Arial,sans-serif;color:#111}.header{background:linear-gradient(135deg,#1e3a8a,#1d4ed8);padding:32px;color:#fff}.header h1{margin:0;font-size:20px}.header p{margin:4px 0 0;opacity:.7;font-size:13px}.body{padding:32px}.footer{border-top:1px solid #e5e7eb;padding:16px 32px;font-size:11px;color:#9ca3af}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
+<style>body{margin:0;font-family:Arial,sans-serif;color:#111}.header{background:linear-gradient(135deg,#1e3a8a,#2B3592);padding:32px;color:#fff}.header h1{margin:0;font-size:20px}.header p{margin:4px 0 0;opacity:.7;font-size:13px}.body{padding:32px}.footer{border-top:1px solid #e5e7eb;padding:16px 32px;font-size:11px;color:#9ca3af}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
 </head><body>
 <div class="header"><h1>Relatório de Progressão Pedagógica</h1><p>${nome}</p></div>
 <div class="body">${sections}</div>
@@ -62,7 +62,7 @@ import PacoteDoAtleta from '@/components/students/PacoteDoAtleta';
 import FilhosEAcesso from '@/components/students/FilhosEAcesso';
 
 // ─── Tab definition ────────────────────────────────────────────────────────────
-const tabs = ['Desempenho', 'Feedbacks IA', 'Módulos', 'Planos de Treino', 'Financeiro', 'Documentos', 'Histórico'] as const;
+const tabs = ['Desempenho', 'Feedbacks', 'Módulos', 'Planos de Treino', 'Financeiro', 'Documentos', 'Histórico'] as const;
 type Tab = typeof tabs[number];
 
 // ─── Lookup maps ──────────────────────────────────────────────────────────────
@@ -341,12 +341,12 @@ export default function StudentDetailPage() {
     try {
       // Usa a avaliação mais recente do atleta (diária ou de conclusão de módulo).
       await api.post(`/ai/feedback/student/${id}`);
-      toast.success('Feedback IA gerado', 'Reveja e envie-o na página Feedback.');
+      toast.success('Feedback gerado', 'Reveja e envie-o na página Feedback.');
       qc.invalidateQueries({ queryKey: ['student-perf', id] });
-      setActiveTab('Feedbacks IA');
+      setActiveTab('Feedbacks');
     } catch (e: any) {
       const msg = e?.response?.data?.message;
-      toast.error('Erro ao gerar feedback IA', Array.isArray(msg) ? msg.join(' · ') : msg);
+      toast.error('Erro ao gerar o feedback', Array.isArray(msg) ? msg.join(' · ') : msg);
     } finally {
       setGeneratingFeedback(false);
     }
@@ -689,8 +689,8 @@ export default function StudentDetailPage() {
             disabled={generatingFeedback}
             className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-wait text-white px-3 py-2 rounded-lg text-sm font-medium transition"
           >
-            <Brain className="w-4 h-4" />
-            {generatingFeedback ? 'A gerar...' : 'Gerar Feedback IA'}
+            <MessageSquareText className="w-4 h-4" />
+            {generatingFeedback ? 'A gerar...' : 'Gerar feedback'}
           </button>
 
           {canEditProfile && (
@@ -732,7 +732,7 @@ export default function StudentDetailPage() {
           gradient="bg-white border-green-100" iconBg="bg-green-50" iconColor="text-green-600"
         />
         <StatCard
-          icon={Brain} label="Feedbacks IA"
+          icon={MessageSquareText} label="Feedbacks"
           value={perf?.feedbacks?.length ?? '—'}
           gradient="bg-white border-purple-100" iconBg="bg-purple-50" iconColor="text-purple-600"
         />
@@ -775,7 +775,7 @@ export default function StudentDetailPage() {
                     <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                     <YAxis domain={[0, 10]} tick={{ fontSize: 11 }} />
                     <Tooltip />
-                    <Line type="monotone" dataKey="Nota" stroke="#1a56db" strokeWidth={2.5} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="Nota" stroke="#2B3592" strokeWidth={2.5} dot={{ r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -830,13 +830,13 @@ export default function StudentDetailPage() {
         )}
 
         {/* FEEDBACKS IA */}
-        {activeTab === 'Feedbacks IA' && (
+        {activeTab === 'Feedbacks' && (
           <div className="space-y-3">
             {perf?.feedbacks?.map((fb: any) => (
               <div key={fb.id} className="bg-white border border-gray-100 rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Brain className="w-4 h-4 text-blue-500" />
+                    <MessageSquareText className="w-4 h-4 text-blue-500" />
                     <span className="text-sm font-medium text-gray-700">{formatDate(fb.createdAt)}</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -865,14 +865,14 @@ export default function StudentDetailPage() {
             ))}
             {!perf?.feedbacks?.length && (
               <div className="text-center py-12 text-gray-400">
-                <Brain className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                <MessageSquareText className="w-10 h-10 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Sem feedbacks ainda</p>
                 <button
                   onClick={handleGenerateFeedback}
                   disabled={generatingFeedback}
                   className="mt-3 flex items-center gap-1.5 mx-auto text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition font-medium"
                 >
-                  <Brain className="w-3 h-3" />
+                  <MessageSquareText className="w-3 h-3" />
                   {generatingFeedback ? 'A gerar...' : 'Gerar primeiro feedback'}
                 </button>
               </div>
@@ -1014,7 +1014,7 @@ export default function StudentDetailPage() {
                       <Dumbbell className="w-4 h-4 text-mastchieve-500" />
                       <span className="font-semibold text-gray-900">{plan.title}</span>
                       {plan.aiGenerated && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium">IA</span>
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium">Auto</span>
                       )}
                     </div>
                     {plan.description && <p className="text-xs text-gray-500 mt-1">{plan.description}</p>}

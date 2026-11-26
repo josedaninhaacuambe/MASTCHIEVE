@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
 import api from '@/lib/api';
-import { Waves, Sparkles, Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
+import { Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 
+import { Logo } from '@/components/brand/Logo';
 type Step = 'email' | 'sent' | 'reset' | 'done';
 
 export default function ForgotPasswordPage() {
@@ -43,22 +44,11 @@ export default function ForgotPasswordPage() {
   const mismatch = confirm.length > 0 && newPass !== confirm;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0a1628] via-[#0f2050] to-[#1a3a8f] p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0E1233] via-[#181E50] to-[#232B78] p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-xl shadow-black/30">
-              <Waves className="w-6 h-6 text-blue-600" />
-            </div>
-            <div className="text-left">
-              <div className="text-white font-bold text-xl leading-none">Mastchieve</div>
-              <div className="flex items-center gap-1 mt-0.5">
-                <Sparkles className="w-3 h-3 text-yellow-300" />
-                <span className="text-white/50 text-xs">IA Platform</span>
-              </div>
-            </div>
-          </div>
+          <Logo fundo="escuro" className="h-12 mx-auto mb-3" />
         </div>
 
         <div className="bg-white rounded-3xl shadow-2xl shadow-black/40 p-8">

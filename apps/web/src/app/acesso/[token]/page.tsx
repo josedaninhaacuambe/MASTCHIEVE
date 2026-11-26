@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import api from '@/lib/api';
-import { Waves, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, Mail } from 'lucide-react';
+import { Lock, Eye, EyeOff, CheckCircle2, AlertCircle, Mail } from 'lucide-react';
 
+import { Logo } from '@/components/brand/Logo';
 type Convite = { nome: string | null; email: string; emailGerado: boolean; expiraEm: string };
 
 export default function AcessoPage() {
@@ -46,11 +47,8 @@ export default function AcessoPage() {
   return (
     <main className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center">
-            <Waves className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-lg font-bold text-gray-900 tracking-tight">Mastchieve</span>
+        <div className="flex justify-center mb-8">
+          <Logo className="h-10" />
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">

@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { Waves, Loader2, AlertCircle, Calendar, Clock, MapPin, CheckCircle2, Plus, Trash2, Sparkles, ArrowDown, ChevronDown, Expand, X } from 'lucide-react';
+import { Loader2, AlertCircle, Calendar, Clock, MapPin, CheckCircle2, Plus, Trash2, Zap, ArrowDown, ChevronDown, Expand, X } from 'lucide-react';
 import api from '@/lib/api';
 import { FormPrograma, ResultadoProgramaCard, fmtDia, type PacotePublico } from './form-programa';
 import { srcImagemEvento } from '@/lib/imagem-evento';
 
+import { Logo } from '@/components/brand/Logo';
 interface EventoPublico {
   nome: string;
   tipo: string;
@@ -378,15 +379,10 @@ export default function EventoPublicoPage({ params }: { params: { token: string 
 
       <nav className="relative z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
-              <Waves className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold text-xl tracking-tight">Mastchieve</span>
-          </div>
+          <Logo fundo="escuro" className="h-9 sm:h-10" />
           {data && (
             <span className="hidden sm:inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.25em] text-amber-200/90 border border-amber-200/25 bg-amber-200/5 rounded-full px-3.5 py-1.5">
-              <Sparkles className="w-3.5 h-3.5" /> Convite
+              <Zap className="w-3.5 h-3.5" /> Convite
             </span>
           )}
         </div>

@@ -6,7 +6,7 @@ import api from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { timeAgo, getInitials, cn } from '@/lib/utils';
 import {
-  Brain, CheckCircle, Send, Eye, Filter, AlertCircle, RefreshCw,
+  MessageSquareText, CheckCircle, Send, Eye, Filter, AlertCircle, RefreshCw,
   Plus, X, User, Sliders, Search, PenLine,
 } from 'lucide-react';
 import AvaliacaoModal from '@/components/avaliacoes/AvaliacaoModal';
@@ -172,7 +172,7 @@ export default function FeedbackPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Feedback IA</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Feedback</h1>
           <p className="text-gray-500 text-sm mt-1">Gestão de feedbacks e avaliações de desempenho</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -272,13 +272,13 @@ export default function FeedbackPage() {
                         </span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
-                        {fb.finalText || fb.aiGeneratedText || 'Sem texto: gere com IA ou escreva o feedback.'}
+                        {fb.finalText || fb.aiGeneratedText || 'Sem texto: gere automaticamente ou escreva o feedback.'}
                       </p>
                       <div className="flex items-center gap-3 mt-2">
                         <span className="text-xs text-gray-400">{timeAgo(fb.createdAt)}</span>
                         {fb.aiConfidenceScore && (
                           <span className="text-xs text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-full font-medium">
-                            IA {Math.round(fb.aiConfidenceScore * 100)}%
+                            Confiança {Math.round(fb.aiConfidenceScore * 100)}%
                           </span>
                         )}
                         {fb.instructorNotes && (
@@ -314,7 +314,7 @@ export default function FeedbackPage() {
             })}
           {!isLoading && feedbacks.length === 0 && (
             <div className="text-center py-12 text-gray-400 bg-white rounded-2xl border border-gray-100">
-              <Brain className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <MessageSquareText className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p className="text-sm font-medium">Nenhum feedback encontrado</p>
               <p className="text-xs mt-1">Clica em "Nova Avaliação" para começar</p>
               <button
@@ -352,8 +352,8 @@ export default function FeedbackPage() {
                 {selected.aiGeneratedText && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <Brain className="w-4 h-4 text-blue-500" />
-                      <span className="text-sm font-semibold text-gray-700">Feedback IA</span>
+                      <MessageSquareText className="w-4 h-4 text-blue-500" />
+                      <span className="text-sm font-semibold text-gray-700">Feedback</span>
                       {selected.aiConfidenceScore && (
                         <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full ml-auto">
                           {Math.round(selected.aiConfidenceScore * 100)}% confiança

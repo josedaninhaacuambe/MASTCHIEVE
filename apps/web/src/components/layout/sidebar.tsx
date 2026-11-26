@@ -8,10 +8,11 @@ import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUIStore } from '@/stores/ui.store';
+import { Logo } from '@/components/brand/Logo';
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen,
   ClipboardList, MessageSquare, CreditCard, BarChart3,
-  LogOut, Waves, Sparkles, X, Brain, TrendingUp, ShieldCheck,
+  LogOut, Waves, X, MessageSquareText, TrendingUp, ShieldCheck,
   Smartphone, Download, Sun, Moon, Dumbbell, Heart, Globe, UserCircle, FileText, ScrollText,
   AlertTriangle, Fish, Award, Calendar, Trophy, Megaphone, Building2, Shield, Zap, Bell,
   Briefcase, UserPlus, FileSignature, IdCard, CalendarClock, ClipboardCheck, CalendarX,
@@ -38,7 +39,7 @@ const navItems = [
   { href: '/instructors',       icon: GraduationCap,    label: 'Instrutores',            roles: ['ADMIN', 'MANAGER', 'ASSISTENTE_ADMIN'] },
   { href: '/classes',           icon: BookOpen,         label: 'Turmas',                 roles: ['ADMIN', 'INSTRUCTOR', 'MANAGER', 'ASSISTENTE_ADMIN'] },
   { href: '/attendance',        icon: ClipboardList,    label: 'Presenças',              roles: ['ADMIN', 'INSTRUCTOR'], badge: 'Hoje' },
-  { href: '/feedback',          icon: MessageSquare,    label: 'Feedback IA',            roles: ['ADMIN', 'INSTRUCTOR'] },
+  { href: '/feedback',          icon: MessageSquare,    label: 'Feedback',               roles: ['ADMIN', 'INSTRUCTOR'] },
   { href: '/training-plans',    icon: Dumbbell,         label: 'Planos de Treino',       roles: ['ADMIN', 'INSTRUCTOR'] },
   { href: '/financial',         icon: CreditCard,       label: 'Financeiro',             roles: ['ADMIN', 'FINANCIAL', 'ASSISTENTE_ADMIN'] },
   { href: '/pacotes',           icon: Package,          label: 'Pacotes e Preços',       roles: ['ADMIN'] },
@@ -91,7 +92,7 @@ const navItems = [
   { href: '/rh/relatorios',     icon: PieChart,         label: 'Relatórios RH',          roles: ['GESTOR_RH', 'SUPER_ADMIN'], group: 'rh' },
   // Student only
   { href: '/student/progress',   icon: TrendingUp,    label: 'O Meu Progresso',     roles: ['STUDENT'] },
-  { href: '/student/feedback',   icon: Brain,          label: 'Os Meus Feedbacks',   roles: ['STUDENT'] },
+  { href: '/student/feedback',   icon: MessageSquareText, label: 'Os Meus Feedbacks',   roles: ['STUDENT'] },
   { href: '/student/attendance', icon: ClipboardList,  label: 'As Minhas Presenças', roles: ['STUDENT'] },
   { href: '/student/payments',   icon: CreditCard,     label: 'Os Meus Pagamentos',  roles: ['STUDENT'] },
   // Parent + Student (atletas podem inscrever e ver os seus próprios filhos menores)
@@ -119,21 +120,21 @@ function PlayStoreLogo() {
 
 function MobileDownloadCard() {
   return (
-    <div className="mx-3 mb-3 rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%)', border: '1px solid rgba(255,255,255,0.15)' }}>
+    <div className="mx-3 mb-3 rounded-xl overflow-hidden bg-gray-50 border border-gray-200 dark:bg-white/5 dark:border-white/10">
       {/* Header */}
       <div className="px-3 pt-3 pb-2 flex items-center gap-2">
-        <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-brand-blue flex items-center justify-center flex-shrink-0">
           <Smartphone className="w-4 h-4 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-white text-xs font-bold leading-tight">App Mobile</p>
-          <p className="text-white/50 text-[10px] leading-tight mt-0.5">iOS &amp; Android</p>
+          <p className="text-gray-900 dark:text-white text-xs font-semibold leading-tight">App Mobile</p>
+          <p className="text-gray-500 dark:text-white/50 text-[10px] leading-tight mt-0.5">iOS &amp; Android</p>
         </div>
-        <Download className="w-3.5 h-3.5 text-white/40 flex-shrink-0" />
+        <Download className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
       </div>
 
       <div className="px-3 pb-2">
-        <p className="text-white/60 text-[10px] leading-relaxed mb-2.5">
+        <p className="text-gray-500 dark:text-white/60 text-[10px] leading-relaxed mb-2.5">
           Acede ao teu painel, treinos e feedback em qualquer lugar.
         </p>
 
@@ -142,7 +143,7 @@ function MobileDownloadCard() {
           <a
             href="#"
             onClick={(e) => e.preventDefault()}
-            className="flex items-center gap-2 bg-black/30 hover:bg-black/50 rounded-xl px-2.5 py-2 transition-all group"
+            className="flex items-center gap-2 bg-gray-900 hover:bg-black rounded-lg px-2.5 py-2 transition-all group"
           >
             <AppleLogo />
             <div className="flex-1 min-w-0">
@@ -155,7 +156,7 @@ function MobileDownloadCard() {
           <a
             href="#"
             onClick={(e) => e.preventDefault()}
-            className="flex items-center gap-2 bg-black/30 hover:bg-black/50 rounded-xl px-2.5 py-2 transition-all group"
+            className="flex items-center gap-2 bg-gray-900 hover:bg-black rounded-lg px-2.5 py-2 transition-all group"
           >
             <PlayStoreLogo />
             <div className="flex-1 min-w-0">
@@ -166,7 +167,7 @@ function MobileDownloadCard() {
           </a>
         </div>
 
-        <p className="text-center text-white/30 text-[9px] mt-2 leading-tight">Em breve • Notifica-me</p>
+        <p className="text-center text-gray-400 text-[9px] mt-2 leading-tight">Em breve • Notifica-me</p>
       </div>
     </div>
   );
@@ -228,24 +229,19 @@ export function Sidebar() {
         href={item.href}
         onClick={closeSidebar}
         className={cn(
-          'group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
+          'group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-150',
           active
-            ? 'bg-white/20 text-white shadow-sm'
-            : 'text-white/60 hover:bg-white/10 hover:text-white',
+            ? 'bg-brand-blue/[0.08] text-brand-blue font-semibold dark:bg-white/10 dark:text-white'
+            : 'text-gray-600 font-medium hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white',
         )}
       >
         {active && (
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white rounded-r-full" />
+          <span className="absolute -left-3 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-brand-red rounded-r-full" />
         )}
-        <div className={cn(
-          'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all',
-          active ? 'bg-white/20' : 'group-hover:bg-white/10',
-        )}>
-          <Icon className="w-4 h-4" />
-        </div>
+        <Icon className={cn('w-[18px] h-[18px] flex-shrink-0', active ? 'text-brand-blue dark:text-white' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200')} />
         <span className="flex-1 truncate">{item.label}</span>
         {item.badge && (
-          <span className="text-[10px] font-semibold bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded-full leading-none">
+          <span className="text-[10px] font-semibold bg-brand-green/10 text-brand-green px-1.5 py-0.5 rounded-full leading-none">
             {item.badge}
           </span>
         )}
@@ -260,67 +256,53 @@ export function Sidebar() {
         'transform transition-transform duration-300 ease-in-out',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         'lg:relative lg:flex-shrink-0 lg:translate-x-0 lg:z-auto',
+        'bg-white border-r border-gray-200 dark:bg-gray-950 dark:border-white/10',
       )}
-      style={{ background: 'linear-gradient(160deg, #0F1F5C 0%, #1A3A9C 50%, #1A56DB 100%)' }}
     >
-      {/* Background decoration */}
-      <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/5 pointer-events-none" />
-      <div className="absolute -left-4 bottom-32 w-24 h-24 rounded-full bg-white/5 pointer-events-none" />
 
       {/* ── LOGO ── */}
-      <div className="relative p-5 pb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg shadow-black/20 flex-shrink-0">
-            <Waves className="w-5 h-5 text-[#1A56DB]" />
-          </div>
-          <div>
-            <div className="text-white font-bold text-lg leading-none tracking-tight">Mastchieve</div>
-            <div className="flex items-center gap-1 mt-0.5">
-              <Sparkles className="w-3 h-3 text-yellow-300" />
-              <span className="text-[10px] text-white/60 font-medium tracking-wider uppercase">IA Platform</span>
-            </div>
-          </div>
-        </div>
+      <div className="relative h-16 px-5 flex items-center justify-between border-b border-gray-100 dark:border-white/10 mb-3">
+        <Link href="/dashboard" onClick={closeSidebar} aria-label="Mastchieve — início">
+          <Logo fundo="auto" className="h-7" />
+        </Link>
         <button
           onClick={closeSidebar}
-          className="lg:hidden p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition"
+          className="lg:hidden p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-white/10 dark:hover:text-white rounded-lg transition"
+          aria-label="Fechar menu"
         >
           <X className="w-5 h-5" />
         </button>
       </div>
-      <div className="px-5 mb-2">
-        <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-      </div>
 
       {/* ── USER ROLE BADGE ── */}
       {user?.role === 'STUDENT' && (
-        <div className="mx-4 mb-3 bg-white/10 rounded-xl px-3 py-2 text-center">
-          <div className="text-white/60 text-[10px] uppercase tracking-wider mb-0.5">Portal do Atleta</div>
-          <div className="text-white font-semibold text-sm">{firstName}</div>
+        <div className="mx-3 mb-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+          <div className="text-gray-500 dark:text-white/50 text-[10px] font-semibold uppercase tracking-wider mb-0.5">Portal do Atleta</div>
+          <div className="text-gray-900 dark:text-white font-semibold text-sm truncate">{firstName}</div>
         </div>
       )}
       {user?.role === 'INSTRUCTOR' && (
-        <div className="mx-4 mb-3 bg-white/10 rounded-xl px-3 py-2 text-center">
-          <div className="text-white/60 text-[10px] uppercase tracking-wider mb-0.5">Portal do Instrutor</div>
-          <div className="text-white font-semibold text-sm">{firstName}</div>
+        <div className="mx-3 mb-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+          <div className="text-gray-500 dark:text-white/50 text-[10px] font-semibold uppercase tracking-wider mb-0.5">Portal do Instrutor</div>
+          <div className="text-gray-900 dark:text-white font-semibold text-sm truncate">{firstName}</div>
         </div>
       )}
       {user?.role === 'PARENT' && (
-        <div className="mx-4 mb-3 bg-white/10 rounded-xl px-3 py-2 text-center">
-          <div className="text-white/60 text-[10px] uppercase tracking-wider mb-0.5">Portal do Encarregado</div>
-          <div className="text-white font-semibold text-sm">{firstName}</div>
+        <div className="mx-3 mb-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+          <div className="text-gray-500 dark:text-white/50 text-[10px] font-semibold uppercase tracking-wider mb-0.5">Portal do Encarregado</div>
+          <div className="text-gray-900 dark:text-white font-semibold text-sm truncate">{firstName}</div>
         </div>
       )}
       {user?.role === 'VISITOR' && (
-        <div className="mx-4 mb-3 bg-white/10 rounded-xl px-3 py-2 text-center">
-          <div className="text-white/60 text-[10px] uppercase tracking-wider mb-0.5">Modo Visitante</div>
-          <div className="text-white font-semibold text-sm">{firstName}</div>
+        <div className="mx-3 mb-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+          <div className="text-gray-500 dark:text-white/50 text-[10px] font-semibold uppercase tracking-wider mb-0.5">Modo Visitante</div>
+          <div className="text-gray-900 dark:text-white font-semibold text-sm truncate">{firstName}</div>
         </div>
       )}
       {user?.role === 'ASSISTENTE_ADMIN' && (
-        <div className="mx-4 mb-3 bg-white/10 rounded-xl px-3 py-2 text-center">
-          <div className="text-white/60 text-[10px] uppercase tracking-wider mb-0.5">Portal do Assistente Administrativo</div>
-          <div className="text-white font-semibold text-sm">{firstName}</div>
+        <div className="mx-3 mb-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+          <div className="text-gray-500 dark:text-white/50 text-[10px] font-semibold uppercase tracking-wider mb-0.5">Portal do Assistente Administrativo</div>
+          <div className="text-gray-900 dark:text-white font-semibold text-sm truncate">{firstName}</div>
         </div>
       )}
 
@@ -343,16 +325,14 @@ export function Sidebar() {
               <button
                 type="button"
                 onClick={() => toggleGroup(groupKey)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/60 hover:bg-white/10 hover:text-white transition-all duration-150"
+                className="group w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white transition-colors duration-150"
               >
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <GroupIcon className="w-4 h-4" />
-                </div>
+                <GroupIcon className="w-[18px] h-[18px] flex-shrink-0 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200" />
                 <span className="flex-1 text-left truncate">{meta.label}</span>
-                <ChevronDown className={cn('w-4 h-4 transition-transform flex-shrink-0', isOpen ? '' : '-rotate-90')} />
+                <ChevronDown className={cn('w-4 h-4 text-gray-400 transition-transform flex-shrink-0', isOpen ? '' : '-rotate-90')} />
               </button>
               {isOpen && (
-                <div className="ml-4 pl-3 border-l border-white/10 space-y-0.5 mt-0.5 mb-1">
+                <div className="ml-5 pl-3 border-l border-gray-200 dark:border-white/10 space-y-0.5 mt-0.5 mb-1">
                   {groupItems.map((groupItem) => renderNavLink(groupItem))}
                 </div>
               )}
@@ -365,41 +345,38 @@ export function Sidebar() {
       {showMobileDownload && (
         <div className="mt-2">
           <div className="px-5 mb-2">
-            <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+            <div className="h-px bg-gray-100 dark:bg-white/10" />
           </div>
           <MobileDownloadCard />
         </div>
       )}
 
       {/* ── USER FOOTER ── */}
-      <div className={cn('relative p-3', !showMobileDownload && 'mt-2')}>
-        {!showMobileDownload && (
-          <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mb-3" />
-        )}
+      <div className={cn('relative p-3 border-t border-gray-100 dark:border-white/10', !showMobileDownload && 'mt-2')}>
         <button
           onClick={() => { router.push('/profile'); closeSidebar(); }}
-          className="flex items-center gap-3 px-2 mb-2 w-full rounded-xl hover:bg-white/10 py-1.5 transition group">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-white/30 to-white/10 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ring-2 ring-white/20">
+          className="flex items-center gap-3 px-2 mb-2 w-full rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 py-1.5 transition group">
+          <div className="w-8 h-8 rounded-full bg-brand-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
             {initials}
           </div>
           <div className="flex-1 min-w-0 text-left">
-            <div className="text-white text-xs font-semibold truncate">{user?.email}</div>
-            <div className="text-white/40 text-[10px] mt-0.5 uppercase tracking-wide">{user?.role}</div>
+            <div className="text-gray-900 dark:text-white text-xs font-semibold truncate">{user?.email}</div>
+            <div className="text-gray-400 text-[10px] mt-0.5 uppercase tracking-wide">{user?.role}</div>
           </div>
-          <UserCircle className="w-4 h-4 text-white/30 group-hover:text-white/60 transition flex-shrink-0" />
+          <UserCircle className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition flex-shrink-0" />
         </button>
         <div className="flex items-center gap-2">
           <button
             onClick={toggleDarkMode}
             title={darkMode ? 'Modo claro' : 'Modo escuro'}
-            className="flex items-center gap-2 px-3 py-2 text-white/50 hover:text-white hover:bg-white/10 rounded-xl text-sm transition-all"
+            className="flex items-center gap-2 px-3 py-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-white/5 dark:hover:text-white rounded-lg text-sm transition-colors"
           >
             {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             <span className="text-xs">{darkMode ? 'Claro' : 'Escuro'}</span>
           </button>
           <button
             onClick={() => { logout(); closeSidebar(); }}
-            className="flex-1 flex items-center gap-2 px-3 py-2 text-white/50 hover:text-white hover:bg-white/10 rounded-xl text-sm transition-all group"
+            className="flex-1 flex items-center gap-2 px-3 py-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-white/5 dark:hover:text-white rounded-lg text-sm transition-colors group"
           >
             <LogOut className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             Sair

@@ -48,7 +48,7 @@ function WaveLoader() {
         <div
           className="relative w-20 h-20 rounded-full flex items-center justify-center overflow-hidden shadow-2xl shadow-blue-500/40"
           style={{
-            background: 'linear-gradient(135deg, #1A3A9C 0%, #1A56DB 60%, #3B82F6 100%)',
+            background: 'linear-gradient(135deg, #232B78 0%, #2B3592 60%, #3B82F6 100%)',
             animation: 'wave-float 3s ease-in-out infinite',
           }}
         >

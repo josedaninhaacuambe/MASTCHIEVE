@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, ChevronRight, ChevronLeft, Sparkles, Users, Brain, BarChart3, CheckCircle } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Zap, Users, MessageSquareText, BarChart3, CheckCircle } from 'lucide-react';
 import { useUIStore } from '@/stores/ui.store';
 
 interface Step {
@@ -13,9 +13,9 @@ interface Step {
 
 const steps: Step[] = [
   {
-    icon: Sparkles,
+    icon: Zap,
     title: 'Bem-vindo à Mastchieve!',
-    description: 'A plataforma de gestão de natação com inteligência artificial. Vamos mostrar-te as funcionalidades principais em 4 passos rápidos.',
+    description: 'A plataforma profissional de gestão de natação. Vamos mostrar-te as funcionalidades principais em 4 passos rápidos.',
     color: 'from-mastchieve-600 to-violet-600',
   },
   {
@@ -25,9 +25,9 @@ const steps: Step[] = [
     color: 'from-emerald-500 to-teal-600',
   },
   {
-    icon: Brain,
-    title: 'Feedback com IA',
-    description: 'A nossa IA (Claude) analisa o desempenho de cada atleta e gera relatórios personalizados com recomendações de treino automáticas.',
+    icon: MessageSquareText,
+    title: 'Feedback automático',
+    description: 'O sistema analisa o desempenho de cada atleta e gera relatórios personalizados com recomendações de treino.',
     color: 'from-violet-600 to-purple-700',
   },
   {

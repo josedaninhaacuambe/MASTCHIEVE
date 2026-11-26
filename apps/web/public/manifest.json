@@ -1,11 +1,11 @@
 {
-  "name": "Mastchieve IA",
+  "name": "Mastchieve",
   "short_name": "Mastchieve",
-  "description": "Sistema Inteligente de Gestão de Desempenho de Atletas",
+  "description": "Gestão de escolas de natação — atletas, turmas, avaliações e pagamentos.",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#1a56db",
+  "theme_color": "#2B3592",
   "orientation": "portrait-primary",
   "icons": [
     { "src": "/icons/icon-72x72.png", "sizes": "72x72", "type": "image/png" },

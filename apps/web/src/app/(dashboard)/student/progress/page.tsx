@@ -8,7 +8,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import {
   Waves, Award, TrendingUp, Star, Target,
   ChevronDown, ChevronUp, Lock, CheckCircle, Clock,
-  Dumbbell, Brain, Calendar, Trophy, Shield,
+  Dumbbell, MessageSquareText, Calendar, Trophy, Shield,
   ArrowUp, ArrowDown, Minus, BarChart3, BookOpen,
   ClipboardCheck, CheckCircle2, XCircle,
 } from 'lucide-react';
@@ -351,10 +351,10 @@ const ACHIEVEMENTS: Achievement[] = [
   { id: 'in_progress', name: 'Em Marcha',        description: 'Iniciou o primeiro módulo',                icon: TrendingUp,   iconColor: 'text-violet-600', bgColor: 'bg-violet-50', check: (m) => m.progressRecords?.some((p: any) => p.status !== 'NOT_STARTED') },
   { id: 'completed',   name: 'Módulo Concluído', description: 'Completou um módulo com sucesso',          icon: Award,        iconColor: 'text-yellow-600', bgColor: 'bg-yellow-50', check: (m) => m.progressRecords?.some((p: any) => p.status === 'COMPLETED') },
   { id: 'attendance',  name: 'Assíduo',          description: 'Assiduidade superior a 90%',               icon: Calendar,     iconColor: 'text-green-600',  bgColor: 'bg-green-50',  check: (m) => (m.attendanceStats?.rate ?? 0) >= 90 },
-  { id: 'feedback_ai', name: 'Feedback IA',      description: 'Recebeu o primeiro feedback da IA',        icon: Brain,        iconColor: 'text-purple-600', bgColor: 'bg-purple-50', check: (m) => m.feedbacks?.some((f: any) => ['SENT','REVIEWED'].includes(f.status)) },
+  { id: 'feedback_ai', name: 'Feedback',      description: 'Recebeu o primeiro feedback',        icon: MessageSquareText,        iconColor: 'text-purple-600', bgColor: 'bg-purple-50', check: (m) => m.feedbacks?.some((f: any) => ['SENT','REVIEWED'].includes(f.status)) },
   { id: 'high_score',  name: 'Alta Performance', description: 'Nota global acima de 8',                   icon: Trophy,       iconColor: 'text-orange-600', bgColor: 'bg-orange-50', check: (m) => (m.performanceRecords?.[0]?.overallScore ?? 0) >= 8 },
   { id: 'ten_sessions',name: 'Veterano',          description: 'Participou em 10 ou mais sessões',         icon: Shield,       iconColor: 'text-indigo-600', bgColor: 'bg-indigo-50', check: (m) => (m.attendanceStats?.total ?? 0) >= 10 },
-  { id: 'training',    name: 'Plano de Treino',  description: 'Tem um plano de treino IA ativo',          icon: Dumbbell,     iconColor: 'text-red-600',    bgColor: 'bg-red-50',    check: (m) => (m.trainingPlans?.length ?? 0) > 0 },
+  { id: 'training',    name: 'Plano de Treino',  description: 'Tem um plano de treino ativo',          icon: Dumbbell,     iconColor: 'text-red-600',    bgColor: 'bg-red-50',    check: (m) => (m.trainingPlans?.length ?? 0) > 0 },
 ];
 
 function AchievementBadge({ a, unlocked }: { a: Achievement; unlocked: boolean }) {
@@ -683,7 +683,7 @@ export default function StudentProgressPage() {
                       <div className="text-xs font-bold text-purple-900">Plano de Treino Ativo</div>
                       {trainingPlans[0].aiGenerated && (
                         <span className="text-[10px] text-purple-500 flex items-center gap-0.5">
-                          <Brain className="w-2.5 h-2.5" /> Gerado por IA
+                          <MessageSquareText className="w-2.5 h-2.5" /> Gerado automaticamente
                         </span>
                       )}
                     </div>

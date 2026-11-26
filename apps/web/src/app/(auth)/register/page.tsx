@@ -3,14 +3,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  Waves, Sparkles, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2,
-  User, Mail, Lock, Phone, GraduationCap, Dumbbell, Globe, Calendar, Users2, MapPin,
-} from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2, User, Mail, Lock, Phone, GraduationCap, Dumbbell, Globe, Calendar, Users2, MapPin } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import api from '@/lib/api';
 import { useAuthStore } from '@/stores/auth.store';
 
+import { Logo } from '@/components/brand/Logo';
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 
 type Role = 'STUDENT' | 'INSTRUCTOR' | 'VISITOR';
@@ -491,29 +489,24 @@ export default function RegisterPage() {
   return (
     <div
       className="min-h-screen flex"
-      style={{ background: 'linear-gradient(135deg, #0F1F5C 0%, #1A3A9C 50%, #1A56DB 100%)' }}
+      style={{ background: 'linear-gradient(135deg, #181E50 0%, #232B78 50%, #2B3592 100%)' }}
     >
         {/* Left decorative panel */}
         <div className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-16 text-white relative overflow-hidden">
-          <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-white/5" />
-          <div className="absolute -left-8 bottom-20 w-48 h-48 rounded-full bg-white/5" />
-          <div className="relative text-center max-w-md">
-            <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center mx-auto mb-8 backdrop-blur-sm border border-white/30">
-              <Waves className="w-8 h-8 text-white" />
-            </div>
-            <h2 className="text-3xl font-black mb-4 leading-tight">
-              Começa a tua jornada
-              <br />
-              de campeão
+          <div className="absolute inset-x-0 bottom-0 h-1 flex"><span className="flex-1 bg-brand-blue" /><span className="flex-1 bg-brand-red" /><span className="flex-1 bg-brand-green" /></div>
+          <div className="relative max-w-md w-full">
+            <Logo fundo="escuro" slogan className="h-auto w-full max-w-sm mb-14" />
+            <h2 className="text-3xl font-semibold mb-4 leading-snug tracking-tight">
+              Começa a tua jornada connosco.
             </h2>
-            <p className="text-white/70 text-base leading-relaxed mb-10">
-              Junta-te a mais de 1.200 atletas que usam a IA para superar os seus limites e alcançar novos recordes.
+            <p className="text-white/60 text-base leading-relaxed mb-10">
+              Cria a tua conta para acompanhar treinos, presenças e evolução.
             </p>
             {[
-              'IA personalizada para cada atleta',
-              'Planos de treino automáticos',
-              'Progresso rastreado em tempo real',
-              'Suporte de treinadores experientes',
+              'Acompanhamento personalizado de cada atleta',
+              'Planos de treino por nível',
+              'Progresso registado aula a aula',
+              'Instrutores certificados',
             ].map((f) => (
               <div key={f} className="flex items-center gap-3 text-white/80 text-sm mb-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
@@ -527,12 +520,8 @@ export default function RegisterPage() {
         <div className="w-full lg:w-1/2 flex items-center justify-center p-6">
           <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md">
             {/* Mobile logo */}
-            <div className="flex items-center gap-2 mb-6 lg:hidden">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center">
-                <Waves className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-bold text-gray-900">Mastchieve</span>
-              <Sparkles className="w-4 h-4 text-yellow-500" />
+            <div className="mb-6 lg:hidden">
+              <Logo className="h-9" />
             </div>
 
             {selectedRole === null ? (

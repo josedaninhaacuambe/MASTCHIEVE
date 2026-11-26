@@ -1,5 +1,19 @@
 import type { Config } from 'tailwindcss';
 
+const NAVY = {
+          50: '#EEF0FA',
+          100: '#DCE0F4',
+          200: '#BAC1E9',
+          300: '#8E98D8',
+          400: '#5F6BC2',
+          500: '#3C48A8',
+          600: '#2B3592',
+          700: '#232B78',
+          800: '#1D2462',
+          900: '#181E50',
+          950: '#0E1233',
+        };
+
 const config: Config = {
   darkMode: ['class'],
   content: [
@@ -43,13 +57,15 @@ const config: Config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        mastchieve: {
-          50: '#f0f7ff',
-          100: '#e0effe',
-          500: '#1a56db',
-          600: '#1e429f',
-          700: '#1a3378',
-          900: '#0d1f4a',
+        // Azul institucional Mastchieve (substitui o azul genérico do Tailwind)
+        mastchieve: NAVY,
+        blue: NAVY,
+        // Cores oficiais da marca
+        brand: {
+          blue: '#2B3592',
+          red: '#EA1F29',
+          green: '#38B54C',
+          ink: '#141414',
         },
       },
       borderRadius: {

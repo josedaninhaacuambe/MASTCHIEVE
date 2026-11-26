@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { X, Brain, CheckCircle2, XCircle, Sparkles, BookOpen } from 'lucide-react';
+import { X, MessageSquareText, CheckCircle2, XCircle, Zap, BookOpen } from 'lucide-react';
 
 // Critérios são dinâmicos (vêm do módulo ativo do aluno), escala 1-5 — sugestões
 // genéricas por nível em vez do antigo dicionário fixo por métrica.
@@ -131,7 +131,7 @@ export default function AvaliacaoModal({
       if (tipo === 'AGENDADA') {
         setResultado({ aprovado: res.aprovado, motivoReprovacao: res.motivoReprovacao });
       } else {
-        toast.success('Avaliação registada', 'O feedback IA será gerado em breve');
+        toast.success('Avaliação registada', 'O feedback será gerado em breve');
         qc.invalidateQueries({ queryKey: ['feedbacks'] });
         onSuccess();
         onClose();
@@ -192,9 +192,9 @@ export default function AvaliacaoModal({
             <div className="flex-1 overflow-y-auto p-5 space-y-5">
               {tipo === 'DIARIA' && (
                 <div className="flex items-start gap-3 bg-blue-50 rounded-xl p-3">
-                  <Brain className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                  <MessageSquareText className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
                   <p className="text-xs text-blue-700 leading-relaxed">
-                    Avalia os critérios do módulo atual do atleta. Esta avaliação não aprova nem reprova — serve para gerar o feedback IA da aula.
+                    Avalia os critérios do módulo atual do atleta. Esta avaliação não aprova nem reprova — serve para gerar o feedback da aula.
                   </p>
                 </div>
               )}
@@ -218,7 +218,7 @@ export default function AvaliacaoModal({
               {sugestoes.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+                    <Zap className="w-3.5 h-3.5 text-violet-500" />
                     <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Sugestões</span>
                   </div>
                   <div className="space-y-1.5">
@@ -255,8 +255,8 @@ export default function AvaliacaoModal({
                 disabled={!allScored || mutation.isPending}
                 className="flex-1 flex items-center justify-center gap-2 bg-mastchieve-600 hover:bg-mastchieve-700 text-white py-2.5 rounded-xl text-sm font-medium transition disabled:opacity-50"
               >
-                {tipo === 'DIARIA' && <Brain className="w-4 h-4" />}
-                {mutation.isPending ? 'A registar...' : tipo === 'DIARIA' ? 'Guardar e Gerar Feedback IA' : 'Registar Avaliação'}
+                {tipo === 'DIARIA' && <MessageSquareText className="w-4 h-4" />}
+                {mutation.isPending ? 'A registar...' : tipo === 'DIARIA' ? 'Guardar e gerar feedback' : 'Registar Avaliação'}
               </button>
             </div>
           </>

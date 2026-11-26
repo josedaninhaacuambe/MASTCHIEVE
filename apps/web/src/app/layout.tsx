@@ -6,16 +6,16 @@ import { Providers } from './providers';
 const inter = Inter({ subsets: ['latin'], display: 'swap', preload: false });
 
 export const metadata: Metadata = {
-  title: { default: 'Mastchieve IA', template: '%s | Mastchieve IA' },
-  description: 'Sistema Inteligente de Gestão de Desempenho de Atletas',
+  title: { default: 'Mastchieve', template: '%s | Mastchieve' },
+  description: 'Gestão de escolas de natação — atletas, turmas, avaliações e pagamentos.',
   manifest: '/manifest.json',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Mastchieve' },
-  icons: { icon: '/icons/icon-192x192.png', apple: '/icons/apple-icon-180.png' },
+  icons: { icon: '/brand/favicon.png', apple: '/icons/apple-icon-180.png' },
   other: { 'mobile-web-app-capable': 'yes' },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#1a56db',
+  themeColor: '#2B3592',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,

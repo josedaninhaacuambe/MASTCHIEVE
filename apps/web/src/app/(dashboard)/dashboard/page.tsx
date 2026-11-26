@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Users, GraduationCap, BookOpen, AlertCircle,
-  TrendingUp, Activity, Brain, Flame, Trophy,
+  TrendingUp, Activity, MessageSquareText, Flame, Trophy,
   ArrowUpRight, ArrowDownRight, Zap, Target,
   Bell, Briefcase, UserPlus, MessageSquareWarning, Banknote,
 } from 'lucide-react';
@@ -119,7 +119,7 @@ function AtRiskWidget({ feedbacks }: { feedbacks: any[] }) {
             </div>
             <span className="text-sm text-gray-800 font-medium">{f.student?.firstName} {f.student?.lastName}</span>
             <span className="ml-auto text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-              {f.status === 'GENERATED' ? 'Gerado — rever' : 'Pendente IA'}
+              {f.status === 'GENERATED' ? 'Gerado — rever' : 'Pendente'}
             </span>
           </div>
         ))}
@@ -135,7 +135,7 @@ function AchievementFeed({ feedbacks }: { feedbacks: any[] }) {
     type: f.status === 'SENT' ? 'sent' : 'generated',
     student: `${f.student?.firstName} ${f.student?.lastName}`,
     initials: `${f.student?.firstName?.[0] ?? ''}${f.student?.lastName?.[0] ?? ''}`,
-    text: f.status === 'SENT' ? 'recebeu feedback da IA' : 'feedback IA gerado',
+    text: f.status === 'SENT' ? 'recebeu feedback' : 'feedback gerado',
     confidence: f.aiConfidenceScore,
     time: formatDate(f.createdAt),
     delay: i * 80,
@@ -172,8 +172,8 @@ function AchievementFeed({ feedbacks }: { feedbacks: any[] }) {
                 </span>
               )}
               {ev.type === 'sent'
-                ? <Brain className="w-3.5 h-3.5 text-emerald-500" />
-                : <Brain className="w-3.5 h-3.5 text-violet-400" />}
+                ? <MessageSquareText className="w-3.5 h-3.5 text-emerald-500" />
+                : <MessageSquareText className="w-3.5 h-3.5 text-violet-400" />}
             </div>
           </div>
         ))}
@@ -255,7 +255,7 @@ export default function DashboardPage() {
       {showBulkNotif && <BulkNotificationsModal onClose={() => setShowBulkNotif(false)} />}
 
       {/* ── HERO BANNER ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1A3A9C] via-[#1A56DB] to-[#2D7DD2] p-6 text-white">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#232B78] via-[#2B3592] to-[#2D7DD2] p-6 text-white">
         {/* decorative circles */}
         <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/5" />
         <div className="absolute right-20 -bottom-12 w-32 h-32 rounded-full bg-white/5" />
@@ -335,7 +335,7 @@ export default function DashboardPage() {
               sub="activos" color="blue" />
             <KpiCard icon={BookOpen} label="Turmas" rawValue={kpis?.classes ?? 0}
               sub="em funcionamento" color="green" />
-            <KpiCard icon={Brain} label="Feedbacks IA" rawValue={kpis?.recentFeedbacks?.length ?? 0}
+            <KpiCard icon={MessageSquareText} label="Feedbacks" rawValue={kpis?.recentFeedbacks?.length ?? 0}
               sub="recentes" color="purple" />
             <KpiCard icon={Flame} label="Adoção Instrutores" rawValue={adoption?.rate ?? 0}
               suffix="%" sub={`meta: 70%`} color={adoption?.rate >= 70 ? 'green' : 'amber'} />
@@ -379,8 +379,8 @@ export default function DashboardPage() {
               <AreaChart data={historyData}>
                 <defs>
                   <linearGradient id="gradBlue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1A56DB" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#1A56DB" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#2B3592" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#2B3592" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="gradGreen" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.12} />
@@ -391,7 +391,7 @@ export default function DashboardPage() {
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
-                <Area type="monotone" dataKey="activeStudents" stroke="#1A56DB" strokeWidth={2.5} fill="url(#gradBlue)" name="Atletas Ativos" dot={false} />
+                <Area type="monotone" dataKey="activeStudents" stroke="#2B3592" strokeWidth={2.5} fill="url(#gradBlue)" name="Atletas Ativos" dot={false} />
                 <Area type="monotone" dataKey="attendanceRate" stroke="#10b981" strokeWidth={2} fill="url(#gradGreen)" name="Assiduidade %" dot={false} />
               </AreaChart>
             </ResponsiveContainer>
@@ -412,7 +412,7 @@ export default function DashboardPage() {
               <span className="font-semibold text-gray-900 text-sm">Metas do Projecto</span>
             </div>
             {[
-              { label: 'Concordância IA', value: kpis?.aiConcordanceRate ?? 0, target: 85, color: 'bg-violet-500' },
+              { label: 'Concordância', value: kpis?.aiConcordanceRate ?? 0, target: 85, color: 'bg-violet-500' },
               { label: 'Adoção Instrutores', value: adoption?.rate ?? 0, target: 70, color: 'bg-blue-500' },
               { label: 'Assiduidade', value: kpis?.attendanceRate ?? 0, target: 85, color: 'bg-emerald-500' },
             ].map((g) => {

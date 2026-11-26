@@ -334,7 +334,7 @@ export function InstructorChecklistGate() {
   return (
     <div className="fixed inset-0 z-[100] bg-gray-900/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-8">
-        <div className="bg-gradient-to-br from-[#1A3A9C] to-[#1A56DB] rounded-t-2xl px-6 py-5 text-white">
+        <div className="bg-gradient-to-br from-[#232B78] to-[#2B3592] rounded-t-2xl px-6 py-5 text-white">
           <div className="flex items-center gap-2">
             <Waves className="w-5 h-5" />
             <h2 className="font-black text-lg">Rotina diária obrigatória</h2>

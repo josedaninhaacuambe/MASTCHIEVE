@@ -11,7 +11,7 @@ import SessaoInstrutores from '@/components/attendance/SessaoInstrutores';
 import ConvidadosPainel from '@/components/attendance/ConvidadosPainel';
 import {
   ArrowLeft, ChevronRight, CheckCircle, XCircle, Clock,
-  AlertCircle, Save, ClipboardList, Users, BarChart3, RefreshCw, Brain,
+  AlertCircle, Save, ClipboardList, Users, BarChart3, RefreshCw, MessageSquareText,
 } from 'lucide-react';
 
 type Status = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
@@ -241,7 +241,7 @@ export default function SessionAttendancePage() {
                           ? 'bg-violet-50 text-violet-600 border-violet-200 hover:bg-violet-100'
                           : 'bg-white text-gray-500 border-gray-200 hover:border-violet-300 hover:text-violet-600',
                       )}>
-                      <Brain className="w-3.5 h-3.5" />
+                      <MessageSquareText className="w-3.5 h-3.5" />
                       {avaliado ? 'Avaliado' : 'Avaliar'}
                     </button>
                     {/* Status selector */}

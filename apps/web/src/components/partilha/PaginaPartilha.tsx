@@ -2,9 +2,10 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { Waves, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 
+import { Logo } from '@/components/brand/Logo';
 const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/api\/v1\/?$/, '');
 
 function toAbsoluteUrl(url?: string | null) {
@@ -65,10 +66,7 @@ export default function PaginaPartilha({ chave }: { chave: string }) {
     <div className="min-h-screen bg-white flex flex-col">
       <nav className="border-b border-gray-100">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
-            <Waves className="w-5 h-5 text-white" />
-          </div>
-          <span className="font-bold text-xl text-gray-900 tracking-tight">Mastchieve</span>
+          <Logo className="h-9" />
         </div>
       </nav>
 

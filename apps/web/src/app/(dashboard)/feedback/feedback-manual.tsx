@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { Brain, Loader2, PenLine, RefreshCw, Save, Search, Sparkles, X } from 'lucide-react';
+import { MessageSquareText, Loader2, PenLine, RefreshCw, Save, Search, Zap, X } from 'lucide-react';
 
 const inputCls = 'w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mastchieve-500/30';
 
@@ -41,7 +41,7 @@ export function NovoFeedbackModal({ onClose, onSaved }: { onClose: () => void; o
       const r = modo === 'MANUAL'
         ? await api.post('/feedback', { studentId: atleta.id, texto: texto.trim() })
         : await api.post(`/ai/feedback/student/${atleta.id}`);
-      toast.success(modo === 'MANUAL' ? 'Feedback guardado' : 'Feedback gerado pela IA', 'Reveja e envie ao atleta quando estiver pronto.');
+      toast.success(modo === 'MANUAL' ? 'Feedback guardado' : 'Feedback gerado automaticamente', 'Reveja e envie ao atleta quando estiver pronto.');
       onSaved({ ...(r.data?.data ?? {}), student: { firstName: atleta.firstName, lastName: atleta.lastName } });
     } catch (e: any) {
       toast.error(modo === 'MANUAL' ? 'Erro ao guardar feedback' : 'Erro ao gerar feedback', mensagemErro(e));
@@ -61,7 +61,7 @@ export function NovoFeedbackModal({ onClose, onSaved }: { onClose: () => void; o
 
         <div className="space-y-4">
           <div className="flex gap-2">
-            {([['MANUAL', 'Escrever', PenLine], ['IA', 'Gerar com IA', Sparkles]] as const).map(([v, l, Icon]) => (
+            {([['MANUAL', 'Escrever', PenLine], ['IA', 'Gerar automaticamente', Zap]] as const).map(([v, l, Icon]) => (
               <button key={v} onClick={() => setModo(v)}
                 className={cn('flex-1 py-2 rounded-xl text-sm font-medium border flex items-center justify-center gap-1.5',
                   modo === v ? 'bg-mastchieve-600 text-white border-mastchieve-600' : 'bg-white text-gray-600 border-gray-200')}>
@@ -104,8 +104,8 @@ export function NovoFeedbackModal({ onClose, onSaved }: { onClose: () => void; o
             </div>
           ) : (
             <div className="bg-violet-50 border border-violet-100 rounded-xl p-3 text-xs text-violet-700">
-              <Brain className="w-4 h-4 inline mr-1.5" />
-              A IA usa a avaliação mais recente do atleta (diária ou de conclusão de módulo). Pode editar o texto antes de enviar.
+              <MessageSquareText className="w-4 h-4 inline mr-1.5" />
+              O sistema usa a avaliação mais recente do atleta (diária ou de conclusão de módulo). Pode editar o texto antes de enviar.
             </div>
           )}
         </div>
@@ -114,7 +114,7 @@ export function NovoFeedbackModal({ onClose, onSaved }: { onClose: () => void; o
           <button onClick={onClose} className="flex-1 border border-gray-200 py-2.5 rounded-xl text-sm hover:bg-gray-50 transition">Cancelar</button>
           <button onClick={guardar} disabled={!valido || saving}
             className="flex-1 bg-mastchieve-600 hover:bg-mastchieve-700 text-white py-2.5 rounded-xl text-sm font-medium disabled:opacity-50 transition flex items-center justify-center gap-2">
-            {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> {modo === 'IA' ? 'A gerar...' : 'A guardar...'}</> : modo === 'IA' ? 'Gerar com IA' : 'Guardar'}
+            {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> {modo === 'IA' ? 'A gerar...' : 'A guardar...'}</> : modo === 'IA' ? 'Gerar automaticamente' : 'Guardar'}
           </button>
         </div>
       </div>
@@ -150,10 +150,10 @@ export function EditorTextoFeedback({ feedback, onChanged }: { feedback: any; on
     setGerando(true);
     try {
       const r = await api.post(`/ai/feedback/${feedback.id}/regenerate`);
-      toast.success('Feedback gerado pela IA');
+      toast.success('Feedback gerado automaticamente');
       onChanged(r.data?.data ?? {});
     } catch (e: any) {
-      toast.error('Erro ao gerar feedback com IA', mensagemErro(e, 'Pode escrever o feedback manualmente.'));
+      toast.error('Erro ao gerar o feedback', mensagemErro(e, 'Pode escrever o feedback manualmente.'));
     } finally {
       setGerando(false);
     }
@@ -168,7 +168,7 @@ export function EditorTextoFeedback({ feedback, onChanged }: { feedback: any; on
           <button onClick={gerar} disabled={gerando}
             className="ml-auto flex items-center gap-1 text-xs text-violet-600 hover:underline disabled:opacity-50">
             {gerando ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-            {feedback.aiGeneratedText ? 'Gerar de novo com IA' : 'Gerar com IA'}
+            {feedback.aiGeneratedText ? 'Gerar de novo' : 'Gerar automaticamente'}
           </button>
         )}
       </div>

@@ -4,13 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { classLevelLabel, cn } from '@/lib/utils';
 import {
-  Waves, BookOpen, Users, GraduationCap, Brain, Star,
-  CheckCircle, Mail, Phone, MapPin, ChevronRight, Sparkles,
-  TrendingUp, Shield, Award, Zap,
+  Waves, BookOpen, Users, GraduationCap, MessageSquareText, Star, CheckCircle, Mail, Phone, MapPin, ChevronRight, Zap, TrendingUp, Shield, Award,
 } from 'lucide-react';
 
 const FEATURES = [
-  { icon: Brain, title: 'Feedback com IA', desc: 'Relatórios personalizados gerados por inteligência artificial após cada aula.' },
+  { icon: MessageSquareText, title: 'Feedback automático', desc: 'Relatórios personalizados após cada aula.' },
   { icon: TrendingUp, title: 'Progresso em Tempo Real', desc: 'Acompanhe a evolução nos módulos de natação com gráficos detalhados.' },
   { icon: Shield, title: 'Planos Personalizados', desc: 'Planos de treino adaptados ao nível e objetivos de cada atleta.' },
   { icon: Award, title: 'Certificação por Módulos', desc: 'Sistema de progressão estruturado com níveis e certificados.' },
@@ -22,8 +20,8 @@ const PLANS = [
   {
     name: 'Atleta',
     price: 2500,
-    desc: 'Para atletas individuais que querem evoluir com o apoio da IA.',
-    features: ['Acesso ao painel do atleta', 'Feedback IA após cada aula', 'Progresso nos módulos', 'Histórico de presenças', 'Gestão de pagamentos'],
+    desc: 'Para atletas individuais que querem evoluir com acompanhamento.',
+    features: ['Acesso ao painel do atleta', 'Feedback após cada aula', 'Progresso nos módulos', 'Histórico de presenças', 'Gestão de pagamentos'],
     highlight: false,
   },
   {
@@ -36,8 +34,8 @@ const PLANS = [
   {
     name: 'Academia',
     price: null,
-    desc: 'Para academias e clubes. Gestão completa com IA e administração.',
-    features: ['Instrutores ilimitados', 'Turmas ilimitadas', 'KPIs e relatórios avançados', 'Planos de treino IA', 'Suporte dedicado'],
+    desc: 'Para academias e clubes. Gestão e administração completas.',
+    features: ['Instrutores ilimitados', 'Turmas ilimitadas', 'KPIs e relatórios avançados', 'Planos de treino', 'Suporte dedicado'],
     highlight: false,
   },
 ];
@@ -63,7 +61,7 @@ export default function VisitorPage() {
         </div>
         <h1 className="text-3xl font-black mb-2">Bem-vindo à Mastchieve</h1>
         <p className="text-blue-100 text-base max-w-lg mx-auto leading-relaxed">
-          A plataforma de gestão de atletas de natação com inteligência artificial.
+          A plataforma profissional de gestão de atletas de natação.
           Transforma dados em campeões.
         </p>
         <div className="flex items-center justify-center gap-4 mt-6 flex-wrap">
@@ -74,7 +72,7 @@ export default function VisitorPage() {
             <Users className="w-4 h-4" /> +1.200 atletas
           </div>
           <div className="flex items-center gap-1.5 text-blue-100 text-sm">
-            <Sparkles className="w-4 h-4" /> IA Anthropic Claude
+            <Zap className="w-4 h-4" /> Análise automática
           </div>
         </div>
         <div className="flex gap-3 justify-center mt-6">
@@ -92,7 +90,7 @@ export default function VisitorPage() {
       {/* Features */}
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-5 text-center">
-          Tudo o que precisas para gerir atletas com IA
+          Tudo o que precisas para gerir os teus atletas
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {FEATURES.map(({ icon: Icon, title, desc }) => (

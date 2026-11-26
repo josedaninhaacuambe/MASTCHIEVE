@@ -8,9 +8,7 @@ import { PlanosAula } from './planos-aula';
 import { toast } from '@/lib/toast';
 import { getInitials, formatDate, cn } from '@/lib/utils';
 import {
-  Dumbbell, Plus, X, Search, Brain, Target, ChevronDown, ChevronUp,
-  Calendar, Clock, RefreshCw, CheckCircle, Loader2, Sparkles,
-  Users, BookOpen, Star, Zap, LayoutGrid, Fish, Printer, AlertCircle,
+  Dumbbell, Plus, X, Search, MessageSquareText, Target, ChevronDown, ChevronUp, Calendar, Clock, RefreshCw, CheckCircle, Loader2, Zap, Users, BookOpen, Star, LayoutGrid, Fish, Printer, AlertCircle,
 } from 'lucide-react';
 
 function printPlan(plan: any, objectives: any[], exercises: any[]) {
@@ -42,7 +40,7 @@ function printPlan(plan: any, objectives: any[], exercises: any[]) {
 </style></head><body>
 <div class="header">
   <h1>${plan.title}</h1>
-  <p>Atleta: ${nomeAluno} · ${plan.aiGenerated?'Gerado por IA':'Manual'}</p>
+  <p>Atleta: ${nomeAluno} · ${plan.aiGenerated?'Gerado automaticamente':'Manual'}</p>
 </div>
 <div class="body">
   ${plan.description?`<p style="color:#374151;font-size:14px">${plan.description}</p>`:''}
@@ -124,7 +122,7 @@ function TemplatesModulo() {
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
         <strong>Plano de Aula Padrão</strong> — modelo base por módulo. O instrutor preenche o "Objetivo da Semana" e adapta
         os exercícios de cada parte. Atletas com limitações físicas ou necessidades especiais recebem adaptações individuais.
-        A IA distribui o plano conforme o pacote de frequência contratado (2, 3 ou 6 dias/semana).
+        O sistema distribui o plano conforme o pacote de frequência contratado (2, 3 ou 6 dias/semana).
       </div>
 
       {TEMPLATES_MODULO.map(tmpl => (
@@ -266,7 +264,7 @@ function GeneratePlanModal({ onClose, onSuccess }: { onClose: () => void; onSucc
   const mutation = useMutation({
     mutationFn: () => api.post(`/ai/training-plan/${selectedStudent}`, { instructorNotes: notes }),
     onSuccess: () => {
-      toast.success('Plano de treino gerado pela IA!');
+      toast.success('Plano de treino gerado!');
       onSuccess();
       onClose();
     },
@@ -283,9 +281,9 @@ function GeneratePlanModal({ onClose, onSuccess }: { onClose: () => void; onSucc
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
+              <Zap className="w-4 h-4 text-white" />
             </div>
-            <h2 className="text-base font-semibold text-gray-900">Gerar plano com IA</h2>
+            <h2 className="text-base font-semibold text-gray-900">Gerar plano automaticamente</h2>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition">
             <X className="w-4 h-4" />
@@ -314,8 +312,8 @@ function GeneratePlanModal({ onClose, onSuccess }: { onClose: () => void; onSucc
               rows={3} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 resize-none" />
           </div>
           <div className="bg-violet-50 border border-violet-100 rounded-xl p-3 text-xs text-violet-700">
-            <Brain className="w-4 h-4 inline mr-1.5" />
-            A IA irá analisar o progresso do atleta, nível, turma e feedbacks anteriores para gerar um plano personalizado.
+            <MessageSquareText className="w-4 h-4 inline mr-1.5" />
+            O sistema analisa o progresso do atleta, nível, turma e feedbacks anteriores para gerar um plano personalizado.
           </div>
         </div>
         <div className="flex gap-3 mt-5">
@@ -324,7 +322,7 @@ function GeneratePlanModal({ onClose, onSuccess }: { onClose: () => void; onSucc
             className="flex-1 bg-violet-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-violet-700 disabled:opacity-50 transition flex items-center justify-center gap-2">
             {mutation.isPending
               ? <><Loader2 className="w-4 h-4 animate-spin" /> A gerar...</>
-              : <><Sparkles className="w-4 h-4" /> Gerar com IA</>}
+              : <><Zap className="w-4 h-4" /> Gerar automaticamente</>}
           </button>
         </div>
       </div>
@@ -361,7 +359,7 @@ function PlanDrawer({ plan, onClose }: { plan: TrainingPlan; onClose: () => void
           <div className="flex items-center gap-2 mb-1">
             {plan.aiGenerated && (
               <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> Gerado por IA
+                <Zap className="w-3 h-3" /> Gerado automaticamente
               </span>
             )}
             <span className={cn('text-xs px-2 py-0.5 rounded-full',
@@ -463,7 +461,7 @@ function PlanDrawer({ plan, onClose }: { plan: TrainingPlan; onClose: () => void
               </div>
             )}
             <div className="flex justify-between">
-              <span>Gerado por IA</span>
+              <span>Gerado automaticamente</span>
               <span className={plan.aiGenerated ? 'text-violet-600' : 'text-gray-700'}>
                 {plan.aiGenerated ? 'Sim' : 'Não'}
               </span>
@@ -492,7 +490,7 @@ function PlanCard({ plan, onClick }: { plan: TrainingPlan; onClick: () => void }
         <div className="flex items-center gap-2 flex-wrap">
           {plan.aiGenerated && (
             <span className="flex items-center gap-1 text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">
-              <Sparkles className="w-3 h-3" /> IA
+              <Zap className="w-3 h-3" /> Auto
             </span>
           )}
           <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium',
@@ -575,7 +573,7 @@ export default function TrainingPlansPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Planos de Treino</h1>
-          <p className="text-gray-500 text-sm mt-1">Planos por atleta (criados por si ou pela IA) + templates de plano de aula por módulo</p>
+          <p className="text-gray-500 text-sm mt-1">Planos por atleta (manuais ou gerados automaticamente) + templates de plano de aula por módulo</p>
         </div>
         {tab === 'plans' && (
           <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -585,7 +583,7 @@ export default function TrainingPlansPage() {
             </button>
             <button onClick={() => setShowGenerate(true)}
               className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition">
-              <Sparkles className="w-4 h-4" /> Gerar com IA
+              <Zap className="w-4 h-4" /> Gerar automaticamente
             </button>
           </div>
         )}
@@ -596,7 +594,7 @@ export default function TrainingPlansPage() {
         <button onClick={() => setTab('plans')}
           className={cn('flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition',
             tab === 'plans' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
-          <Sparkles className="w-4 h-4" /> Planos por Atleta
+          <Zap className="w-4 h-4" /> Planos por Atleta
         </button>
         <button onClick={() => setTab('aulas')}
           className={cn('flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition',
@@ -632,7 +630,7 @@ export default function TrainingPlansPage() {
             {[
               { icon: Dumbbell, label: 'Total de planos', value: total, color: 'blue' },
               { icon: CheckCircle, label: 'Planos ativos', value: activeCount, color: 'green' },
-              { icon: Sparkles, label: 'Gerados por IA', value: aiCount, color: 'violet' },
+              { icon: Zap, label: 'Gerados automaticamente', value: aiCount, color: 'violet' },
             ].map(({ icon: Icon, label, value, color }) => (
               <div key={label} className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center gap-3">
                 <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center',
@@ -653,7 +651,7 @@ export default function TrainingPlansPage() {
           {/* Filter toolbar */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
-              {([['all', 'Todos'], ['active', 'Ativos'], ['ai', 'Gerados por IA']] as const).map(([val, label]) => (
+              {([['all', 'Todos'], ['active', 'Ativos'], ['ai', 'Gerados automaticamente']] as const).map(([val, label]) => (
                 <button key={val} onClick={() => setFilter(val)}
                   className={cn('px-3 py-1.5 rounded-lg text-sm font-medium transition',
                     filter === val ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
@@ -688,7 +686,7 @@ export default function TrainingPlansPage() {
             <div className="text-center py-20 text-gray-400">
               <Dumbbell className="w-14 h-14 mx-auto mb-4 opacity-20" />
               <p className="text-sm font-medium">Nenhum plano de treino encontrado</p>
-              <p className="text-xs mt-1 mb-4">Crie o primeiro plano à mão, importe um ficheiro ou gere-o com IA</p>
+              <p className="text-xs mt-1 mb-4">Crie o primeiro plano à mão, importe um ficheiro ou gere-o automaticamente</p>
               <div className="inline-flex gap-2">
                 <button onClick={() => setShowCriar(true)}
                   className="inline-flex items-center gap-2 border border-gray-200 bg-white text-gray-800 px-4 py-2 rounded-xl text-sm hover:bg-gray-50 transition">
@@ -696,7 +694,7 @@ export default function TrainingPlansPage() {
                 </button>
                 <button onClick={() => setShowGenerate(true)}
                   className="inline-flex items-center gap-2 bg-violet-600 text-white px-4 py-2 rounded-xl text-sm hover:bg-violet-700 transition">
-                  <Sparkles className="w-4 h-4" /> Gerar com IA
+                  <Zap className="w-4 h-4" /> Gerar automaticamente
                 </button>
               </div>
             </div>

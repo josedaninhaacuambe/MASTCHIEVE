@@ -6,7 +6,7 @@ import { formatCurrency } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import {
   Users, GraduationCap, BookOpen, AlertCircle,
-  TrendingUp, Activity, Brain, Target, BarChart3, CheckCircle,
+  TrendingUp, Activity, MessageSquareText, Target, BarChart3, CheckCircle,
 } from 'lucide-react';
 import {
   AreaChart, Area, LineChart, Line, BarChart, Bar,
@@ -138,14 +138,14 @@ export default function KpiPage() {
           color="blue"
         />
         <KpiCard
-          icon={Brain} label="Adoção pelos Instrutores"
+          icon={MessageSquareText} label="Adoção pelos Instrutores"
           value={`${adoption?.rate ?? 0}%`}
           sub={`${adoption?.active ?? '—'} de ${adoption?.total ?? '—'} ativos`}
           color="purple"
           target="70%" achieved={(adoption?.rate ?? 0) >= 70}
         />
         <KpiCard
-          icon={CheckCircle} label="Concordância IA"
+          icon={CheckCircle} label="Concordância"
           value={`${kpis?.aiConcordanceRate ?? 0}%`}
           sub={`${kpis?.aiConcordanceRate ?? 0 >= 85 ? '✓ Meta atingida' : 'Meta: 85% — feedbacks revistos'}`}
           color="orange"
@@ -166,8 +166,8 @@ export default function KpiPage() {
               <AreaChart data={historyFormatted}>
                 <defs>
                   <linearGradient id="gradStudents" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1a56db" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#1a56db" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#2B3592" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#2B3592" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -175,7 +175,7 @@ export default function KpiPage() {
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Area type="monotone" dataKey="activeStudents" stroke="#1a56db" fill="url(#gradStudents)" name="Atletas Ativos" />
+                <Area type="monotone" dataKey="activeStudents" stroke="#2B3592" fill="url(#gradStudents)" name="Atletas Ativos" />
                 <Line type="monotone" dataKey="attendanceRate" stroke="#10b981" strokeWidth={2} dot={false} name="Assiduidade %" />
               </AreaChart>
             </ResponsiveContainer>
@@ -202,7 +202,7 @@ export default function KpiPage() {
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
                 <Tooltip />
                 <Bar dataKey="value" name="Módulos" radius={[0, 4, 4, 0]}
-                  fill="#1a56db"
+                  fill="#2B3592"
                   label={{ position: 'right', fontSize: 12, fill: '#6b7280' }}
                 />
               </BarChart>
@@ -255,8 +255,8 @@ export default function KpiPage() {
         {/* Recent Feedbacks */}
         <div className="xl:col-span-2 bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
-            <Brain className="w-4 h-4 text-blue-500" />
-            <h3 className="font-semibold text-gray-900">Feedbacks IA Recentes</h3>
+            <MessageSquareText className="w-4 h-4 text-blue-500" />
+            <h3 className="font-semibold text-gray-900">Feedbacks recentes</h3>
           </div>
           <div className="space-y-2">
             {(kpis?.recentFeedbacks ?? []).slice(0, 5).map((fb: any) => (

@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Search, Wifi, WifiOff, X, Menu, CheckCheck, Info, AlertTriangle, CheckCircle, CreditCard, Activity, Brain, Users, BookOpen, BellRing, BellOff } from 'lucide-react';
+import { Bell, Search, Wifi, WifiOff, X, Menu, CheckCheck, Info, AlertTriangle, CheckCircle, CreditCard, Activity, MessageSquareText, Users, BookOpen, BellRing, BellOff } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth.store';
@@ -17,7 +17,7 @@ import { subscribeToPush } from '@/lib/push';
 const TYPE_CFG: Record<string, { label: string; icon: any; color: string; bg: string; dot: string }> = {
   PAYMENT_DUE:        { label: 'Pagamento',    icon: CreditCard,      color: 'text-amber-600',  bg: 'bg-amber-100',   dot: 'bg-amber-500' },
   ATTENDANCE_ALERT:   { label: 'Assiduidade',  icon: Activity,        color: 'text-orange-600', bg: 'bg-orange-100',  dot: 'bg-orange-500' },
-  PERFORMANCE_UPDATE: { label: 'Desempenho',   icon: Brain,           color: 'text-violet-600', bg: 'bg-violet-100',  dot: 'bg-violet-500' },
+  PERFORMANCE_UPDATE: { label: 'Desempenho',   icon: MessageSquareText,           color: 'text-violet-600', bg: 'bg-violet-100',  dot: 'bg-violet-500' },
   SUCCESS:            { label: 'Sucesso',       icon: CheckCircle,     color: 'text-emerald-600',bg: 'bg-emerald-100', dot: 'bg-emerald-500' },
   WARNING:            { label: 'Aviso',         icon: AlertTriangle,   color: 'text-yellow-600', bg: 'bg-yellow-100',  dot: 'bg-yellow-500' },
   INFO:               { label: 'Informação',    icon: Info,            color: 'text-blue-600',   bg: 'bg-blue-100',    dot: 'bg-blue-500' },
@@ -188,7 +188,7 @@ function GlobalSearchPanel({
                         onClick={() => handleResultClick(`/students/${student.id}`)}
                         className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left group"
                       >
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1A3A9C] to-[#1A56DB] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#232B78] to-[#2B3592] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                           {initials}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -661,7 +661,7 @@ export function Header() {
 
           {/* User avatar */}
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-br from-[#1A3A9C] to-[#1A56DB] flex items-center justify-center text-white text-xs font-bold cursor-pointer flex-shrink-0 ring-2 ring-blue-200 shadow-sm">
+            <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-br from-[#232B78] to-[#2B3592] flex items-center justify-center text-white text-xs font-bold cursor-pointer flex-shrink-0 ring-2 ring-blue-200 shadow-sm">
               {initials}
             </div>
             <div className="hidden lg:block">
