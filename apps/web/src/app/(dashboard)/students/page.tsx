@@ -13,7 +13,7 @@ import {
 import Link from 'next/link';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { useAuthStore } from '@/stores/auth.store';
-import { BarraAlocacao, FILTROS_VAZIOS, FiltrosAtletas, PainelFiltrosAtletas, filtrosParaParams } from '@/components/students/FiltrosAlocacaoAtletas';
+import { BarraAlocacao, BarraModulo, FILTROS_VAZIOS, FiltrosAtletas, PainelFiltrosAtletas, filtrosParaParams } from '@/components/students/FiltrosAlocacaoAtletas';
 
 const CAMPO_LABEL: Record<string, string> = {
   firstName: 'Nome',
@@ -354,12 +354,45 @@ export default function StudentsPage() {
   const [seleccionados, setSeleccionados] = useState<string[]>([]);
   const { user } = useAuthStore();
   const podeAlocar = ['ADMIN', 'ASSISTENTE_ADMIN', 'SUPER_ADMIN'].includes(user?.role ?? '');
+  const podeAtribuirModulo = ['ADMIN', 'SUPER_ADMIN', 'INSTRUCTOR'].includes(user?.role ?? '');
+  const podeSeleccionar = podeAlocar || podeAtribuirModulo;
+  // Campanhas já vistas (o filtro é feito no servidor, por isso a página actual não as tem todas).
+  const campanhasVistas = useRef<Set<string>>(new Set());
   const alternar = (id: string) => setSeleccionados((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['students', page, search, filtros],
+  // Filtros comuns à lista e aos contadores do topo.
+  const filtrosBase: Record<string, string> = {
+    ...(search && { search }),
+    ...(levelFilter && { nivel: levelFilter }),
+    ...(campanhaFilter && { campanha: campanhaFilter }),
+    ...filtrosParaParams(filtros),
+  };
+
+  // Contadores do topo: totais no servidor (todos os atletas que cumprem os filtros), não só a página aberta.
+  const { data: kpis, isLoading: kpisLoading } = useQuery({
+    queryKey: ['students-kpis', search, filtros, levelFilter, campanhaFilter],
     queryFn: async () => {
-      const params = new URLSearchParams({ page: String(page), limit: '20', ...(search && { search }), ...filtrosParaParams(filtros) });
+      const contar = async (extra: Record<string, string>) => {
+        const { data } = await api.get(`/students?${new URLSearchParams({ page: '1', limit: '1', ...filtrosBase, ...extra })}`);
+        return Number(data?.meta?.total ?? 0);
+      };
+      const [activos, inactivos, irregulares] = await Promise.all([
+        contar({ isActive: 'true' }), contar({ isActive: 'false' }), contar({ irregular: 'true' }),
+      ]);
+      return { activos, inactivos, irregulares };
+    },
+  });
+
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['students', page, search, filtros, statusFilter, levelFilter, irregularOnly, campanhaFilter],
+    queryFn: async () => {
+      // Todos os filtros são aplicados no servidor (sobre todos os atletas, não só sobre a página actual).
+      const params = new URLSearchParams({
+        page: String(page), limit: '20',
+        ...filtrosBase,
+        ...(statusFilter !== 'all' && { isActive: String(statusFilter === 'active') }),
+        ...(irregularOnly && { irregular: 'true' }),
+      });
       const { data } = await api.get(`/students?${params}`);
       return data;
     },
@@ -369,11 +402,10 @@ export default function StudentsPage() {
 
   // ── KPI derivations ──────────────────────────────────────────────────────
   const totalStudents = data?.meta?.total ?? allStudents.length;
-  const activeCount = allStudents.filter((s) => s.isActive).length;
-  const overdueCount = allStudents.filter((s) => s.categoria?.irregular).length;
-  const campanhas = Array.from(
-    new Set(allStudents.map((s) => s.categoria?.campanha).filter(Boolean)),
-  ) as string[];
+  const activeCount = kpis?.activos ?? 0;
+  const overdueCount = kpis?.irregulares ?? 0;
+  for (const c of allStudents.map((s) => s.categoria?.campanha)) if (c) campanhasVistas.current.add(c);
+  const campanhas = Array.from(campanhasVistas.current).sort();
 
   // Attendance: use perf data if present, otherwise fall back to placeholder
   const attendanceRates = allStudents
@@ -383,18 +415,7 @@ export default function StudentsPage() {
     ? Math.round(attendanceRates.reduce((a, b) => a + b, 0) / attendanceRates.length)
     : null;
 
-  // ── Client-side filtering ─────────────────────────────────────────────────
-  const filtered = allStudents.filter((s) => {
-    if (statusFilter === 'active' && !s.isActive) return false;
-    if (statusFilter === 'inactive' && s.isActive) return false;
-    if (levelFilter) {
-      const level = s.enrollments?.[0]?.class?.level ?? s.level;
-      if (level !== levelFilter) return false;
-    }
-    if (irregularOnly && !s.categoria?.irregular) return false;
-    if (campanhaFilter && s.categoria?.campanha !== campanhaFilter) return false;
-    return true;
-  });
+  const filtered = allStudents;
 
   const resetFilters = () => {
     setSearch('');
@@ -462,15 +483,15 @@ export default function StudentsPage() {
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard icon={Users} label="Total atletas" value={totalStudents}
           iconBg="bg-blue-50" iconColor="text-blue-600" />
-        <KpiCard icon={Activity} label="Atletas ativos" value={isLoading ? '—' : activeCount}
-          sub={isLoading ? undefined : `${totalStudents - activeCount} inativos`}
+        <KpiCard icon={Activity} label="Atletas ativos" value={kpisLoading ? '—' : activeCount}
+          sub={kpisLoading ? undefined : `${kpis?.inactivos ?? 0} inativos`}
           iconBg="bg-green-50" iconColor="text-green-600" />
         <KpiCard icon={TrendingDown} label="Taxa de assiduidade"
           value={isLoading ? '—' : avgAttendance !== null ? `${avgAttendance}%` : '—'}
           sub="Média do grupo"
           iconBg="bg-amber-50" iconColor="text-amber-600" />
         <KpiCard icon={CreditCard} label="Mensalidades em atraso"
-          value={isLoading ? '—' : overdueCount}
+          value={kpisLoading ? '—' : overdueCount}
           iconBg="bg-red-50" iconColor="text-red-500" />
       </div>
 
@@ -519,7 +540,7 @@ export default function StudentsPage() {
         <div className="flex-1" />
 
         {/* Count */}
-        <span className="text-sm text-gray-400 hidden sm:block">{filtered.length} atletas</span>
+        <span className="text-sm text-gray-400 hidden sm:block">{totalStudents} atletas</span>
 
         {/* View toggle */}
         <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
@@ -534,9 +555,9 @@ export default function StudentsPage() {
         </div>
       </div>
 
-      {podeAlocar && <PainelFiltrosAtletas value={filtros} onChange={(f) => { setFiltros(f); setPage(1); }} />}
+      <PainelFiltrosAtletas value={filtros} onChange={(f) => { setFiltros(f); setPage(1); }} />
 
-      {podeAlocar && filtered.length > 0 && (
+      {podeSeleccionar && filtered.length > 0 && (
         <div className="flex items-center gap-3 text-sm">
           <button
             onClick={() => {
@@ -545,7 +566,7 @@ export default function StudentsPage() {
               setSeleccionados((s) => (todos ? s.filter((x) => !ids.includes(x)) : Array.from(new Set([...s, ...ids]))));
             }}
             className="text-mastchieve-700 hover:underline font-medium">
-            {filtered.every((s: any) => seleccionados.includes(s.id)) ? 'Desmarcar esta página' : 'Seleccionar esta página para alocar'}
+            {filtered.every((s: any) => seleccionados.includes(s.id)) ? 'Desmarcar esta página' : podeAlocar ? 'Seleccionar esta página para alocar ou atribuir módulo' : 'Seleccionar esta página para atribuir módulo'}
           </button>
           {seleccionados.length > 0 && <span className="text-gray-500">{seleccionados.length} seleccionado(s)</span>}
         </div>
@@ -601,9 +622,9 @@ export default function StudentsPage() {
                         {initials}
                       </div>
                       <div className="flex items-center gap-1.5">
-                        {podeAlocar && (
+                        {podeSeleccionar && (
                           <input type="checkbox" checked={seleccionados.includes(student.id)} onChange={() => alternar(student.id)}
-                            aria-label="Seleccionar para alocar" className="w-4 h-4 rounded border-gray-300 text-mastchieve-600" />
+                            aria-label="Seleccionar atleta" className="w-4 h-4 rounded border-gray-300 text-mastchieve-600" />
                         )}
                         {/* Status dot */}
                         <span className={cn('w-2 h-2 rounded-full flex-shrink-0',
@@ -636,6 +657,13 @@ export default function StudentsPage() {
                       )}
                       {student.etiqueta === 'BM' && (
                         <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-indigo-100 text-indigo-700">BM</span>
+                      )}
+                      {student.moduloActual ? (
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-sky-100 text-sky-700" title="Módulo em curso">
+                          F{student.moduloActual.ordem} · {student.moduloActual.nome}
+                        </span>
+                      ) : (
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-gray-50 text-gray-400 border border-dashed border-gray-200">Sem módulo</span>
                       )}
                       {student.enrollments?.[0]?.class?.name && (
                         <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-600 truncate max-w-[10rem]">
@@ -732,7 +760,7 @@ export default function StudentsPage() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-6 py-3">Atleta</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-6 py-3">Nível</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-6 py-3">Nível / Módulo</th>
                 <th className="hidden md:table-cell text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-6 py-3">Assiduidade</th>
                 <th className="hidden lg:table-cell text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-6 py-3">Última sessão</th>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-6 py-3">Estado</th>
@@ -766,9 +794,9 @@ export default function StudentsPage() {
                     <tr key={student.id} className="hover:bg-gray-50 transition">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          {podeAlocar && (
+                          {podeSeleccionar && (
                             <input type="checkbox" checked={seleccionados.includes(student.id)} onChange={() => alternar(student.id)}
-                              aria-label="Seleccionar para alocar" className="w-4 h-4 rounded border-gray-300 text-mastchieve-600" />
+                              aria-label="Seleccionar atleta" className="w-4 h-4 rounded border-gray-300 text-mastchieve-600" />
                           )}
                           <div className={cn('w-9 h-9 bg-gradient-to-br rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0', grad)}>
                             {getInitials(student.firstName, student.lastName)}
@@ -785,6 +813,9 @@ export default function StudentsPage() {
                             {levelLabel(level)}
                           </span>
                         ) : <span className="text-gray-300 text-sm">—</span>}
+                        <div className="text-xs mt-1 text-gray-500 whitespace-nowrap">
+                          {student.moduloActual ? `F${student.moduloActual.ordem} · ${student.moduloActual.nome}` : 'Sem módulo'}
+                        </div>
                       </td>
                       <td className="hidden md:table-cell px-6 py-4">
                         {attendance !== null ? (
@@ -873,7 +904,12 @@ export default function StudentsPage() {
         </div>
       )}
 
-      {podeAlocar && <BarraAlocacao ids={seleccionados} onLimpar={() => setSeleccionados([])} />}
+      {seleccionados.length > 0 && (
+        <div className="sticky bottom-4 z-20 space-y-2">
+          {podeAtribuirModulo && <BarraModulo ids={seleccionados} onLimpar={() => setSeleccionados([])} />}
+          {podeAlocar && <BarraAlocacao ids={seleccionados} onLimpar={() => setSeleccionados([])} />}
+        </div>
+      )}
     </div>
   );
 }

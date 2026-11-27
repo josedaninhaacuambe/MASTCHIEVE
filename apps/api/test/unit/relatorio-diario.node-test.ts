@@ -76,3 +76,35 @@ test('emails gerados automaticamente são reconhecidos', () => {
   assert.ok(emailGeradoAutomaticamente('encarregado_1732_0_ab12cd34@mastchieve.com'));
   assert.equal(emailGeradoAutomaticamente('maria@gmail.com'), false);
 });
+
+// ─── Entradas da recepção na folha diária e resumo do relatório mensal ──────
+import { intervaloDiaMaputo, turnoDaEntrada } from '../../src/modules/attendance/relatorio-diario.util';
+import { resumoDoMes } from '../../src/modules/administrativo/relatorios-mensais/relatorios-mensais.service';
+
+test('intervaloDiaMaputo devolve o dia local de Maputo (UTC+2) em UTC', () => {
+  const r = intervaloDiaMaputo('2026-11-27')!;
+  assert.equal(r.inicio.toISOString(), '2026-11-26T22:00:00.000Z');
+  assert.equal(r.fim.toISOString(), '2026-11-27T22:00:00.000Z');
+  assert.equal(intervaloDiaMaputo('27/11/2026'), null);
+});
+
+test('turnoDaEntrada coloca a entrada no turno certo (com 10 min de tolerância antes)', () => {
+  const maputo = (hhmm: string) => new Date(`2026-11-27T${hhmm}:00+02:00`);
+  assert.equal(turnoDaEntrada(maputo('05:25')), '05:30-06:20');
+  assert.equal(turnoDaEntrada(maputo('06:00')), '05:30-06:20');
+  assert.equal(turnoDaEntrada(maputo('06:20')), '06:30-07:20');
+  assert.equal(turnoDaEntrada(maputo('16:45')), '16:30-17:20');
+  assert.equal(turnoDaEntrada(maputo('21:00')), 'Outros horários');
+});
+
+test('resumoDoMes só usa os números calculados e compara com o mês anterior', () => {
+  const dados = { totalAlunos: 50, novasInscricoes: 4, taxaPresencaMedia: 80, receitaTotal: 1000, pagamentosEmAtraso: 2, incidentesGraves: 0, totalReclamacoes: 0 };
+  const det = { atletasComPresenca: 30, totalEntradas: 120, presencasMarcadas: 40, faltas: 10, feedbacksEnviados: 5, avaliacoesRegistadas: 6, modulosConcluidos: 1, certificadosEmitidos: 1 };
+  const r = resumoDoMes(dados, det, { totalAlunos: 47, taxaPresencaMedia: 80, receitaTotal: 1200, detalhes: null });
+  assert.match(r[0], /mais 3 atletas que no mês anterior/);
+  assert.match(r[1], /30 atletas estiveram presentes/);
+  assert.match(r[2], /igual ao mês anterior/);
+  assert.match(r[3], /menos 200 MT/);
+  const vazio = resumoDoMes(dados, { ...det, atletasComPresenca: 0, presencasMarcadas: 0, faltas: 0, totalEntradas: 0 }, null);
+  assert.ok(vazio.some((l) => l.includes('Não há presenças')));
+});

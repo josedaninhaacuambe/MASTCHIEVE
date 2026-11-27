@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { caminhoUploadLocal } from '../../common/utils/ficheiro-local.util';
 import { PrismaService } from '../../config/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { DOCUMENTOS_INSCRICAO_OBRIGATORIOS } from '../../common/constants/documentos';
@@ -8,6 +9,16 @@ export class DocumentsService {
   constructor(private prisma: PrismaService, private audit: AuditService) {}
 
   private static readonly CLEARED_FOR_CONFIDENCIAL = ['ADMIN', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN', 'MANAGER'];
+
+  /** Mesmas regras da listagem: confidenciais só para perfis autorizados. */
+  async caminhoFicheiro(id: string, requesterRole?: string) {
+    const doc = await this.prisma.document.findUnique({ where: { id }, select: { url: true, confidencial: true } });
+    if (!doc) throw new NotFoundException('Documento não encontrado');
+    if (doc.confidencial && !(requesterRole && DocumentsService.CLEARED_FOR_CONFIDENCIAL.includes(requesterRole))) {
+      throw new NotFoundException('Documento não encontrado');
+    }
+    return caminhoUploadLocal(doc.url);
+  }
 
   async findByStudent(studentId: string, requesterRole?: string) {
     const student = await this.prisma.student.findUnique({ where: { id: studentId } });

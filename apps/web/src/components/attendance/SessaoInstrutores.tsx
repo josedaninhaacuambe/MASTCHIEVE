@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { srcImagemPublica } from '@/lib/imagem-evento';
 import { toast } from '@/lib/toast';
 import { cn, getInitials } from '@/lib/utils';
 import { GraduationCap, Save, Check } from 'lucide-react';
 
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/api\/v1\/?$/, '');
-export const avatarSrc = (url?: string | null) => (!url ? null : /^https?:\/\//i.test(url) ? url : `${API_ORIGIN}${url}`);
+export const avatarSrc = srcImagemPublica;
 
 /**
  * Instrutores que efectivamente leccionaram a aula. Qualquer instrutor activo

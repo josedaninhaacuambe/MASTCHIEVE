@@ -170,3 +170,25 @@ export class PartilharComLeadsDto {
   @ApiPropertyOptional() @IsOptional() @IsUUID() unidadeId?: string;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() confirmar?: boolean;
 }
+
+export class ReactivarEventoDto {
+  /** true: gera um link novo (o antigo deixa de funcionar). false: mantém o mesmo link. */
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() novoLink?: boolean;
+  /** Reabre logo o formulário público de inscrição. */
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() abrirInscricoes?: boolean;
+}
+
+export const METODOS_PAGAMENTO_MATRICULA = ['CASH', 'MPESA', 'EMOLA', 'TRANSFER', 'VISA_CARD'] as const;
+
+/** Passar participantes de um evento para atletas de uma unidade (fora do evento). */
+export class MatricularUnidadeDto {
+  @ApiProperty({ type: [String] }) @IsArray() @ArrayMinSize(1) @ArrayMaxSize(50) @IsUUID('4', { each: true }) participanteIds: string[];
+  @ApiPropertyOptional({ description: 'Unidade (a secretaria fica sempre na sua própria unidade)' }) @IsOptional() @IsUUID() unidadeId?: string;
+  @ApiProperty({ description: 'Pacote de frequência da unidade' }) @IsUUID() pacoteId: string;
+  @ApiPropertyOptional({ description: 'Turma (opcional, da mesma unidade)' }) @IsOptional() @IsUUID() classId?: string;
+  /** O staff confirma que o participante (ou encarregado) concordou com a inscrição. */
+  @ApiProperty() @IsBoolean() consentimento: boolean;
+  /** O staff confirma que recebeu o pagamento da primeira mensalidade. */
+  @ApiProperty() @IsBoolean() pagamentoRecebido: boolean;
+  @ApiProperty({ enum: METODOS_PAGAMENTO_MATRICULA }) @IsIn(METODOS_PAGAMENTO_MATRICULA as unknown as string[]) metodoPagamento: string;
+}

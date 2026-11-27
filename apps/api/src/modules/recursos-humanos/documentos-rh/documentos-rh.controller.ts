@@ -1,7 +1,9 @@
 import {
   Controller, Get, Post, Put, Delete, Param, Query, UseGuards,
-  UseInterceptors, UploadedFile, Body,
+  UseInterceptors, UploadedFile, Body, Res,
 } from '@nestjs/common';
+import { Response } from 'express';
+import { enviarFicheiroPrivado } from '../../../common/utils/ficheiro-local.util';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -26,6 +28,13 @@ const storage = diskStorage({
 @Controller('rh/documentos')
 export class DocumentosRhController {
   constructor(private service: DocumentosRhService) {}
+
+  @Get(':id/ficheiro')
+  @Roles('GESTOR_RH', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Abrir o ficheiro de um documento RH (autenticado)' })
+  async ficheiro(@Param('id') id: string, @Res() res: Response) {
+    enviarFicheiroPrivado(res, await this.service.caminhoFicheiro(id));
+  }
 
   @Get('funcionario/:funcionarioId')
   @Roles('GESTOR_RH', 'SUPER_ADMIN')

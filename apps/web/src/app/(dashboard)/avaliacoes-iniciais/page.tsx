@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useAuthStore } from '@/stores/auth.store';
 import { toast } from '@/lib/toast';
 import Link from 'next/link';
 import { Plus, ClipboardList, User, AlertTriangle, ChevronDown, ChevronRight, CheckSquare, Square, Award } from 'lucide-react';
@@ -159,10 +160,39 @@ function calcRecomendadaOrdem(transicoes: Record<number, boolean>): number {
 
 // ─── Form Modal ───────────────────────────────────────────────────────────────
 
-function DiagnosticModal({ students, fases, onClose, onSaved }: {
-  students: any[]; fases: any[]; onClose: () => void; onSaved: () => void;
+const RESULTADO_MODULO: Record<string, string> = {
+  ATRIBUIDO: 'o módulo foi atribuído ao atleta',
+  SEM_ALTERACAO: 'o atleta já estava neste módulo',
+  JA_CONCLUIDO: 'o atleta já tinha concluído este módulo — o módulo actual não foi alterado',
+};
+
+function DiagnosticModal({ fases, souInstrutor, onClose, onSaved }: {
+  fases: any[]; souInstrutor: boolean; onClose: () => void; onSaved: () => void;
 }) {
   const [studentId, setStudentId] = useState('');
+  const [pesquisa, setPesquisa] = useState('');
+  const [students, setStudents] = useState<any[]>([]);
+  const [aPesquisar, setAPesquisar] = useState(false);
+  const [instrutores, setInstrutores] = useState<any[]>([]);
+  const [instrutorId, setInstrutorId] = useState('');
+  const [moduloManual, setModuloManual] = useState('');
+
+  // Pesquisa no servidor (todos os atletas, não só os primeiros 20).
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      setAPesquisar(true);
+      try {
+        const r = await api.get('/students', { params: { limit: 50, search: pesquisa.trim() || undefined } });
+        setStudents(r.data.data ?? r.data ?? []);
+      } catch { setStudents([]); } finally { setAPesquisar(false); }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [pesquisa]);
+
+  useEffect(() => {
+    if (souInstrutor) return;
+    api.get('/instructors/options').then((r) => setInstrutores(r.data.data ?? r.data ?? [])).catch(() => setInstrutores([]));
+  }, [souInstrutor]);
   const [observacoes, setObservacoes] = useState('');
   const [criterios, setCriterios] = useState<Record<string, string>>({});
   const [transicoes, setTransicoes] = useState<Record<number, boolean>>({});
@@ -171,10 +201,16 @@ function DiagnosticModal({ students, fases, onClose, onSaved }: {
 
   const recomOrdem = calcRecomendadaOrdem(transicoes);
   const faseRecomendadaDb = fases.find((f: any) => f.ordem === recomOrdem);
+  const faseEscolhida = moduloManual ? fases.find((f: any) => f.id === moduloManual) : faseRecomendadaDb;
+  const atletaSel = students.find((s: any) => s.id === studentId);
 
   const salvar = async () => {
     if (!studentId) {
       toast.error('Campos obrigatórios', 'Seleciona o atleta');
+      return;
+    }
+    if (!souInstrutor && !instrutorId) {
+      toast.error('Campos obrigatórios', 'Indica o instrutor que fez a avaliação');
       return;
     }
     setSaving(true);
@@ -184,22 +220,20 @@ function DiagnosticModal({ students, fases, onClose, onSaved }: {
           .filter(c => criterios[criterioKey(fase.nome, c)])
           .map(c => ({ fase: fase.nome, criterio: c, valor: criterios[criterioKey(fase.nome, c)] }))
       );
-      await api.post('/avaliacoes-iniciais', {
+      const r = await api.post('/avaliacoes-iniciais', {
         studentId,
+        instrutorId: souInstrutor ? undefined : instrutorId,
         data: new Date().toISOString(),
         criteriosAvaliados: JSON.stringify(criteriosAvaliados),
-        faseRecomendadaId: faseRecomendadaDb?.id || undefined,
+        faseRecomendadaId: faseEscolhida?.id || undefined,
         observacoes: observacoes || undefined,
         experienciaAquatica: 3, segurancaAdaptacao: 3, confortoAgua: 3, resistenciaBasica: 3,
       });
-      // Auto-assign student to the recommended starting phase
-      if (faseRecomendadaDb?.id) {
-        await api.put(`/fases/estudante/${studentId}/fase/${faseRecomendadaDb.id}`, {
-          estado: 'EM_PROGRESSO',
-          iniciadoEm: new Date().toISOString(),
-        }).catch(() => {});
-      }
-      toast.success('Diagnóstico registado');
+      // A atribuição do módulo é feita pelo servidor na mesma operação.
+      const res = r.data?.data ?? r.data;
+      const partes = [res?.substituiuAnterior ? 'Ficha anterior do atleta actualizada' : 'Diagnóstico registado'];
+      if (res?.moduloAtribuido && faseEscolhida) partes.push(`${faseEscolhida.nome}: ${RESULTADO_MODULO[res.moduloAtribuido] ?? res.moduloAtribuido}`);
+      toast.success(partes[0], partes.slice(1).join(' · ') || undefined);
       onSaved();
       onClose();
     } catch (e: any) {
@@ -226,14 +260,28 @@ function DiagnosticModal({ students, fases, onClose, onSaved }: {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Atleta *</label>
+            <input value={pesquisa} onChange={e => setPesquisa(e.target.value)} placeholder="Pesquisar por nome, telefone ou nº..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2" />
             <select value={studentId} onChange={e => setStudentId(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-              <option value="">Selecionar atleta...</option>
+              <option value="">{aPesquisar ? 'A pesquisar...' : students.length ? `Selecionar atleta (${students.length} encontrados)...` : 'Nenhum atleta encontrado'}</option>
+              {atletaSel === undefined && studentId && <option value={studentId}>(atleta seleccionado)</option>}
               {students.map((s: any) => (
-                <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
+                <option key={s.id} value={s.id}>{s.firstName} {s.lastName}{s.moduloActual ? ` — módulo actual: ${s.moduloActual.nome}` : ''}</option>
               ))}
             </select>
           </div>
+
+          {!souInstrutor && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Instrutor que avaliou *</label>
+              <select value={instrutorId} onChange={e => setInstrutorId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="">Selecionar instrutor...</option>
+                {instrutores.map((i: any) => <option key={i.id} value={i.id}>{i.firstName} {i.lastName}</option>)}
+              </select>
+            </div>
+          )}
 
           <p className="text-xs text-gray-400">Data: {new Date().toLocaleDateString('pt-PT')} (capturada automaticamente)</p>
 
@@ -316,10 +364,19 @@ function DiagnosticModal({ students, fases, onClose, onSaved }: {
             </p>
             <p className="text-sm font-bold text-indigo-900">
               {faseRecomendadaDb
-                ? `${NIVEL_CONFIG[faseRecomendadaDb.nivel]?.label?.split(' — ')[0] ?? ''} — Fase ${faseRecomendadaDb.ordem}: ${faseRecomendadaDb.nome}`
+                ? `Recomendado: ${NIVEL_CONFIG[faseRecomendadaDb.nivel]?.label?.split(' — ')[0] ?? ''} — Fase ${faseRecomendadaDb.ordem}: ${faseRecomendadaDb.nome}`
                 : 'Fase 1 — Estrela-do-Mar (início padrão)'}
             </p>
             <p className="text-xs text-indigo-400 mt-1">Baseado nas transições marcadas. O instrutor valida no Open Day.</p>
+            <label className="block text-xs font-medium text-indigo-700 mt-3 mb-1">Módulo a atribuir ao atleta</label>
+            <select value={moduloManual} onChange={e => setModuloManual(e.target.value)}
+              className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-white">
+              <option value="">Usar o recomendado{faseRecomendadaDb ? ` (${faseRecomendadaDb.nome})` : ''}</option>
+              {[...fases].sort((a: any, b: any) => a.ordem - b.ordem).map((f: any) => (
+                <option key={f.id} value={f.id}>Fase {f.ordem} — {f.nome}</option>
+              ))}
+            </select>
+            <p className="text-xs text-indigo-500 mt-1">Ao guardar, este módulo passa a ser o módulo em curso do atleta (necessário para as avaliações diárias).</p>
           </div>
 
           <div>
@@ -335,7 +392,7 @@ function DiagnosticModal({ students, fases, onClose, onSaved }: {
           <button onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">
             Cancelar
           </button>
-          <button onClick={salvar} disabled={!studentId || saving}
+          <button onClick={salvar} disabled={!studentId || (!souInstrutor && !instrutorId) || saving}
             className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
             {saving ? 'A guardar...' : 'Guardar Diagnóstico'}
           </button>
@@ -437,10 +494,12 @@ function AvaliacaoCard({ a }: { a: any }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AvaliacoesIniciaisPage() {
+  const { user } = useAuthStore();
+  const souInstrutor = user?.role === 'INSTRUCTOR';
+  const podeAvaliar = ['ADMIN', 'SUPER_ADMIN', 'INSTRUCTOR'].includes(user?.role ?? '');
   const [avaliacoes, setAvaliacoes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [students, setStudents] = useState<any[]>([]);
   const [fases, setFases] = useState<any[]>([]);
 
   const load = async () => {
@@ -459,8 +518,7 @@ export default function AvaliacoesIniciaisPage() {
 
   const openForm = async () => {
     try {
-      const [s, f] = await Promise.all([api.get('/students'), api.get('/fases')]);
-      setStudents(s.data.data || s.data);
+      const f = await api.get('/fases');
       setFases(f.data.data || f.data);
       setShowForm(true);
     } catch (e: any) {
@@ -475,10 +533,12 @@ export default function AvaliacoesIniciaisPage() {
           <h1 className="text-2xl font-bold text-gray-900">Avaliações Iniciais</h1>
           <p className="text-gray-500 text-sm mt-1">Ficha diagnóstica de colocação — realizada na primeira sessão (SOP 02)</p>
         </div>
-        <button onClick={openForm}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
-          <Plus className="w-4 h-4" /> Nova Avaliação
-        </button>
+        {podeAvaliar && (
+          <button onClick={openForm}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+            <Plus className="w-4 h-4" /> Nova Avaliação
+          </button>
+        )}
       </div>
 
       <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-start gap-3">
@@ -505,7 +565,7 @@ export default function AvaliacoesIniciaisPage() {
       )}
 
       {showForm && (
-        <DiagnosticModal students={students} fases={fases} onClose={() => setShowForm(false)} onSaved={load} />
+        <DiagnosticModal fases={fases} souInstrutor={souInstrutor} onClose={() => setShowForm(false)} onSaved={load} />
       )}
     </div>
   );

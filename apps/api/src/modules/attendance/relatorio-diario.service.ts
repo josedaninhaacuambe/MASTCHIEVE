@@ -3,10 +3,17 @@ import { PrismaService } from '../../config/prisma/prisma.service';
 import { resolveContactoAtleta } from '../../common/utils/contacto-atleta.util';
 import {
   LinhaRelatorio, gerarExcelRelatorioDiario, idadeNaData, ordenarTurnos, parseDataRelatorio,
-  tituloRelatorio, turnoDaAula, diaDaSemana,
+  tituloRelatorio, turnoDaAula, diaDaSemana, intervaloDiaMaputo, turnoDaEntrada,
 } from './relatorio-diario.util';
 
 const PRESENTE = ['PRESENT', 'LATE'];
+
+const SELECT_ATLETA = {
+  firstName: true, lastName: true, dateOfBirth: true, phone: true, emergencyPhone: true,
+  etiqueta: true, trabalhadorBm: true,
+  parents: { select: { isPrimary: true, parent: { select: { phone: true, firstName: true, lastName: true } } } },
+  studentFases: { where: { estado: 'EM_PROGRESSO' }, select: { fase: { select: { nome: true, ordem: true } } } },
+} as const;
 
 @Injectable()
 export class RelatorioDiarioService {
@@ -28,7 +35,8 @@ export class RelatorioDiarioService {
     const fim = new Date(data);
     fim.setDate(fim.getDate() + 1);
 
-    const [presencas, fases, unidade] = await Promise.all([
+    const dia = intervaloDiaMaputo(dataStr)!;
+    const [presencas, registos, fases, unidade] = await Promise.all([
       this.prisma.attendance.findMany({
         where: {
           status: { in: PRESENTE },
@@ -38,15 +46,17 @@ export class RelatorioDiarioService {
         select: {
           studentId: true,
           session: { select: { startTime: true, endTime: true, class: { select: { name: true, moduleIds: true } } } },
-          student: {
-            select: {
-              firstName: true, lastName: true, dateOfBirth: true, phone: true, emergencyPhone: true,
-              etiqueta: true, trabalhadorBm: true,
-              parents: { select: { isPrimary: true, parent: { select: { phone: true, firstName: true, lastName: true } } } },
-              studentFases: { where: { estado: 'EM_PROGRESSO' }, select: { fase: { select: { nome: true, ordem: true } } } },
-            },
-          },
+          student: { select: SELECT_ATLETA },
         },
+      }),
+      // Registos de entrada e saída do dia: cada entrada não cancelada conta como presença.
+      this.prisma.registoEntradaSaidaAluno.findMany({
+        where: {
+          dataHora: { gte: dia.inicio, lt: dia.fim },
+          ...(unidadeId && { student: { unidadeId } }),
+        },
+        orderBy: { dataHora: 'asc' },
+        select: { studentId: true, tipo: true, dataHora: true, student: { select: SELECT_ATLETA } },
       }),
       this.prisma.faseProgressao.findMany({ select: { id: true, nome: true } }),
       unidadeId ? this.prisma.unidade.findUnique({ where: { id: unidadeId }, select: { nome: true } }) : null,
@@ -63,23 +73,37 @@ export class RelatorioDiarioService {
 
     const porTurno = new Map<string, LinhaRelatorio[]>();
     const vistos = new Set<string>();
-    for (const p of presencas) {
-      const turno = turnoDaAula(p.session.startTime, p.session.endTime);
-      const chave = `${turno}|${p.studentId}`;
-      if (vistos.has(chave)) continue; // o mesmo atleta conta uma vez por turno
+    const juntar = (turno: string, studentId: string, s: (typeof presencas)[number]['student'], moduloTurma: string) => {
+      const chave = `${turno}|${studentId}`;
+      if (vistos.has(chave)) return; // o mesmo atleta conta uma vez por turno
       vistos.add(chave);
-      const s = p.student;
       const emCurso = s.studentFases.map((sf) => sf.fase).sort((a, b) => b.ordem - a.ordem)[0];
       const linha: LinhaRelatorio = {
         nome: `${s.firstName} ${s.lastName}`.trim(),
         trabalhadorBm: s.trabalhadorBm || (s.etiqueta === 'BM' ? 'Sim' : ''),
         // Sem contacto registado, a célula fica vazia (não se inventa um número).
         contacto: resolveContactoAtleta(s).telefone ?? '',
-        modulo: emCurso?.nome || modulosDaTurma(p.session.class.moduleIds),
+        modulo: emCurso?.nome || moduloTurma,
         idade: s.dateOfBirth ? idadeNaData(new Date(s.dateOfBirth), data) : null,
       };
       if (!porTurno.has(turno)) porTurno.set(turno, []);
       porTurno.get(turno)!.push(linha);
+    };
+
+    // 1) Entradas registadas na recepção (excepto as canceladas logo a seguir).
+    const atletasComEntrada = new Set<string>();
+    registos.forEach((r, i) => {
+      if (r.tipo !== 'ENTRADA') return;
+      const fecho = registos.slice(i + 1).find((x) => x.studentId === r.studentId);
+      if (fecho?.tipo === 'CANCELAMENTO') return;
+      atletasComEntrada.add(r.studentId);
+      juntar(turnoDaEntrada(r.dataHora), r.studentId, r.student, '');
+    });
+
+    // 2) Presenças marcadas nas aulas, para quem não tem entrada registada nesse dia.
+    for (const p of presencas) {
+      if (atletasComEntrada.has(p.studentId)) continue;
+      juntar(turnoDaAula(p.session.startTime, p.session.endTime), p.studentId, p.student, modulosDaTurma(p.session.class.moduleIds));
     }
 
     const turnos = ordenarTurnos(porTurno);

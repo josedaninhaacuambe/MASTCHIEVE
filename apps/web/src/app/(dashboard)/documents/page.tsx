@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { abrirFicheiroProtegido } from '@/lib/ficheiros';
 import { toast } from '@/lib/toast';
 import { formatDate, cn } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -310,14 +311,12 @@ export default function DocumentsPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
-                          <a href={`${process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v\d+\/?$/, '')}${doc.url}`}
-                            target="_blank" rel="noopener noreferrer"
+                          <a href="#" onClick={(ev) => { ev.preventDefault(); abrirFicheiroProtegido(`/documents/${doc.id}/ficheiro`); }}
                             className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                             title="Visualizar">
                             <Eye className="w-4 h-4" />
                           </a>
-                          <a href={`${process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v\d+\/?$/, '')}${doc.url}`}
-                            download={doc.name}
+                          <a href="#" onClick={(ev) => { ev.preventDefault(); abrirFicheiroProtegido(`/documents/${doc.id}/ficheiro`, { descarregar: doc.name }); }}
                             className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition"
                             title="Descarregar">
                             <Download className="w-4 h-4" />

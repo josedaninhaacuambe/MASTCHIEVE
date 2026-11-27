@@ -10,3 +10,16 @@ export function srcImagemEvento(url?: string | null): string {
   const nome = url.split('/').pop() ?? '';
   return `${API_URL}/eventos-publicos/imagem/${encodeURIComponent(nome)}`;
 }
+
+/**
+ * Outras imagens públicas carregadas (link de partilha, foto de instrutor).
+ * Servidas pela API (`/ficheiros/imagem/:nome`), que só entrega imagens
+ * registadas — nunca documentos ou outros uploads.
+ */
+export function srcImagemPublica(url?: string | null): string | null {
+  if (!url) return null;
+  if (/^(https?:|blob:|data:)/i.test(url)) return url;
+  const nome = url.split('/').pop() ?? '';
+  if (!nome) return null;
+  return `${API_URL}/ficheiros/imagem/${encodeURIComponent(nome)}`;
+}

@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { srcImagemPublica } from '@/lib/imagem-evento';
 import { getInitials, formatDate, cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
@@ -37,8 +38,7 @@ interface Instructor {
   avatarUrl?: string | null;
 }
 
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/api\/v1\/?$/, '');
-const avatarSrc = (url?: string | null) => (!url ? null : /^https?:\/\//i.test(url) ? url : `${API_ORIGIN}${url}`);
+const avatarSrc = srcImagemPublica;
 const AVATAR_TIPOS = ['image/jpeg', 'image/png', 'image/webp'];
 const AVATAR_MAX_MB = 5;
 

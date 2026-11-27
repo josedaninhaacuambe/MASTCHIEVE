@@ -1,5 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../config/prisma/prisma.service';
+import { AuditService } from '../../common/audit/audit.service';
 import { UpdateStudentFaseDto } from './dto/update-student-fase.dto';
 import { avaliarRegraConclusao } from './regra-conclusao.util';
 
@@ -136,7 +138,53 @@ const FASES_DEFAULT = [
 
 @Injectable()
 export class FasesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private audit: AuditService) {}
+
+  /**
+   * Põe o módulo indicado em progresso para o atleta. O atleta só pode ter um módulo
+   * em progresso: os outros voltam a NAO_INICIADO (as pontuações já dadas ficam guardadas).
+   * Um módulo já concluído não é reaberto.
+   */
+  async atribuirModuloTx(tx: Prisma.TransactionClient, studentId: string, faseId: string) {
+    const actual = await tx.studentFase.findUnique({ where: { studentId_faseId: { studentId, faseId } } });
+    if (actual?.estado === 'CONCLUIDO') return { estado: 'JA_CONCLUIDO' as const };
+    await tx.studentFase.updateMany({
+      where: { studentId, estado: 'EM_PROGRESSO', NOT: { faseId } },
+      data: { estado: 'NAO_INICIADO' },
+    });
+    if (actual?.estado === 'EM_PROGRESSO') return { estado: 'SEM_ALTERACAO' as const };
+    await tx.studentFase.upsert({
+      where: { studentId_faseId: { studentId, faseId } },
+      update: { estado: 'EM_PROGRESSO', iniciadoEm: actual?.iniciadoEm ?? new Date() },
+      create: { studentId, faseId, estado: 'EM_PROGRESSO', iniciadoEm: new Date() },
+    });
+    return { estado: 'ATRIBUIDO' as const };
+  }
+
+  /** Atribui um módulo a vários atletas (máx. 200). Devolve o resultado por atleta. */
+  async atribuirModulo(studentIds: string[], faseId: string, actorUserId: string) {
+    const fase = await this.prisma.faseProgressao.findUnique({ where: { id: faseId }, select: { id: true, nome: true, isActive: true } });
+    if (!fase || !fase.isActive) throw new NotFoundException('Módulo não encontrado');
+    const ids = [...new Set(studentIds)];
+    const atletas = await this.prisma.student.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true, lastName: true } });
+    const nomes = new Map(atletas.map((a) => [a.id, `${a.firstName} ${a.lastName}`.trim()]));
+
+    const resultados: { studentId: string; nome: string; estado: string }[] = [];
+    await this.prisma.$transaction(async (tx) => {
+      for (const id of ids) {
+        if (!nomes.has(id)) { resultados.push({ studentId: id, nome: '', estado: 'NAO_ENCONTRADO' }); continue; }
+        const r = await this.atribuirModuloTx(tx, id, faseId);
+        resultados.push({ studentId: id, nome: nomes.get(id)!, estado: r.estado });
+      }
+    }, { timeout: 30_000 });
+
+    const atribuidos = resultados.filter((r) => r.estado === 'ATRIBUIDO').map((r) => r.studentId);
+    await this.audit.log({
+      userId: actorUserId, action: 'MODULO_ATRIBUIDO', entity: 'FaseProgressao', entityId: faseId,
+      newValues: { modulo: fase.nome, studentIds: atribuidos },
+    });
+    return { modulo: fase.nome, atribuidos: atribuidos.length, resultados };
+  }
 
   async findAll() {
     const fases = await this.prisma.faseProgressao.findMany({ where: { isActive: true }, orderBy: { ordem: 'asc' } });
@@ -234,6 +282,13 @@ export class FasesService {
     }
 
     const { avaliacoes: _avaliacoes, iniciadoEm, concluidoEm, ...rest } = dto;
+    // Só um módulo em progresso por atleta: ao pôr este em progresso, os outros voltam a NAO_INICIADO.
+    if (dto.estado === 'EM_PROGRESSO') {
+      await this.prisma.studentFase.updateMany({
+        where: { studentId, estado: 'EM_PROGRESSO', NOT: { faseId } },
+        data: { estado: 'NAO_INICIADO' },
+      });
+    }
     return this.prisma.studentFase.update({
       where: { id: studentFase.id },
       data: {

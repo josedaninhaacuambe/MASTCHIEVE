@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { abrirFicheiroProtegido } from '@/lib/ficheiros';
 import { formatDate, formatCurrency, getInitials, levelLabel, cn } from '@/lib/utils';
 import {
   ArrowLeft, User, MessageSquareText, Activity, BookOpen, CreditCard,
@@ -1204,7 +1205,7 @@ export default function StudentDetailPage() {
                         {doc.type} · {doc.size ? `${Math.round(doc.size / 1024)} KB` : '—'}
                       </div>
                     </div>
-                    <a href={`${process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v\d+\/?$/, '')}${doc.url}`} target="_blank" rel="noreferrer"
+                    <a href="#" onClick={(ev) => { ev.preventDefault(); abrirFicheiroProtegido(`/documents/${doc.id}/ficheiro`); }}
                       className="text-xs text-mastchieve-600 hover:underline flex-shrink-0">
                       Ver
                     </a>

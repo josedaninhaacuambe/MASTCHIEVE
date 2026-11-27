@@ -18,6 +18,23 @@ const ROLES_GESTAO_ATLETA = ['ADMIN', 'SUPER_ADMIN', 'ASSISTENTE_ADMIN'];
 /** Atletas com esta etiqueta (Banco de Moçambique) não usam pacotes de pagamento. */
 export const ETIQUETA_SEM_PACOTE = 'BM';
 
+function semAcentos(v: string): string {
+  return v.normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+const DIAS_EN: Record<string, string> = {
+  MONDAY: 'SEGUNDA', TUESDAY: 'TERCA', WEDNESDAY: 'QUARTA', THURSDAY: 'QUINTA', FRIDAY: 'SEXTA', SATURDAY: 'SABADO', SUNDAY: 'DOMINGO',
+};
+
+/** Compara o dia do horário ("Terça", "TERÇA-FEIRA", "TUESDAY") com o dia pedido, já sem acentos e em maiúsculas. */
+function diaCorresponde(diaHorario: string, pedido: string): boolean {
+  const norm = (d: string) => {
+    const x = semAcentos(d).toUpperCase().replace(/-FEIRA$/, '').trim();
+    return DIAS_EN[x] ?? x;
+  };
+  return norm(diaHorario) === norm(pedido);
+}
+
 function limparTexto(v: unknown, max: number): string | null {
   if (typeof v !== 'string') return null;
   const t = v.trim().replace(/\s+/g, ' ');
@@ -97,7 +114,9 @@ export class StudentsService {
     if (!student) throw new NotFoundException('Atleta não encontrado');
     const name = `${student.firstName} ${student.lastName}`.trim();
     const primaryParent = student.parents.find((p) => p.isPrimary)?.parent ?? student.parents[0]?.parent;
-    const email = student.user?.email || primaryParent?.user?.email || null;
+    // Emails de acesso gerados automaticamente não são contactos reais: nunca se envia para eles.
+    const real = (e?: string | null) => (e && !emailGeradoAutomaticamente(e) ? e : null);
+    const email = real(student.user?.email) || real(primaryParent?.user?.email) || null;
     return { email, name };
   }
 
@@ -184,7 +203,7 @@ export class StudentsService {
   private async turmasPorFiltro(f: { classId?: string; moduleId?: string; dia?: string; hora?: string }): Promise<string[] | null> {
     const classId = typeof f.classId === 'string' && f.classId ? f.classId : null;
     const moduleId = typeof f.moduleId === 'string' && f.moduleId ? f.moduleId : null;
-    const dia = typeof f.dia === 'string' && f.dia ? f.dia.toUpperCase() : null;
+    const dia = typeof f.dia === 'string' && f.dia ? semAcentos(f.dia).toUpperCase() : null;
     const hora = typeof f.hora === 'string' && /^\d{2}:\d{2}$/.test(f.hora) ? f.hora : null;
     if (!classId && !moduleId && !dia && !hora) return null;
     if (classId && !moduleId && !dia && !hora) return [classId];
@@ -202,7 +221,7 @@ export class StudentsService {
       .filter((t) => {
         if (!dia && !hora) return true;
         return lerJson(t.schedules).some((h: any) =>
-          (!dia || String(h?.day ?? h?.dayOfWeek ?? '').toUpperCase() === dia) &&
+          (!dia || diaCorresponde(String(h?.day ?? h?.dayOfWeek ?? ''), dia)) &&
           (!hora || String(h?.startTime ?? '').slice(0, 5) === hora),
         );
       })
@@ -242,17 +261,35 @@ export class StudentsService {
       where.etiqueta = query.etiqueta === 'SEM_ETIQUETA' ? null : query.etiqueta;
     }
 
-    if (query.semTurma === 'true' || query.semTurma === true) {
-      where.enrollments = { none: { isActive: true } };
-    } else {
-      const turmas = await this.turmasPorFiltro({
-        classId,
-        moduleId: query.moduleId,
-        dia: query.dia,
-        hora: query.hora,
+    const e: any[] = [];
+    if (typeof query.genero === 'string' && ['MALE', 'FEMALE', 'OTHER'].includes(query.genero)) where.gender = query.genero;
+    if (query.irregular === 'true' || query.irregular === true) e.push({ payments: { some: { status: 'OVERDUE' } } });
+    if (typeof query.campanha === 'string' && query.campanha) e.push({ lead: { campanha: query.campanha } });
+    if (typeof query.nivel === 'string' && query.nivel) e.push({ enrollments: { some: { isActive: true, class: { level: query.nivel } } } });
+
+    // Módulo: o módulo em progresso do atleta, ou (para quem ainda não tem módulo) o módulo dado na turma.
+    const moduleId = typeof query.moduleId === 'string' && query.moduleId ? query.moduleId : null;
+    if (query.semModulo === 'true' || query.semModulo === true) {
+      e.push({ studentFases: { none: { estado: 'EM_PROGRESSO' } } });
+    } else if (moduleId) {
+      const turmasDoModulo = (await this.turmasPorFiltro({ moduleId })) ?? [];
+      e.push({
+        OR: [
+          { studentFases: { some: { faseId: moduleId, estado: 'EM_PROGRESSO' } } },
+          ...(turmasDoModulo.length
+            ? [{ studentFases: { none: { estado: 'EM_PROGRESSO' } }, enrollments: { some: { classId: { in: turmasDoModulo }, isActive: true } } }]
+            : []),
+        ],
       });
-      if (turmas) where.enrollments = { some: { classId: { in: turmas }, isActive: true } };
     }
+
+    if (query.semTurma === 'true' || query.semTurma === true) {
+      e.push({ enrollments: { none: { isActive: true } } });
+    } else {
+      const turmas = await this.turmasPorFiltro({ classId, dia: query.dia, hora: query.hora });
+      if (turmas) e.push({ enrollments: { some: { classId: { in: turmas }, isActive: true } } });
+    }
+    if (e.length) where.AND = [...(where.AND ?? []), ...e];
 
     const [data, total] = await Promise.all([
       this.prisma.student.findMany({
@@ -278,13 +315,15 @@ export class StudentsService {
           lead: { select: { campanha: true, origem: true } },
           pacote: { select: { id: true, nome: true, preco: true } },
           payments: { where: { status: 'OVERDUE' }, select: { id: true }, take: 1 },
+          studentFases: { where: { estado: 'EM_PROGRESSO' }, select: { fase: { select: { id: true, nome: true, nivel: true, ordem: true } } }, take: 1 },
         },
       }),
       this.prisma.student.count({ where }),
     ]);
 
-    const dataComCategorias = data.map(({ payments, ...student }) => ({
+    const dataComCategorias = data.map(({ payments, studentFases, ...student }) => ({
       ...student,
+      moduloActual: studentFases[0]?.fase ?? null,
       categoria: {
         ativo: student.isActive,
         irregular: payments.length > 0,

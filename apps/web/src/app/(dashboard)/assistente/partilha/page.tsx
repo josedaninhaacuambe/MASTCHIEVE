@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { srcImagemPublica } from '@/lib/imagem-evento';
 import { toast } from '@/lib/toast';
 import {
   Share2, Copy, Check, Save, Link2, Pencil, X,
@@ -17,7 +18,6 @@ const SLUGS: Record<string, string> = {
   VIDEO_INDUCAO: '/video-inducao',
 };
 
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/api\/v1\/?$/, '');
 
 interface LinkPartilha {
   id: string;
@@ -73,7 +73,7 @@ function EditModal({ link, onClose }: { link: LinkPartilha; onClose: () => void 
     onError: (e: any) => toast.error('Erro ao guardar', e?.response?.data?.message ?? 'Tenta novamente'),
   });
 
-  const imagemAtual = preview ?? (link.imagemUrl ? `${API_ORIGIN}${link.imagemUrl}` : null);
+  const imagemAtual = preview ?? srcImagemPublica(link.imagemUrl);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>

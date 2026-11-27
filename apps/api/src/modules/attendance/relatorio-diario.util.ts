@@ -77,6 +77,31 @@ export function ordenarTurnos(porTurno: Map<string, LinhaRelatorio[]>): TurnoRel
     }));
 }
 
+/** Moçambique está sempre em UTC+2 (sem hora de Verão). */
+const OFFSET_MAPUTO_MIN = 120;
+
+/** Início e fim (UTC) do dia civil de Maputo correspondente a "YYYY-MM-DD". */
+export function intervaloDiaMaputo(dataStr: string): { inicio: Date; fim: Date } | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return null;
+  const [y, m, d] = dataStr.split('-').map(Number);
+  const inicio = new Date(Date.UTC(y, m - 1, d) - OFFSET_MAPUTO_MIN * 60_000);
+  return { inicio, fim: new Date(inicio.getTime() + 24 * 60 * 60_000) };
+}
+
+/**
+ * Turno da folha em que cai uma entrada registada na recepção. Cada turno fixo (HH:30-HH+1:20)
+ * aceita entradas desde 10 min antes do início até ao fim; fora disso fica "Outros horários".
+ */
+export function turnoDaEntrada(hora: Date): string {
+  const local = new Date(hora.getTime() + OFFSET_MAPUTO_MIN * 60_000);
+  const min = local.getUTCHours() * 60 + local.getUTCMinutes();
+  for (const t of TURNOS_PADRAO) {
+    const [ini, fim] = t.split('-').map((h) => { const [a, b] = h.split(':').map(Number); return a * 60 + b; });
+    if (min >= ini - 10 && min < fim) return t;
+  }
+  return 'Outros horários';
+}
+
 /** Folha Excel no modelo "PRESENÇAS DIÁRIAS DAS AULAS": 3 blocos de turno por linha. */
 export function gerarExcelRelatorioDiario(opts: {
   titulo: string;

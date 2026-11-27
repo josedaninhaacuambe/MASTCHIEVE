@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Search, Wifi, WifiOff, X, Menu, CheckCheck, Info, AlertTriangle, CheckCircle, CreditCard, Activity, MessageSquareText, Users, BookOpen, BellRing, BellOff } from 'lucide-react';
+import { Bell, Search, Wifi, WifiOff, X, Menu, CheckCheck, Info, AlertTriangle, CheckCircle, CreditCard, Activity, MessageSquareText, Users, BookOpen, BellRing, BellOff, LifeBuoy } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth.store';
@@ -10,7 +10,8 @@ import { toast } from '@/lib/toast';
 import { timeAgo } from '@/lib/utils';
 import { io, Socket } from 'socket.io-client';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { STAFF_ROLES } from '@/lib/navegacao';
 import { subscribeToPush } from '@/lib/push';
 
 /* ── Notification type config ───────────────────────────────────────────── */
@@ -263,6 +264,7 @@ function GlobalSearchPanel({
 /* ── Main header ─────────────────────────────────────────────────────────── */
 export function Header() {
   const user = useAuthStore((s) => s.user);
+  const pathname = usePathname();
   const { toggleSidebar } = useUIStore();
   const qc = useQueryClient();
   const [isOnline, setIsOnline] = useState(true);
@@ -502,6 +504,22 @@ export function Header() {
               ? <><Wifi className="w-3 h-3" /><span className="hidden md:inline">Online</span></>
               : <><WifiOff className="w-3 h-3" /><span className="hidden md:inline">Offline</span></>}
           </div>
+
+          {/* Guia do Sistema — abre no tema da página actual */}
+          {user?.role && STAFF_ROLES.includes(user.role) && (
+            <Link
+              href={`/guia?pagina=${encodeURIComponent(pathname ?? '')}`}
+              title="Guia do Sistema — como fazer nesta página"
+              className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-medium transition-colors ${
+                pathname?.startsWith('/guia')
+                  ? 'bg-brand-blue/10 text-brand-blue'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-brand-blue'
+              }`}
+            >
+              <LifeBuoy className="w-5 h-5" />
+              <span className="hidden sm:inline">Ajuda</span>
+            </Link>
+          )}
 
           {/* Notification bell */}
           <div className="relative" ref={panelRef}>

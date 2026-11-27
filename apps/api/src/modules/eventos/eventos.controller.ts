@@ -13,7 +13,7 @@ import { AppRole, Roles } from '../../common/decorators/roles.decorator';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import {
   AlterarPacoteParticipanteDto, ComunicacaoEventoDto, EstadoParticipanteDto, ImagemEventoDto, PacoteEventoDto, PartilharComLeadsDto,
-  RejeitarParticipanteDto, ValidarParticipanteDto, WalkInDto,
+  ReactivarEventoDto, RejeitarParticipanteDto, ValidarParticipanteDto, WalkInDto,
 } from './dto/eventos.dto';
 
 // Validar/rejeitar inscrições do formulário público: secretaria e administração.
@@ -153,6 +153,11 @@ export class EventosController {
   @Post(':id/partilhar-leads')
   partilharComLeads(@Param('id') id: string, @Body() dto: PartilharComLeadsDto, @Request() req: any) {
     return this.svc.partilharComLeads(id, dto, req.user.id);
+  }
+
+  @Post(':id/reactivar')
+  reactivar(@Param('id') id: string, @Body() dto: ReactivarEventoDto, @Request() req: any) {
+    return this.svc.reactivar(id, dto, req.user.id);
   }
 
   @Post(':id/regenerar-link')

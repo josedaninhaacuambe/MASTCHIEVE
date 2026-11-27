@@ -21,3 +21,30 @@ test('só nomes gerados pelo servidor podem ser servidos publicamente', () => {
     assert.equal(NOME_IMAGEM_EVENTO.test(mau), false, mau);
   }
 });
+
+// ─── Imagens públicas genéricas e matrícula a partir do evento ────────────────
+import { NOME_IMAGEM_PUBLICA } from '../../src/modules/ficheiros/ficheiros.controller';
+import { dividirNome } from '../../src/modules/eventos/eventos-matricula.service';
+import { caminhoUploadLocal } from '../../src/common/utils/ficheiro-local.util';
+
+test('imagem pública: só nomes simples de imagem, sem caminhos', () => {
+  assert.ok(NOME_IMAGEM_PUBLICA.test('1795499371269-123456.jpg'));
+  assert.ok(NOME_IMAGEM_PUBLICA.test('evento-1795499371269-ac60838603333c94.webp'));
+  assert.ok(!NOME_IMAGEM_PUBLICA.test('../.env'));
+  assert.ok(!NOME_IMAGEM_PUBLICA.test('documento.pdf'));
+  assert.ok(!NOME_IMAGEM_PUBLICA.test('a/b.png'));
+  assert.ok(!NOME_IMAGEM_PUBLICA.test('.png'));
+});
+
+test('ficheiro privado: recusa URLs fora de /uploads ou com travessia', async () => {
+  await assert.rejects(caminhoUploadLocal('/etc/passwd'));
+  await assert.rejects(caminhoUploadLocal('/uploads/../.env'));
+  await assert.rejects(caminhoUploadLocal('/uploads/sub/x.pdf'));
+  await assert.rejects(caminhoUploadLocal(null));
+});
+
+test('dividirNome separa o primeiro nome dos apelidos sem inventar dados', () => {
+  assert.deepEqual(dividirNome('  Ana   Maria  Cossa '), { firstName: 'Ana', lastName: 'Maria Cossa' });
+  assert.deepEqual(dividirNome('Ana'), { firstName: 'Ana', lastName: '' });
+  assert.deepEqual(dividirNome(''), { firstName: '', lastName: '' });
+});

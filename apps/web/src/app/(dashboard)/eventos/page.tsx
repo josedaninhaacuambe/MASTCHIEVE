@@ -5,9 +5,10 @@ import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { PacotesTab, ValidacaoPrograma, MODELO_MERGULHA, diaLocalStr, fmtDiaIso } from './programa-eventos';
 import { ImagensTab } from './imagens-eventos';
+import { srcImagemEvento } from '@/lib/imagem-evento';
 import {
   Plus, Calendar, MapPin, Users, Award, ClipboardList, X, Check, Trash2, Search, Link2, Copy, Lock, Unlock,
-  Pencil, Download, Send, MessageSquare, ChevronDown, ChevronUp, Clock, RefreshCw, UserCheck, Package, Zap, Image as ImageIcon,
+  Pencil, Download, Send, MessageSquare, ChevronDown, ChevronUp, Clock, RefreshCw, UserCheck, Package, Zap, Image as ImageIcon, GraduationCap,
 } from 'lucide-react';
 
 const ESTADOS_CORES: Record<string, string> = { PLANEADO:'bg-blue-100 text-blue-700', REALIZADO:'bg-green-100 text-green-700', CANCELADO:'bg-red-100 text-red-700' };
@@ -256,6 +257,131 @@ const ROTULOS_DADOS: Record<string, string> = {
 };
 const fmtValor = (v: any) => (v === true ? 'Sim' : v === false ? 'Não' : Array.isArray(v) ? v.join(', ') : String(v));
 
+const METODOS_PAGAMENTO = [
+  { v: 'CASH', l: 'Numerário' }, { v: 'MPESA', l: 'M-Pesa' }, { v: 'EMOLA', l: 'e-Mola' },
+  { v: 'TRANSFER', l: 'Transferência' }, { v: 'VISA_CARD', l: 'Cartão Visa' },
+];
+
+/**
+ * Inscreve participantes escolhidos como atletas regulares de uma unidade (fora do evento).
+ * Só depois de a pessoa concordar e pagar: a secretaria confirma as duas coisas.
+ */
+function MatricularUnidadeModal({ evento, participantes, onClose, onDone }: { evento: any; participantes: any[]; onClose: () => void; onDone: () => void }) {
+  const role = useAuthStore((s) => s.user?.role);
+  const escolheUnidade = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const [unidades, setUnidades] = useState<any[]>([]);
+  const [pacotes, setPacotes] = useState<any[]>([]);
+  const [unidadeId, setUnidadeId] = useState<string>(evento.unidadeId ?? '');
+  const [pacoteId, setPacoteId] = useState('');
+  const [consentimento, setConsentimento] = useState(false);
+  const [pago, setPago] = useState(false);
+  const [metodo, setMetodo] = useState('CASH');
+  const [aEnviar, setAEnviar] = useState(false);
+  const [resultado, setResultado] = useState<any | null>(null);
+
+  useEffect(() => {
+    api.get('/pacotes').then((r) => setPacotes(r.data?.data ?? r.data ?? [])).catch(() => setPacotes([]));
+    if (escolheUnidade) api.get('/unidades').then((r) => setUnidades(r.data?.data ?? r.data ?? [])).catch(() => setUnidades([]));
+  }, [escolheUnidade]);
+
+  const pacote = pacotes.find((x) => x.id === pacoteId);
+  const pronto = !!pacoteId && consentimento && pago && (!escolheUnidade || !!unidadeId);
+
+  const confirmar = async () => {
+    setAEnviar(true);
+    try {
+      const r = await api.post(`/eventos/${evento.id}/matricular-unidade`, {
+        participanteIds: participantes.map((p) => p.id),
+        unidadeId: escolheUnidade ? unidadeId : undefined,
+        pacoteId, consentimento, pagamentoRecebido: pago, metodoPagamento: metodo,
+      });
+      const d = r.data.data ?? r.data;
+      setResultado(d);
+      if (d.inscritos > 0) toast.success(`${d.inscritos} atleta(s) inscrito(s) na unidade`);
+    } catch (e: any) {
+      toast.error('Erro ao inscrever', erroMsg(e));
+    } finally { setAEnviar(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4" onClick={resultado ? onDone : onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-gray-900">Inscrever na unidade</h3>
+            <p className="text-sm text-gray-500">{participantes.length} participante(s) de {evento.nome} passam a atletas regulares.</p>
+          </div>
+          <button onClick={resultado ? onDone : onClose} className="p-1 text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        </div>
+
+        {resultado ? (
+          <div className="space-y-2">
+            <p className="text-sm text-gray-700"><b>{resultado.inscritos}</b> inscrito(s) · <b>{resultado.ignorados}</b> não inscrito(s)</p>
+            <ul className="divide-y divide-gray-100 border border-gray-100 rounded-lg">
+              {resultado.resultados.map((r: any) => (
+                <li key={r.participanteId} className="px-3 py-2 text-sm flex items-start justify-between gap-2">
+                  <span className="text-gray-800">{r.nome || '—'}</span>
+                  {r.ok
+                    ? <span className="text-green-700 text-xs text-right">Inscrito{r.recibo ? ` · recibo ${r.recibo}` : ''}</span>
+                    : <span className="text-amber-700 text-xs text-right">{r.motivo}</span>}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-gray-500">Os atletas ficam com documentos pendentes; complete a ficha (encarregado, documentos, turma) em Atletas.</p>
+            <div className="flex justify-end"><button onClick={onDone} className="text-sm px-4 py-2 rounded-lg bg-brand-blue text-white">Fechar</button></div>
+          </div>
+        ) : (
+          <>
+            <ul className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2 max-h-32 overflow-y-auto">
+              {participantes.map((p) => <li key={p.id} className="truncate">• {p.nomeExibicao}{!p.dataNascimento ? <span className="text-amber-600"> (sem data de nascimento)</span> : null}</li>)}
+            </ul>
+            {escolheUnidade ? (
+              <label className="block text-sm">
+                <span className="text-gray-600">Unidade</span>
+                <select value={unidadeId} onChange={(e) => setUnidadeId(e.target.value)} className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="">Escolha a unidade…</option>
+                  {unidades.map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+                </select>
+              </label>
+            ) : (
+              <p className="text-xs text-gray-500">Os atletas ficam inscritos na sua unidade.</p>
+            )}
+            <label className="block text-sm">
+              <span className="text-gray-600">Pacote</span>
+              <select value={pacoteId} onChange={(e) => setPacoteId(e.target.value)} className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="">Escolha o pacote…</option>
+                {pacotes.filter((x) => x.ativo !== false).map((x) => <option key={x.id} value={x.id}>{x.nome} — {Number(x.preco).toLocaleString('pt-PT')} MT</option>)}
+              </select>
+            </label>
+            <div className="space-y-2 border-t border-gray-100 pt-3">
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={consentimento} onChange={(e) => setConsentimento(e.target.checked)} className="mt-0.5" />
+                <span>Os participantes (ou encarregados) <b>concordaram</b> com a inscrição na unidade.</span>
+              </label>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={pago} onChange={(e) => setPago(e.target.checked)} className="mt-0.5" />
+                <span>Recebi o <b>pagamento</b> da primeira mensalidade{pacote ? ` (${Number(pacote.preco).toLocaleString('pt-PT')} MT por atleta)` : ''}.</span>
+              </label>
+              {pago && (
+                <select value={metodo} onChange={(e) => setMetodo(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  {METODOS_PAGAMENTO.map((m) => <option key={m.v} value={m.v}>{m.l}</option>)}
+                </select>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">Quem já é atleta, está cancelado, não tem data de nascimento ou parece duplicado não é inscrito — aparece na lista final com o motivo.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200">Voltar</button>
+              <button onClick={confirmar} disabled={!pronto || aEnviar} className="text-sm px-4 py-2 rounded-lg bg-brand-blue text-white hover:opacity-90 disabled:opacity-50">
+                {aEnviar ? 'A inscrever…' : 'Inscrever e registar pagamento'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ParticipantesTab({ evento, podeValidar }: { evento: any; podeValidar: boolean }) {
   const ePrograma = evento.formularioTipo === 'PROGRAMA';
   const [participantes, setParticipantes] = useState<any[]>([]);
@@ -267,6 +393,9 @@ function ParticipantesTab({ evento, podeValidar }: { evento: any; podeValidar: b
   const [studentResults, setStudentResults] = useState<any[]>([]);
   const [modo, setModo] = useState<'MANUAL' | 'WALK_IN'>('MANUAL');
   const [novo, setNovo] = useState({ nome: '', contacto: '', email: '' });
+  const [selecionados, setSelecionados] = useState<string[]>([]);
+  const [matricular, setMatricular] = useState(false);
+  const elegivel = (p: any) => podeValidar && !p.studentId && p.estado !== 'CANCELADO';
 
   const load = async () => {
     setLoading(true);
@@ -335,6 +464,10 @@ function ParticipantesTab({ evento, podeValidar }: { evento: any; podeValidar: b
 
   return (
     <div className="space-y-3">
+      {matricular && (
+        <MatricularUnidadeModal evento={evento} participantes={participantes.filter((p) => selecionados.includes(p.id))}
+          onClose={() => setMatricular(false)} onDone={() => { setMatricular(false); setSelecionados([]); load(); }} />
+      )}
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="flex-1 flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-1.5">
           <Search className="w-4 h-4 text-gray-400" />
@@ -357,7 +490,20 @@ function ParticipantesTab({ evento, podeValidar }: { evento: any; podeValidar: b
 
       {loading ? <p className="text-xs text-gray-400">A carregar...</p> : (
         <div className="space-y-1.5">
-          <p className="text-xs text-gray-500">{participantes.length} participante(s)</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-gray-500">{participantes.length} participante(s)</p>
+            {podeValidar && participantes.some(elegivel) && (
+              <div className="flex items-center gap-2">
+                <button onClick={() => setSelecionados(selecionados.length ? [] : participantes.filter(elegivel).map((p) => p.id))} className="text-xs text-gray-500 hover:text-gray-700 underline">
+                  {selecionados.length ? 'Limpar selecção' : 'Seleccionar todos'}
+                </button>
+                <button onClick={() => setMatricular(true)} disabled={!selecionados.length}
+                  className="inline-flex items-center gap-1.5 text-xs bg-brand-blue text-white px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-40">
+                  <GraduationCap className="w-3.5 h-3.5" /> Inscrever na unidade{selecionados.length ? ` (${selecionados.length})` : ''}
+                </button>
+              </div>
+            )}
+          </div>
           {participantes.length === 0 && <p className="text-xs text-gray-400">Nenhum participante encontrado</p>}
           {participantes.map((p: any) => {
             const dados: Record<string, any> = p.dadosFormulario ?? {};
@@ -365,6 +511,10 @@ function ParticipantesTab({ evento, podeValidar }: { evento: any; podeValidar: b
             return (
               <div key={p.id} className="bg-gray-50 rounded-lg px-3 py-2">
                 <div className="flex items-center gap-2">
+                  {elegivel(p) && (
+                    <input type="checkbox" aria-label={`Seleccionar ${p.nomeExibicao}`} checked={selecionados.includes(p.id)}
+                      onChange={(e) => setSelecionados(e.target.checked ? [...selecionados, p.id] : selecionados.filter((x) => x !== p.id))} />
+                  )}
                   <button onClick={() => setAberto(expandido ? null : p.id)} className="flex-1 min-w-0 text-left">
                     <p className="text-sm text-gray-900 truncate flex items-center gap-1.5">
                       {p.nomeExibicao}
@@ -752,11 +902,68 @@ function EventoManageModal({ evento, onClose, onSaved }: { evento: any; onClose:
 
 // ─── Página ──────────────────────────────────────────────────────────────────
 
+/** Reactivar um evento cancelado: mesmo link ou link novo; participantes mantêm-se. */
+function ReactivarModal({ evento, onClose, onDone }: { evento: any; onClose: () => void; onDone: () => void }) {
+  const [novoLink, setNovoLink] = useState(false);
+  const [abrir, setAbrir] = useState(true);
+  const [aGuardar, setAGuardar] = useState(false);
+  const temLink = !!evento.urlPublica;
+  const confirmar = async () => {
+    setAGuardar(true);
+    try {
+      const r = await api.post(`/eventos/${evento.id}/reactivar`, { novoLink: temLink && novoLink, abrirInscricoes: abrir });
+      const d = r.data.data ?? r.data;
+      toast.success('Evento reactivado', novoLink && temLink ? 'Foi gerado um link novo — o antigo deixou de funcionar.' : temLink ? 'O link antigo volta a funcionar.' : undefined);
+      if (d.urlPublica && abrir) copiar(d.urlPublica);
+      onDone();
+    } catch (e: any) {
+      toast.error('Erro ao reactivar', erroMsg(e));
+    } finally { setAGuardar(false); }
+  };
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-gray-900">Reactivar evento</h3>
+            <p className="text-sm text-gray-500">{evento.nome}</p>
+          </div>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        </div>
+        <p className="text-sm text-gray-600">O evento volta a ficar <b>Planeado</b>. Os participantes e inscrições já registados mantêm-se.</p>
+        {temLink && (
+          <div className="space-y-2">
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <input type="radio" checked={!novoLink} onChange={() => setNovoLink(false)} className="mt-0.5" />
+              <span><b>Manter o mesmo link</b><br /><span className="text-gray-500">Quem já tem o link pode voltar a usá-lo.</span></span>
+            </label>
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <input type="radio" checked={novoLink} onChange={() => setNovoLink(true)} className="mt-0.5" />
+              <span><b>Gerar um link novo</b><br /><span className="text-gray-500">O link antigo deixa de funcionar.</span></span>
+            </label>
+          </div>
+        )}
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" checked={abrir} onChange={(e) => setAbrir(e.target.checked)} />
+          Reabrir já o formulário de inscrição
+        </label>
+        <div className="flex justify-end gap-2 pt-1">
+          <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200">Voltar</button>
+          <button onClick={confirmar} disabled={aGuardar} className="text-sm px-4 py-2 rounded-lg bg-brand-blue text-white hover:opacity-90 disabled:opacity-50">
+            {aGuardar ? 'A reactivar…' : 'Reactivar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EventosPage() {
   const [eventos, setEventos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [formEvento, setFormEvento] = useState<any | null | undefined>(undefined);
   const [manageEvento, setManageEvento] = useState<any | null>(null);
+  const [reactivarEvento, setReactivarEvento] = useState<any | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -817,7 +1024,7 @@ export default function EventosPage() {
               {e.imagens?.length > 0 && (
                 <button onClick={() => setManageEvento(e)} className="block bg-gray-50 border-b border-gray-100" title="Ver imagens do evento">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={e.imagens[0].url} alt={e.imagens[0].legenda || `Cartaz — ${e.nome}`} className="w-full h-40 object-cover" loading="lazy" />
+                  <img src={srcImagemEvento(e.imagens[0].url)} alt={e.imagens[0].legenda || `Cartaz — ${e.nome}`} className="w-full h-40 object-cover" loading="lazy" />
                 </button>
               )}
               <div className="px-5 pt-5 pb-4 flex-1">
@@ -868,6 +1075,11 @@ export default function EventosPage() {
                 )}
                 {e.estado === 'PLANEADO' && <button onClick={() => atualizar(e.id, { estado: 'REALIZADO', inscricoesAbertas: false })} className="text-xs bg-green-100 text-green-700 py-1.5 px-3 rounded-lg hover:bg-green-200 font-medium">Marcar Realizado</button>}
                 {e.estado === 'PLANEADO' && <button onClick={() => { if (confirm('Cancelar este evento?')) atualizar(e.id, { estado: 'CANCELADO', inscricoesAbertas: false }); }} className="text-xs bg-red-100 text-red-600 py-1.5 px-3 rounded-lg hover:bg-red-200">Cancelar</button>}
+                {e.estado !== 'PLANEADO' && (
+                  <button onClick={() => setReactivarEvento(e)} className="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 py-1.5 px-3 rounded-lg hover:bg-blue-100 font-medium">
+                    <RefreshCw className="w-3.5 h-3.5" /> Reactivar
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -875,6 +1087,7 @@ export default function EventosPage() {
       )}
 
       {formEvento !== undefined && <EventoFormModal evento={formEvento ?? undefined} onClose={() => setFormEvento(undefined)} onSaved={load} />}
+      {reactivarEvento && <ReactivarModal evento={reactivarEvento} onClose={() => setReactivarEvento(null)} onDone={() => { setReactivarEvento(null); load(); }} />}
       {manageEvento && <EventoManageModal evento={manageEvento} onClose={() => { setManageEvento(null); load(); }} onSaved={load} />}
     </div>
   );

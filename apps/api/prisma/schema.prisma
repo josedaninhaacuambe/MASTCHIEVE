@@ -1548,7 +1548,7 @@ model Reclamacao {
 }
 
 model RelatorioMensal {
-  id                      String   @id @default(uuid())
+  id                      String    @id @default(uuid())
   unidadeId               String?
   mes                     Int
   ano                     Int
@@ -1562,9 +1562,11 @@ model RelatorioMensal {
   totalReclamacoes        Int
   totalEventos            Int
   itensStockBaixo         Int
-  presencasPorFaixaEtaria String?  @db.Text
+  presencasPorFaixaEtaria String?   @db.Text
+  detalhes                String?   @db.Text // JSON: entradas, atletas presentes, feedbacks, avaliações, módulos, resumo do mês
   geradoPorId             String
-  createdAt               DateTime @default(now())
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime? @updatedAt
 
   unidade   Unidade? @relation(fields: [unidadeId], references: [id])
   geradoPor User     @relation(fields: [geradoPorId], references: [id])

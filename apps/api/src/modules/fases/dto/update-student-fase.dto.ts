@@ -1,4 +1,4 @@
-import { IsArray, IsIn, IsInt, IsISO8601, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsUUID, IsInt, IsISO8601, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -24,4 +24,11 @@ export class UpdateStudentFaseDto {
   @ValidateNested({ each: true })
   @Type(() => CriterioScoreDto)
   avaliacoes?: CriterioScoreDto[];
+}
+
+export class AtribuirModuloDto {
+  @ApiPropertyOptional() @IsUUID() faseId: string;
+  @ApiPropertyOptional({ type: [String] })
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(200) @IsUUID('all', { each: true })
+  studentIds: string[];
 }

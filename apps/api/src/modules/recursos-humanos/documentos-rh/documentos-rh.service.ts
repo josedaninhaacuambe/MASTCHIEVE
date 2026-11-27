@@ -1,10 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../config/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
+import { caminhoUploadLocal } from '../../../common/utils/ficheiro-local.util';
 
 @Injectable()
 export class DocumentosRhService {
   constructor(private prisma: PrismaService, private audit: AuditService) {}
+
+  async caminhoFicheiro(id: string) {
+    const doc = await this.prisma.documentoRH.findUnique({ where: { id }, select: { url: true } });
+    if (!doc) throw new NotFoundException('Documento não encontrado');
+    return caminhoUploadLocal(doc.url);
+  }
 
   async findByFuncionario(funcionarioId: string) {
     const funcionario = await this.prisma.funcionario.findUnique({ where: { id: funcionarioId } });

@@ -3,11 +3,16 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { formatDate } from '@/lib/utils';
-import { FileBarChart, FileDown, RefreshCw, Users, TrendingUp, Wallet, AlertTriangle, MessageSquareWarning, CalendarDays, PackageX } from 'lucide-react';
+import { useAuthStore } from '@/stores/auth.store';
+import { FileBarChart, FileDown, RefreshCw, Users, TrendingUp, Wallet, AlertTriangle, MessageSquareWarning, CalendarDays, PackageX, Trash2, DoorOpen, ClipboardCheck, Award } from 'lucide-react';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function RelatoriosMensaisPage() {
+  const { user } = useAuthStore();
+  // O assistente administrativo só vê e gera relatórios da sua unidade (o servidor também o garante).
+  const soPropriaUnidade = user?.role === 'ASSISTENTE_ADMIN';
+  const [apagando, setApagando] = useState<string | null>(null);
   const [lista, setLista] = useState<any[]>([]);
   const [unidades, setUnidades] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,17 +42,36 @@ export default function RelatoriosMensaisPage() {
     setGerando(true);
     try {
       await api.post('/relatorios-mensais/gerar', {
-        unidadeId: form.unidadeId || undefined,
+        unidadeId: soPropriaUnidade ? undefined : form.unidadeId || undefined,
         mes: form.mes,
         ano: form.ano,
       });
-      toast.success('Relatório gerado');
+      toast.success('Relatório gerado', 'Se já existia um relatório deste mês, foi actualizado (sem duplicados).');
       setShowForm(false);
       load();
     } catch (e: any) {
       toast.error('Erro ao gerar relatório', e?.response?.data?.message);
     } finally {
       setGerando(false);
+    }
+  };
+
+  const regenerar = (r: any) => {
+    setForm({ unidadeId: r.unidadeId ?? '', mes: r.mes, ano: r.ano });
+    setShowForm(true);
+  };
+
+  const apagar = async (r: any) => {
+    if (!window.confirm(`Apagar o relatório de ${MESES[r.mes - 1]} ${r.ano} (${r.unidade?.nome ?? 'Todas as unidades'})? Pode voltar a gerá-lo a qualquer momento.`)) return;
+    setApagando(r.id);
+    try {
+      await api.delete(`/relatorios-mensais/${r.id}`);
+      toast.success('Relatório apagado');
+      load();
+    } catch (e: any) {
+      toast.error('Erro ao apagar relatório', e?.response?.data?.message);
+    } finally {
+      setApagando(null);
     }
   };
 
@@ -104,10 +128,29 @@ export default function RelatoriosMensaisPage() {
                   <h3 className="font-semibold text-gray-900">{MESES[r.mes - 1]} {r.ano}</h3>
                   <p className="text-xs text-gray-400">{r.unidade?.nome ?? 'Todas as unidades'} · gerado em {formatDate(r.updatedAt ?? r.createdAt)}</p>
                 </div>
-                <button onClick={() => exportar(r)} className="flex items-center gap-1.5 text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200">
-                  <FileDown className="w-3.5 h-3.5" /> PDF
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button onClick={() => regenerar(r)} title="Regenerar com os dados actuais" className="flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2.5 py-1.5 rounded-lg hover:bg-gray-200">
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => exportar(r)} className="flex items-center gap-1.5 text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200">
+                    <FileDown className="w-3.5 h-3.5" /> PDF
+                  </button>
+                  <button onClick={() => apagar(r)} disabled={apagando === r.id} title="Apagar relatório" className="flex items-center text-xs bg-red-50 text-red-600 px-2.5 py-1.5 rounded-lg hover:bg-red-100 disabled:opacity-50">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
+
+              {r.detalhes?.resumo?.length > 0 ? (
+                <div className="mb-4 bg-mastchieve-50 border border-mastchieve-100 rounded-lg p-3">
+                  <p className="text-xs font-semibold text-gray-700 mb-1.5">Resumo do mês</p>
+                  <ul className="space-y-1 text-xs text-gray-700 list-disc pl-4">
+                    {r.detalhes.resumo.map((frase: string, i: number) => <li key={i}>{frase}</li>)}
+                  </ul>
+                </div>
+              ) : (
+                <p className="mb-4 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">Relatório antigo, sem resumo do mês — clique em regenerar para o completar.</p>
+              )}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="flex items-center gap-2">
                   <Users className="w-3.5 h-3.5 text-blue-500" />
@@ -149,6 +192,30 @@ export default function RelatoriosMensaisPage() {
                   <span className="text-gray-500">Pagamentos em atraso</span>
                   <span className="ml-auto font-semibold text-gray-900">{r.pagamentosEmAtraso}</span>
                 </div>
+                {r.detalhes && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <DoorOpen className="w-3.5 h-3.5 text-sky-500" />
+                      <span className="text-gray-500">Atletas presentes</span>
+                      <span className="ml-auto font-semibold text-gray-900">{r.detalhes.atletasComPresenca}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <DoorOpen className="w-3.5 h-3.5 text-sky-500" />
+                      <span className="text-gray-500">Entradas (recepção)</span>
+                      <span className="ml-auto font-semibold text-gray-900">{r.detalhes.totalEntradas}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ClipboardCheck className="w-3.5 h-3.5 text-indigo-500" />
+                      <span className="text-gray-500">Avaliações / feedbacks</span>
+                      <span className="ml-auto font-semibold text-gray-900">{r.detalhes.avaliacoesRegistadas} / {r.detalhes.feedbacksEnviados}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Award className="w-3.5 h-3.5 text-yellow-500" />
+                      <span className="text-gray-500">Módulos / certificados</span>
+                      <span className="ml-auto font-semibold text-gray-900">{r.detalhes.modulosConcluidos} / {r.detalhes.certificadosEmitidos}</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="mt-4 pt-4 border-t border-gray-100">
@@ -178,7 +245,7 @@ export default function RelatoriosMensaisPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4">
             <h2 className="text-lg font-bold text-gray-900">Gerar Relatório Mensal</h2>
-            <p className="text-xs text-gray-500">Se já existir um relatório para o mês/unidade selecionados, este será regenerado com os dados actuais.</p>
+            <p className="text-xs text-gray-500">Se já existir um relatório para o mês/unidade selecionados, é actualizado com os dados actuais — não se cria um duplicado.</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Mês</label>
@@ -191,6 +258,9 @@ export default function RelatoriosMensaisPage() {
                 <input type="number" value={form.ano} onChange={(e) => setForm((f) => ({ ...f, ano: Number(e.target.value) }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
+            {soPropriaUnidade ? (
+              <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">O relatório é gerado para a sua unidade.</p>
+            ) : (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Unidade</label>
               <select value={form.unidadeId} onChange={(e) => setForm((f) => ({ ...f, unidadeId: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
@@ -198,6 +268,7 @@ export default function RelatoriosMensaisPage() {
                 {unidades.map((u: any) => <option key={u.id} value={u.id}>{u.nome}</option>)}
               </select>
             </div>
+            )}
             <div className="flex gap-3 pt-2">
               <button onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
               <button onClick={gerar} disabled={gerando} className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50">

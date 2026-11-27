@@ -6,13 +6,7 @@ import { ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 
 import { Logo } from '@/components/brand/Logo';
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/api\/v1\/?$/, '');
-
-function toAbsoluteUrl(url?: string | null) {
-  if (!url) return null;
-  if (/^https?:\/\//i.test(url)) return url;
-  return `${API_ORIGIN}${url}`;
-}
+import { srcImagemPublica } from '@/lib/imagem-evento';
 
 export function toEmbedUrl(url?: string | null): string | null {
   if (!url) return null;
@@ -95,7 +89,7 @@ export default function PaginaPartilha({ chave }: { chave: string }) {
           <article>
             {data.imagemUrl && (
               <img
-                src={toAbsoluteUrl(data.imagemUrl) ?? undefined}
+                src={srcImagemPublica(data.imagemUrl) ?? undefined}
                 alt={data.titulo ?? data.label}
                 className="w-full max-h-96 object-cover rounded-2xl mb-8 border border-gray-100"
               />

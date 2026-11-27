@@ -10,6 +10,7 @@ import { AvaliacoesModule } from './modules/avaliacoes/avaliacoes.module';
 import { CertificadosModule } from './modules/certificados/certificados.module';
 import { AvaliacoesIniciaisModule } from './modules/avaliacoes-iniciais/avaliacoes-iniciais.module';
 import { EventosModule } from './modules/eventos/eventos.module';
+import { FicheirosModule } from './modules/ficheiros/ficheiros.controller';
 import { CompeticoesModule } from './modules/competicoes/competicoes.module';
 import { ComunicacaoModule } from './modules/comunicacao/comunicacao.module';
 import { ProtocolosModule } from './modules/protocolos/protocolos.module';
@@ -112,6 +113,7 @@ import { LinkPartilhaModule } from './modules/link-partilha/link-partilha.module
     CertificadosModule,
     AvaliacoesIniciaisModule,
     EventosModule,
+    FicheirosModule,
     CompeticoesModule,
     ComunicacaoModule,
     ProtocolosModule,

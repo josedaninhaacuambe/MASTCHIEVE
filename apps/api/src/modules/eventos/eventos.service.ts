@@ -203,6 +203,27 @@ export class EventosService {
     return { ...updated, urlPublica: this.urlPublica(updated.tokenPublico) };
   }
 
+  /**
+   * Volta a pôr um evento cancelado (ou realizado por engano) como Planeado.
+   * Mantém o mesmo link público, ou gera um novo (o antigo deixa de funcionar).
+   * Participantes e inscrições existentes ficam como estavam.
+   */
+  async reactivar(id: string, opts: { novoLink?: boolean; abrirInscricoes?: boolean }, actorUserId: string) {
+    const existing = await this.prisma.evento.findUnique({ where: { id }, select: { id: true, estado: true, tokenPublico: true, inscricoesAbertas: true } });
+    if (!existing) throw new NotFoundException('Evento não encontrado');
+    if (existing.estado === 'PLANEADO') throw new BadRequestException('O evento já está activo');
+    const data: any = { estado: 'PLANEADO' };
+    if (opts.abrirInscricoes) data.inscricoesAbertas = true;
+    if (opts.novoLink || (!existing.tokenPublico && (opts.abrirInscricoes || existing.inscricoesAbertas))) data.tokenPublico = this.gerarToken();
+    const updated = await this.prisma.evento.update({ where: { id }, data });
+    await this.audit.log({
+      userId: actorUserId, action: 'EVENTO_REACTIVADO', entity: 'Evento', entityId: id,
+      oldValues: { estado: existing.estado, inscricoesAbertas: existing.inscricoesAbertas },
+      newValues: { estado: updated.estado, inscricoesAbertas: updated.inscricoesAbertas, novoLink: !!data.tokenPublico },
+    });
+    return { ...updated, urlPublica: this.urlPublica(updated.tokenPublico) };
+  }
+
   /** Invalida o link antigo (ex.: partilhado por engano) e gera um novo. */
   async regenerarLink(id: string, actorUserId: string) {
     const existing = await this.prisma.evento.findUnique({ where: { id }, select: { id: true } });

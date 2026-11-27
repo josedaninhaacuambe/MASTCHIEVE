@@ -78,6 +78,8 @@ export default function PresencasDiariasPage() {
     queryKey: ['relatorio-diario', data, unidadeId],
     queryFn: async () => { const { data: r } = await api.get('/attendance/relatorio-diario', { params }); return (r.data ?? r) as Relatorio; },
     enabled: !!data,
+    // As entradas registadas na recepção entram sozinhas na folha; actualiza a cada minuto.
+    refetchInterval: 60_000,
   });
 
   const exportar = async () => {
@@ -104,7 +106,7 @@ export default function PresencasDiariasPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Presenças diárias</h1>
-          <p className="text-sm text-gray-500 mt-1">Folha do dia por turno, com o módulo e a idade de cada atleta presente.</p>
+          <p className="text-sm text-gray-500 mt-1">Folha do dia por turno, com o módulo e a idade de cada atleta presente. As entradas registadas em Entrada/Saída entram aqui automaticamente (actualiza a cada minuto).</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-2 border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm">

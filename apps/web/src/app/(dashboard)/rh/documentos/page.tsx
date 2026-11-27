@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
+import { abrirFicheiroProtegido } from '@/lib/ficheiros';
 import { toast } from '@/lib/toast';
 import { Upload, FolderOpen } from 'lucide-react';
 
@@ -112,7 +113,7 @@ export default function DocumentosRhPage() {
           {documentos.map((d: any) => (
             <div key={d.id} className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
               <div className="text-sm">
-                <a href={d.url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline font-medium">{d.nome}</a>
+                <a href="#" onClick={(ev) => { ev.preventDefault(); abrirFicheiroProtegido(`/rh/documentos/${d.id}/ficheiro`); }} className="text-blue-700 hover:underline font-medium">{d.nome}</a>
                 <span className="text-gray-400"> · {d.tipo.replace(/_/g, ' ')}</span>
                 <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${d.validado ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{d.validado ? 'Validado' : 'Pendente'}</span>
               </div>

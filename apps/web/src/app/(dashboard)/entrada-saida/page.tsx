@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { formatDate, cn } from '@/lib/utils';
-import { Plus, LogIn, LogOut, DoorOpen, XCircle, Users } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, LogIn, LogOut, DoorOpen, XCircle, Users, FileSpreadsheet } from 'lucide-react';
 import { BulkEntradaSaidaModal, DURACAO_AULA_MIN } from './bulk-modal';
 import { StudentSearchSelect } from '@/components/ui/student-search-select';
 
@@ -85,6 +86,10 @@ export default function EntradaSaidaPage() {
         </div>
         <div className="flex items-center gap-3">
           <input type="date" value={data} onChange={(e) => setData(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+          <Link href="/presencas-diarias" title="As entradas registadas aqui alimentam a folha de presenças diárias"
+            className="flex items-center gap-1.5 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm hover:bg-gray-50">
+            <FileSpreadsheet className="w-4 h-4 text-green-600" /> Presenças do dia / Excel
+          </Link>
           <button onClick={() => setShowBulkForm(true)} className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 text-sm font-medium">
             <Users className="w-4 h-4" /> Registo em Grupo (Turma)
           </button>
